@@ -1,0 +1,17 @@
+---
+- name: Testes no lab2
+  hosts: lab2
+  tasks:
+          #  - name: Instalar as atualizações de segurança
+          #    win_updates:
+          #      category_names:
+          #        - SecurityUpdates
+  - name: Atualizar notepad++
+    win_chocolatey:
+      name: notepadplusplus
+      state: present
+  - name: desativar a notificação de atualização do Adobe Flash Player
+    win_chocolatey:
+      name: flashplayerplugin-disable-updates-winconfig
+      version: '0.0.1'
+      state: present

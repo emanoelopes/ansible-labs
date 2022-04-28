@@ -1,0 +1,10 @@
+---
+
+- name: Testes ansible no lab4
+  hosts: lab4
+  tasks:
+  - name: Atualização do notepad++
+    win_chocolatey:
+      name: notepadplusplus
+      state: present
+  

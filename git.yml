@@ -1,0 +1,12 @@
+---
+ - name: Atualição do git
+   hosts: win10
+   become: yes
+   become_user: professor
+   tasks:
+     - name: Atualizar o git
+       win_chocolatey:
+         name: git
+         state: latest
+
+
