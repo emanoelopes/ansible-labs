@@ -1,6 +1,6 @@
 ---
 - name: Testes no lab2
-  hosts: lab2
+  hosts: lab2 
   tasks:
           #  - name: Instalar as atualizações de segurança
           #    win_updates:
@@ -15,3 +15,4 @@
       name: flashplayerplugin-disable-updates-winconfig
       version: '0.0.1'
       state: present
+

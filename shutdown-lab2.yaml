@@ -1,0 +1,6 @@
+---
+- name: Unconditionally shut down the machine with all defaults
+  hosts: lab2
+  tasks:
+    - name: Desligar máquinas
+      community.general.shutdown:

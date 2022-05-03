@@ -1,0 +1,10 @@
+---
+- name: Configurar a protecao de tela para exibir a hora.
+  hosts: lab3
+  tasks:
+  - community.general.osx_defaults:
+      domain: com.apple.screensaver
+      host: currentHost
+      key: showClock
+      type: int
+      value: 1

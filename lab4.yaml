@@ -1,10 +1,16 @@
 ---
 
 - name: Testes ansible no lab4
-  hosts: lab4
+  hosts: 10.102.225.215
   tasks:
   - name: Atualização do notepad++
     win_chocolatey:
       name: notepadplusplus
       state: present
-  
+
+  - name: Install all security updates with automatic reboots
+    ansible.windows.win_updates:
+      category_names:
+      - SecurityUpdates
+      reboot: no
+
