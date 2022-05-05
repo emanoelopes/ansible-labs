@@ -1,0 +1,27 @@
+---
+- name: Testes no lab1
+  hosts: lab1
+  tasks:
+# - name: Instalar as atualizações críticas e de segurança
+#   win_updates:
+#     category_names:
+#       - SecurityUpdates
+#       - CriticalUpdades
+#     register: update_result
+  - name: Instalar vários aplicativos
+    win_chocolatey:
+      name: 
+      - chocolatey
+      - firefox
+      - notepadplusplus
+      state: present
+#  - name: install the Win32-OpenSSH service
+#    win_chocolatey:
+#      name: openssh
+#      package_params: /SSHServerFeature
+#      state: present
+  - name: desativar a notificação de atualização do Adobe Flash Player
+    win_chocolatey:
+      name: flashplayerplugin-disable-updates-winconfig
+      version: '0.0.1'
+      state: present
