@@ -14,6 +14,10 @@
       - chocolatey
       - firefox
       - notepadplusplus
+      - git
+      - googlechrome
+      - tightvnc
+      - vscode
       state: present
 #  - name: install the Win32-OpenSSH service
 #    win_chocolatey:

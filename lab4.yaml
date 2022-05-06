@@ -1,16 +1,29 @@
 ---
 
 - name: Testes ansible no lab4
-  hosts: 10.102.225.215
+  hosts: 10.102.224.122
   tasks:
   - name: Atualização do notepad++
     win_chocolatey:
       name: notepadplusplus
       state: present
-
   - name: Install all security updates with automatic reboots
     ansible.windows.win_updates:
       category_names:
       - SecurityUpdates
       reboot: no
+  - name: Desligar todos os dias às 23h
+    community.windows.win_scheduled_task:
+      name: Desligar às 23h
+      description: Desligar o computador todos os dias às 23h
+      actions:
+      - path: shutdown.exe
+        arguments: /s /f
+      triggers:
+      - type: daily
+        start_boundary: '2022-05-06T23:00:00'
+      username: SYSTEM
+      run_level: highest
+      state: present
+      enabled: yes
 
