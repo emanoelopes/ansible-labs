@@ -26,4 +26,8 @@
       run_level: highest
       state: present
       enabled: yes
+  - name: Remover a tarefa de desligamento antiga
+    community.windows.win_scheduled_task:
+      name: desligamento 2300
+      state: absent
 
