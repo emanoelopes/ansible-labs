@@ -8,27 +8,31 @@
 #       - SecurityUpdates
 #       - CriticalUpdades
 #     register: update_result
+  - name: Enviar sinal de ligar para 
+    community.windows.win_wakeonlan:
+      mac: 74:86:E2:D7:45:C3
+      broadcast: 10.102.227.255
   - name: Instalar vários aplicativos
     win_chocolatey:
       name: 
-      - chocolatey
+      #      - chocolatey
       - firefox
-      - notepadplusplus
-      - git
-      - googlechrome
-      - tightvnc
-      - vscode
+        #      - notepadplusplus
+        #      - git
+        #      - googlechrome
+        #      - tightvnc
+        #      - vscode
       state: present
 #  - name: install the Win32-OpenSSH service
 #    win_chocolatey:
 #      name: openssh
 #      package_params: /SSHServerFeature
 #      state: present
-  - name: desativar a notificação de atualização do Adobe Flash Player
-    win_chocolatey:
-      name: flashplayerplugin-disable-updates-winconfig
-      version: '0.0.1'
-      state: present
+#  - name: desativar a notificação de atualização do Adobe Flash Player
+#    win_chocolatey:
+#      name: flashplayerplugin-disable-updates-winconfig
+#      version: '0.0.1'
+#      state: present
   - name: Desligar todos os dias às 23h
     community.windows.win_scheduled_task:
       name: Desligar às 23h
