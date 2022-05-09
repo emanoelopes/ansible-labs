@@ -1,6 +1,6 @@
 ---
 - name: Testes no lab1
-  hosts: lab1
+  hosts: 10.102.224.175 
   tasks:
 # - name: Instalar as atualizações críticas e de segurança
 #   win_updates:
@@ -10,7 +10,7 @@
 #     register: update_result
   - name: Enviar sinal de ligar para 
     community.windows.win_wakeonlan:
-      mac: 74:86:E2:D7:45:C3
+      mac: 84:2B:2B:7B:2E:0C
       broadcast: 10.102.227.255
   - name: Instalar vários aplicativos
     win_chocolatey:

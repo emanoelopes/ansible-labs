@@ -1,37 +1,41 @@
 ---
 
 - name: Testes ansible no lab4
-  hosts: 10.102.224.122 
+  hosts: 10.102.225.215 
   tasks:
-  - name: Atualização do notepad++
-    win_chocolatey:
-      name: notepadplusplus
-      state: present
-  - name: Install all security updates with automatic reboots
-    ansible.windows.win_updates:
-      category_names:
-      - SecurityUpdates
-      reboot: no
-  - name: Desligar todos os dias às 23h
-    community.windows.win_scheduled_task:
-      name: Desligar às 23h
-      description: Desligar o computador todos os dias às 23h
-      actions:
-      - path: shutdown.exe
-        arguments: /s /f
-      triggers:
-      - type: daily
-        start_boundary: '2022-05-06T23:00:00'
-      username: SYSTEM
-      run_level: highest
-      state: present
-      enabled: yes
-  - name: Remover a tarefa de desligamento antiga
-    community.windows.win_scheduled_task:
-      name: desligamento 2300
-  - name: install the Win32-OpenSSH service
-    win_chocolatey:
-     name: openssh
-     package_params: /SSHServerFeature
-     state: present
+#  - name: Enviar sinal de ligar para 
+#    community.windows.win_wakeonlan:
+#      mac: 18:A9:FD:EC:DD
+#      broadcast: 10.102.227.255
+#  - name: Atualização do notepad++
+#    win_chocolatey:
+#      name: notepadplusplus
+#      state: present
+#  - name: Install all security updates with automatic reboots
+#    ansible.windows.win_updates:
+#      category_names:
+#      - SecurityUpdates
+#      reboot: no
+#  - name: Desligar todos os dias às 23h
+#    community.windows.win_scheduled_task:
+#      name: Desligar às 23h
+#      description: Desligar o computador todos os dias às 23h
+#      actions:
+#      - path: shutdown.exe
+#        arguments: /s /f
+#      triggers:
+#      - type: daily
+#        start_boundary: '2022-05-06T23:00:00'
+#      username: SYSTEM
+#      run_level: highest
+#      state: present
+#      enabled: yes
+#  - name: Remover a tarefa de desligamento antiga
+#    community.windows.win_scheduled_task:
+#      name: desligamento 2300
+#  - name: install the Win32-OpenSSH service
+#    win_chocolatey:
+#     name: openssh
+#     package_params: /SSHServerFeature
+#     state: present
 
