@@ -1,7 +1,7 @@
 ---
 
 - name: Laboratório 4
-  hosts: 10.102.224.102 
+  hosts: lab4 
   strategy: free
   gather_facts: false
   tasks:
@@ -12,6 +12,7 @@
 #  - name: Instalação de aplicativos via Chocolatey 
 #    win_chocolatey:
 #      name: 
+#       - jre8
 #      - notepadplusplus
 #      - vscode
 #      - googlechrome
@@ -19,7 +20,7 @@
 #      - selenium-chrome-driver
 #     #- nodejs-lts
 #      - cypress 
-#      state: present
+#      state: latest
 #  - name: Instalação do NodeJS via instalador MSI
 #    ansible.windows.win_package:
 #      path: https://nodejs.org/dist/v16.15.0/node-v16.15.0-x64.msi
@@ -32,6 +33,9 @@
 #      category_names:
 #      - SecurityUpdates
 #      reboot: no
+  - name: Escolher o plano de energia equilibrado
+    community.windows.win_power_plan:
+      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
   - name: Desligar todos os dias às 23h
     community.windows.win_scheduled_task:
       name: Desligar às 23h
@@ -52,10 +56,15 @@
       name: 
       - desligamento 2300
       - desligamento automático
+      - desligamento auto
       state: absent
 #  - name: install the Win32-OpenSSH service
 #    win_chocolatey:
 #     name: openssh
 #     package_params: /SSHServerFeature
 #     state: present
+#  - name: Show facts available on the system
+#    ansible.builtin.debug:
+#      var: ansible_facts
+
 
