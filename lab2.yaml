@@ -1,19 +1,26 @@
 ---
 - name: Testes no lab2
-  hosts: lab2
+  hosts: lab2 
   tasks:
           #  - name: Instalar as atualizações de segurança
           #    win_updates:
           #      category_names:
           #        - SecurityUpdates
-  - name: install the Win32-OpenSSH service
-    win_chocolatey:
-      name: openssh
-      package_params: /SSHServerFeature
-      state: present
-  - name: Atualizar notepad++
-    win_chocolatey:
-      name: notepadplusplus
-      state: present
-  - name: remover plugin flash player NPAPI 32.0.0.314 dos OptiPlex 780
-    ansible.windows.win_shell: C:\Windows\SysWOW64\Macromed\Flash\FlashUtil32_32_0_0_314_Plugin.exe -maintain plugin
+#  - name: install the Win32-OpenSSH service
+#    win_chocolatey:
+#      name: openssh
+#      package_params: /SSHServerFeature
+#      state: present
+#  - name: Atualizar notepad++
+#    win_chocolatey:
+#      name: notepadplusplus
+#      state: present
+#  - name: remover plugin flash player NPAPI 32.0.0.314 dos OptiPlex 780
+#    ansible.windows.win_shell: FlashUtil32_32_0_0_314_Plugin.exe
+#    args:    
+#      chdir: C:\Windows\SysWOW64\Macromed\Flash
+#      executable: cmd
+  - name: Copiar o desinstador do Plugin do Adobe Flash para o host remoto
+    ansible.windows.win_copy:
+      src: uninstall_flash_player.exe
+      dest: C:\Windows\temp

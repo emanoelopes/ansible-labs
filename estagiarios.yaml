@@ -1,0 +1,19 @@
+---
+
+- name: configuração dos computadores dos estagiários
+  hosts: estagiarios
+  become_user: suporte
+  become: yes
+  gather_facts: false
+  tasks:
+  - name: Atualização de todos pacotes.
+    apt: 
+      name: "*"
+      state: latest
+      update_cache: yes
+#  - name: Instalação de utilitários e programas
+#    apt:
+#      pkg:
+#      - 
+#      - 
+

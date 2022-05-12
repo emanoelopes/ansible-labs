@@ -1,0 +1,21 @@
+---
+- name: teste do 780 com bios atualizada e imagem 2222.2
+  hosts: 10.102.224.58
+  tasks:
+#    - name: Enviar sinal de despertar 
+#      community.windows.win_wakeonlan:
+#        mac: 84:2B:2B:7B:2B:A0
+#        broadcast: 10.102.227.255
+#  - name: Install all updates and reboot as many times as needed
+#    ansible.windows.win_updates:
+#      category_names: '*'
+#      reboot: yes
+   - name: Search-only, return list of found updates (if any), log to C:\ansible_wu.txt
+     ansible.windows.win_updates:
+       category_names: SecurityUpdates
+       state: searched
+       log_path: C:\ansible_wu.txt
+   - name me: Ensure we wait long enough for the updates to be applied during reboot
+     ansible.windows.win_updates:
+       reboot: yes
+       reboot_timeout: 3600

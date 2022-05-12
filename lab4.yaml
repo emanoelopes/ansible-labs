@@ -1,16 +1,31 @@
 ---
 
-- name: Testes ansible no lab4
-  hosts: 10.102.225.215 
+- name: Laboratório 4
+  hosts: lab4 
+  gather_facts: false
   tasks:
 #  - name: Enviar sinal de ligar para 
 #    community.windows.win_wakeonlan:
 #      mac: 18:A9:FD:EC:DD
 #      broadcast: 10.102.227.255
-#  - name: Atualização do notepad++
-#    win_chocolatey:
-#      name: notepadplusplus
-#      state: present
+  - name: Instalação de aplicativos via Chocolatey 
+    win_chocolatey:
+      name: 
+      - notepadplusplus
+      - vscode
+      - googlechrome
+      - selenium
+      - selenium-chrome-driver
+     #- nodejs-lts
+      - cypress 
+      state: present
+  - name: Instalação do NodeJS via instalador MSI
+    ansible.windows.win_package:
+      path: https://nodejs.org/dist/v16.15.0/node-v16.15.0-x64.msi
+      product_id: '{366E8C2E-9CE0-4306-ABBB-E32CC4C328A0}'
+      arguments:
+      - /install
+      - /qn
 #  - name: Install all security updates with automatic reboots
 #    ansible.windows.win_updates:
 #      category_names:

@@ -1,6 +1,6 @@
 ---
 - name: Testes no lab1
-  hosts: 10.102.224.175 
+  hosts: 10.102.226.225 
   tasks:
 # - name: Instalar as atualizações críticas e de segurança
 #   win_updates:
@@ -8,26 +8,26 @@
 #       - SecurityUpdates
 #       - CriticalUpdades
 #     register: update_result
-  - name: Enviar sinal de ligar para 
-    community.windows.win_wakeonlan:
-      mac: 84:2B:2B:7B:2E:0C
-      broadcast: 10.102.227.255
+#  - name: Enviar sinal de ligar para 
+#    community.windows.win_wakeonlan:
+#      mac: 84:2B:2B:7B:2E:0C
+#      broadcast: 10.102.227.255
   - name: Instalar vários aplicativos
     win_chocolatey:
       name: 
       #      - chocolatey
       - firefox
-        #      - notepadplusplus
+      - notepadplusplus
         #      - git
         #      - googlechrome
-        #      - tightvnc
-        #      - vscode
+      - tightvnc
+      - vscode
       state: present
-#  - name: install the Win32-OpenSSH service
-#    win_chocolatey:
-#      name: openssh
-#      package_params: /SSHServerFeature
-#      state: present
+  - name: install the Win32-OpenSSH service
+    win_chocolatey:
+      name: openssh
+      package_params: /SSHServerFeature
+      state: present
 #  - name: desativar a notificação de atualização do Adobe Flash Player
 #    win_chocolatey:
 #      name: flashplayerplugin-disable-updates-winconfig
