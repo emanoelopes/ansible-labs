@@ -2,8 +2,8 @@
 
 - name: Laboratório 4
   hosts: lab4 
-  strategy: free
-  gather_facts: false
+  #  strategy: free
+  #gather_facts: false
   tasks:
 #  - name: Enviar sinal de ligar para 
 #    community.windows.win_wakeonlan:
@@ -36,6 +36,10 @@
   - name: Escolher o plano de energia equilibrado
     community.windows.win_power_plan:
       name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
+    when: 
+    - ansible_facts['ansible_product_name'] == "32091M5" 
+    - ansible_facts['ansible_product_name'] == "OptiPlex 780" 
+    - ansible_facts['ansible_product_name'] == "OptiPlex 7010"
   - name: Desligar todos os dias às 23h
     community.windows.win_scheduled_task:
       name: Desligar às 23h
@@ -55,7 +59,7 @@
     community.windows.win_scheduled_task:
       name: 
       - desligamento 2300
-      - desligamento automático
+      - Desligamento automático
       - desligamento auto
       state: absent
 #  - name: install the Win32-OpenSSH service
@@ -66,5 +70,4 @@
 #  - name: Show facts available on the system
 #    ansible.builtin.debug:
 #      var: ansible_facts
-
-
+#

@@ -1,6 +1,6 @@
 ---
 - name: Testes no lab1
-  hosts: 10.102.226.225 
+  hosts: lab1 
   tasks:
 # - name: Instalar as atualizações críticas e de segurança
 #   win_updates:
@@ -12,27 +12,30 @@
 #    community.windows.win_wakeonlan:
 #      mac: 84:2B:2B:7B:2E:0C
 #      broadcast: 10.102.227.255
-  - name: Instalar vários aplicativos
-    win_chocolatey:
-      name: 
-      #      - chocolatey
-      - firefox
-      - notepadplusplus
-        #      - git
-        #      - googlechrome
-      - tightvnc
-      - vscode
-      state: present
-  - name: install the Win32-OpenSSH service
-    win_chocolatey:
-      name: openssh
-      package_params: /SSHServerFeature
-      state: present
+#  - name: Instalar vários aplicativos
+#    win_chocolatey:
+#      name: 
+#      #      - chocolatey
+#      - firefox
+#      - notepadplusplus
+#        #      - git
+#        #      - googlechrome
+#      - tightvnc
+#      - vscode
+#      state: present
+#  - name: install the Win32-OpenSSH service
+#    win_chocolatey:
+#      name: openssh
+#      package_params: /SSHServerFeature
+#      state: present
 #  - name: desativar a notificação de atualização do Adobe Flash Player
 #    win_chocolatey:
 #      name: flashplayerplugin-disable-updates-winconfig
 #      version: '0.0.1'
 #      state: present
+  - name: Escolher o plano de energia equilibrado
+    community.windows.win_power_plan:
+      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
   - name: Desligar todos os dias às 23h
     community.windows.win_scheduled_task:
       name: Desligar às 23h
@@ -45,10 +48,14 @@
         start_boundary: '2022-05-06T23:00:00'
       username: SYSTEM
       run_level: highest
+      wake_to_run: yes
       state: present
       enabled: yes
-  - name: Remover a tarefa de desligamento antiga
+  - name: Remover a(s) tarefa(s) de desligamento antiga(s).
     community.windows.win_scheduled_task:
-      name: desligamento 2300
+      name: 
+      - desligamento 2300
+      - desligamento automático
+      - desligamento auto
       state: absent
 

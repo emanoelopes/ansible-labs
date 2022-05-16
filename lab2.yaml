@@ -19,7 +19,32 @@
 #    ansible.windows.win_shell: FlashUtil32_32_0_0_314_Plugin.exe
 #    args:    
 #      chdir: C:\Windows\SysWOW64\Macromed\Flash
-#      executable: cmd
+  - name: Escolher o plano de energia equilibrado
+    community.windows.win_power_plan:
+      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
+  - name: Desligar todos os dias às 23h
+    community.windows.win_scheduled_task:
+      name: Desligar às 23h
+      description: Desligar o computador todos os dias às 23h
+      actions:
+      - path: shutdown.exe
+        arguments: /s /f
+      triggers:
+      - type: daily
+        start_boundary: '2022-05-06T23:00:00'
+      username: SYSTEM
+      run_level: highest
+      wake_to_run: yes
+      state: present
+      enabled: yes
+  - name: Remover a(s) tarefa(s) de desligamento antiga(s).
+    community.windows.win_scheduled_task:
+      name: 
+      - desligamento 2300
+      - desligamento automático
+      - desligamento auto
+      state: absent
+      executable: cmd
   - name: Copiar o desinstador do Plugin do Adobe Flash para o host remoto
     ansible.windows.win_copy:
       src: uninstall_flash_player.exe
