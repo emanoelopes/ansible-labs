@@ -15,14 +15,7 @@
 #    win_chocolatey:
 #      name: notepadplusplus
 #      state: present
-#  - name: remover plugin flash player NPAPI 32.0.0.314 dos OptiPlex 780
-#    ansible.windows.win_shell: FlashUtil32_32_0_0_314_Plugin.exe
-#    args:    
-#      chdir: C:\Windows\SysWOW64\Macromed\Flash
-  - name: Escolher o plano de energia equilibrado
-    community.windows.win_power_plan:
-      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
-  - name: Desligar todos os dias às 23h
+- name: Desligar todos os dias às 23h
     community.windows.win_scheduled_task:
       name: Desligar às 23h
       description: Desligar o computador todos os dias às 23h
