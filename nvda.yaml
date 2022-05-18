@@ -1,7 +1,6 @@
 ---
 - name: Instalar o NVDA 2021.3.5
-  hosts: pd3 
-  gather_facts: no
+  hosts: all 
   tasks:
   - name: Instalar o NVDA
     ansible.windows.win_package:
