@@ -6,5 +6,3 @@
       src: /home/emanoel/Downloads/O780-A15.exe
       dest: C:\Users\aluno\Downloads
     when: ansible_facts['bios_version'] == 'A05'
-    async: 50
-    poll: 0
