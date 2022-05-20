@@ -2,7 +2,7 @@
 - name: Configurar a protecao de tela para exibir a hora.
   hosts: lab3
   remote_user: suporte
-  become: yes
+  #become: yes
   tasks:
   - community.general.osx_defaults:
       domain: com.apple.screensaver
