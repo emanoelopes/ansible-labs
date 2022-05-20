@@ -1,9 +1,10 @@
 - name: Atualizar a BIOS dos DELL OptiPlex 780
-  hosts: all
-  strategy: free
+  hosts: lab2 
   tasks:
   - name: Enviar uma cópia do aplicativo de atualização para o host de destino
     win_copy:
-      src: ~/Downloads/O780-A15.exe
-      dst: C:\Users\aluno\Downloads
+      src: /home/emanoel/Downloads/O780-A15.exe
+      dest: C:\Users\aluno\Downloads
     when: ansible_facts['bios_version'] == 'A05'
+    async: 50
+    poll: 0
