@@ -1,21 +1,7 @@
 ---
 - name: Testes no lab2
-  hosts: lab2 
+  hosts: 10.102.224.78 
+  gather_facts: no
   tasks:
-          #  - name: Instalar as atualizações de segurança
-          #    win_updates:
-          #      category_names:
-          #        - SecurityUpdates
-#  - name: install the Win32-OpenSSH service
-#    win_chocolatey:
-#      name: openssh
-#      package_params: /SSHServerFeature
-#      state: present
-#  - name: Atualizar notepad++
-#    win_chocolatey:
-#      name: notepadplusplus
-#      state: present
-  - name: Copiar o desinstalador do Plugin do Adobe Flash para o host remoto
-    ansible.windows.win_copy:
-      src: uninstall_flash_player.exe
-      dest: C:\Windows\temp
+  - name: Instalar o Wireshark mais recente 
+    import_tasks: wireshark.yaml
