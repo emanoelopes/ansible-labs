@@ -2,10 +2,12 @@
 - name: Configurações de energia
   hosts: lab2
   tasks:
-          #  - name: Escolher o plano de energia equilibrado
-          #    community.windows.win_power_plan:
-          #      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
-          #    when: ansible_facts['product_name'] not "HP Compaq 6005 Pro SFF PC" #or "DB85PRO"
+  - name: Escolher o plano de energia equilibrado para 7010, 780, m3209, 5400AIO
+    community.windows.win_power_plan:
+      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
+    when: 
+    - ansible_facts['product_name'] != "HP Compaq 6005 Pro SFF PC"
+    - ansible_facts['product_name'] != "DB85PRO"
   - name: Escolher o plano Alto desempenho para os HP Compaq
     community.windows.win_power_plan:
       name: Alto desempenho
