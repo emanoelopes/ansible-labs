@@ -28,42 +28,4 @@
 #      arguments:
 #      - /install
 #      - /qn
-#  - name: Install all security updates with automatic reboots
-#    ansible.windows.win_updates:
-#      category_names:
-#      - SecurityUpdates
-#      reboot: no
-  - name: Escolher o plano de energia equilibrado
-    community.windows.win_power_plan:
-      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
-  - name: Desligar todos os dias às 23h
-    community.windows.win_scheduled_task:
-      name: Desligar às 23h
-      description: Desligar o computador todos os dias às 23h
-      actions:
-      - path: shutdown.exe
-        arguments: /s /f
-      triggers:
-      - type: daily
-        start_boundary: '2022-05-06T23:00:00'
-      username: SYSTEM
-      run_level: highest
-      wake_to_run: yes
-      state: present
-      enabled: yes
-  - name: Remover a tarefa de desligamento antiga
-    community.windows.win_scheduled_task:
-      name: 
-      - desligamento 2300
-      - Desligamento automático
-      - desligamento auto
-      state: absent
-#  - name: install the Win32-OpenSSH service
-#    win_chocolatey:
-#     name: openssh
-#     package_params: /SSHServerFeature
-#     state: present
-#  - name: Show facts available on the system
-#    ansible.builtin.debug:
-#      var: ansible_facts
-#
+

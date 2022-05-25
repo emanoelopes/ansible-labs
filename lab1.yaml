@@ -1,5 +1,5 @@
 ---
-- name: Testes no lab1
+- name: lab1
   hosts: lab1 
   tasks:
 # - name: Instalar as atualizações críticas e de segurança
@@ -9,16 +9,16 @@
 #       - CriticalUpdades
 #     register: update_result
   - name: Instalar vários aplicativos
-#   win_chocolatey:
-#     name: 
+    win_chocolatey:
+      name: 
 #     - chocolatey
 #     - firefox
 #     - notepadplusplus
 #     - git
 #     - googlechrome
 #     - tightvnc
-#     - nodejs-lts
-#     - vscode
+      - nodejs-lts
+      - vscode
 #     state: present
 #  - name: install the Win32-OpenSSH service
 #    win_chocolatey:
