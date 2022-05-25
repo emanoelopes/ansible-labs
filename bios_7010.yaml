@@ -1,0 +1,14 @@
+- name: Atualizar a BIOS dos DELL OptiPlex 7010
+  hosts: lab4
+  tasks:
+  - name: Enviar uma cópia do aplicativo de atualização para o host de destino
+    win_copy:
+      src: /home/emanoel/Downloads/O7010A29.exe
+      dest: C:\Users\aluno\Downloads
+    when: ansible_facts['bios_version'] != "A29"
+  - name: Atualizar
+    win_package:
+      path: c:\Users\aluno\Downloads\O7010A29.exe
+      arguments:
+      - /s
+      - /r
