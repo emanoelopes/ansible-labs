@@ -1,12 +1,23 @@
 ---
-- name: Configurar a protecao de tela para exibir a hora.
+- name: lab3
   hosts: lab3
   remote_user: suporte
   #become: yes
   tasks:
-  - community.general.osx_defaults:
-      domain: com.apple.screensaver
-      host: currentHost
-      key: showClock
-      type: int
-      value: 1
+#  - name: Configurar a protecao de tela para exibir a hora.
+#    community.general.osx_defaults:
+#      domain: com.apple.screensaver
+#      host: currentHost
+#      key: showClock
+#      type: int
+#      value: 1
+  - name: Instalar o HomeBrew cask
+    community.general.homebrew_cask:
+      name: alfred
+      state: present
+      install_options: 'appdir=/Applications'
+  - name: Instalar o Blender
+    community.general.homebrew_cask:
+      name: blender
+      state: latest
+      sudo_password: "{{ ansible_become_pass }}"
