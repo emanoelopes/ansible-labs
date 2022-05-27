@@ -1,0 +1,9 @@
+- name: Check if homebrew is already installed
+  stat:
+    path: /usr/local/bin/brew
+  register: b
+
+- name: Install homebrew
+  script: install-homebrew.sh
+  become: yes
+  when: not b.stat.exists
