@@ -3,8 +3,8 @@
   hosts: lab3
   #remote_user: suporte
   roles: 
-  #- brew
-  - geerlingguy.mac.homebrew
+   #- brew
+    - geerlingguy.mac.homebrew
   #become: yes
   #  vars:
   #    brew_cask_packages:
