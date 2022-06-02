@@ -1,4 +1,4 @@
-# Managing Windows and macOS hosts on Computers Laboratories with Ansible
+# Managing Windows and macOS hosts with Ansible
 
 This repository contains Ansible playbooks, roles and tasks to manage Windows 10 and macOS computer labs. 
 
