@@ -1,0 +1,6 @@
+---
+- name: Gerenciando o Laboratório 4
+  hosts: lab4 
+  roles:
+    - biosupdate 
+

@@ -1,0 +1,5 @@
+---
+- name: Gerenciando lab2
+  hosts: lab2
+  roles:
+    - bios780

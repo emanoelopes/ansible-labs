@@ -1,0 +1,5 @@
+- name: Remover o aviso de atualização necessária dos 780
+  ansible.windows.win_copy:
+    src: uninstall_flash_player.exe
+    dest: c:\Windows\temp
+  

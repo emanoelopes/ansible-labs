@@ -1,0 +1,5 @@
+---
+- name: Instalação dos drivers das mesas digitalizadoras da wacom
+  win_chocolatey:
+    name: wacom-drivers
+    state: present 

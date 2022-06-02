@@ -1,0 +1,23 @@
+- name: Desligar todos os dias às 23h
+  community.windows.win_scheduled_task:
+    name: Desligar às 23h
+    description: Desligar todos os dias às 23h
+    actions:
+    - path: shutdown.exe
+      arguments: /s /f
+    triggers:
+    - type: daily
+      start_boundary: '2022-05-06T23:00:00'
+    username: SYSTEM
+    run_level: highest
+    wake_to_run: yes
+    state: present
+    enabled: yes
+- name: Remover a tarefa de desligamento antiga
+  community.windows.win_scheduled_task:
+    name: 
+    - desligamento 2300
+    - Desligamento automático
+    - desligamento auto
+    state: absent
+#

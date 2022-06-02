@@ -1,0 +1,8 @@
+---
+- name: Bootstrap
+  hosts: localhost
+  tasks: 
+    - name: 
+      apt:
+        name: blender
+        update_cache: yes

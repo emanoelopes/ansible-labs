@@ -1,0 +1,11 @@
+---
+- name: Instalar o NVDA 2021.3.5
+  hosts: all 
+  tasks:
+  - name: Instalar o NVDA
+    ansible.windows.win_package:
+      path: https://www.nvaccess.org/download/nvda/releases/2021.3.5/nvda_2021.3.5.exe
+      arguments:
+      - --install-silent
+      - -m
+

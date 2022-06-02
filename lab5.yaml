@@ -1,0 +1,29 @@
+---
+- name: Laboratório 5 
+  hosts: lab5
+  tasks:
+  - name: Escolher o plano de energia equilibrado
+    community.windows.win_power_plan:
+      name: Equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
+    when: 
+      - ansible_facts['product_name'] == "32091M5" 
+      - ansible_facts['product_name'] == "OptiPlex 780" 
+      - ansible_facts['product_name'] == "OptiPlex 7010"
+  - name: Desligar todos os dias às 23h
+    community.windows.win_scheduled_task:
+      name: Desligar às 23h
+      description: Desligar o computador todos os dias às 23h
+      actions:
+      - path: shutdown.exe
+        arguments: /s /f
+      triggers:
+      - type: daily
+        start_boundary: '2022-05-06T23:00:00'
+      username: SYSTEM
+      run_level: highest
+      wake_to_run: yes
+      state: present
+      enabled: yes
+      #  - name: Show facts
+      #    ansible.builtin.debug:
+      #      var: ansible_facts

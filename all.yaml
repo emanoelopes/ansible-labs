@@ -1,0 +1,7 @@
+---
+- name: Verificar se há máquinas ligadas em todos os laboratórios
+  hosts: all
+  tasks:
+  - name: 
+    ansible.windows.win_ping:
+
