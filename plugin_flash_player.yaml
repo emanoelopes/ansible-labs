@@ -8,4 +8,10 @@
     src: uninstall_flash_player.exe
     dest: c:\Windows\temp
   when: not result.stat.exists 
+
+- name: Desinstalar
+  ansible.windows.win_package:
+    path: c:\Windows\temp\uninstall_flash_player.exe
+    arguments: -uninstall 
+
   
