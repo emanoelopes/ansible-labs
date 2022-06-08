@@ -1,5 +1,11 @@
-- name: Remover o aviso de atualização necessária dos 780
+- name: Verificar se o desinstalador já está na pasta Windows\Temp
+  win_stat:
+    path: c:\Windows\temp\uninstall_flash_player.exe
+  register: result 
+
+- name: Copiar o desinstalador para o OptiPlex 780 de destino. 
   ansible.windows.win_copy:
     src: uninstall_flash_player.exe
     dest: c:\Windows\temp
+  when: not result.stat.exists 
   
