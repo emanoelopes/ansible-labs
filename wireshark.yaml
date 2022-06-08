@@ -1,7 +1,0 @@
----
-- name: Wireshark operacional
-  win_chocolatey:
-    name: wireshark 
-    state: reinstalled  
-
-

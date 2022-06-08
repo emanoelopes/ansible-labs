@@ -1,5 +1,0 @@
-- name: Manter o Java SE Runtime Environment 8
-  win_chocolatey:
-    name: jre8
-    version: latest
-    state: present

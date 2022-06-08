@@ -3,3 +3,8 @@
   hosts: lab2
   roles:
     - bios780
+  tasks:
+    - name: Execute Winsat formal on 780
+      win_command: winsat formal
+      when: ansible_facts['product_name'] == "OptiPlex 780"
+

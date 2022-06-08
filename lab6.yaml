@@ -1,9 +1,8 @@
 ---
 - name: lab6
-  hosts: lab6
+  hosts: all 
   tasks:
-  - name: install the Win32-OpenSSH service
-    win_chocolatey:
-      name: openssh
-      package_params: /SSHServerFeature
-      state: present
+    - name: Copiar desinstalador do plugin do flash player 
+      import_tasks: plugin_flash_player.yaml
+      when: ansible_facts['product_name'] == "OptiPlex 780" 
+
