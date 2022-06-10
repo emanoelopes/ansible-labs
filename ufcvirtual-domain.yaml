@@ -1,0 +1,13 @@
+---
+- name: Ensure user bob is created and use custom credentials to create the user
+  hosts: 'computador do p&d1'
+  tasks:
+    - name: Adiciona o bolsista
+      community.windows.win_domain_user:
+        name: bob
+        firstname: Bob
+        surname: Smith
+        password: 12345
+        state: present
+        domain_username: ufcvirtual.local\emanoel
+        domain_password: SomePas2w
