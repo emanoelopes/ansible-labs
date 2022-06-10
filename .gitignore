@@ -1,4 +1,5 @@
 open_vault.txt
 mynodes.ini
 macs.ini
+*.exe
 group_vars/all.yaml

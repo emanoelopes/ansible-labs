@@ -1,8 +1,29 @@
 ---
 - name: lab6
-  hosts: all 
+  hosts: lab6 
+  vars:
+    paths: 
+      - C:\Program Files (x86)\CPN Tools\uninstall.exe
+      - C:\Users\aluno\Downloads 
   tasks:
-    - name: Copiar desinstalador do plugin do flash player 
-      import_tasks: plugin_flash_player.yaml
-      when: ansible_facts['product_name'] == "OptiPlex 780" 
+    - name: Cpn 4.0.1 exists?
+      ansible.windows.win_stat: 
+        path: '{{ paths[0] }}'
+      register: cpn_4
 
+    - name: Uninstall CPN Tools v.4.0.1
+      win_package:
+        path: '{{ paths[0] }}'
+        arguments: --mode unattended
+      when: cpn_4.stat.exists
+
+    - name: Copy install package to the remote host
+      win_copy: 
+         src: cpntools_3.4.0.exe
+         dest: '{{ paths[1] }}'
+      when: ansible_facts['hostname'] == "p64*"
+
+    - name: Install CPN Tools v.3.4.0
+      win_package:
+        path: '{{ paths[1]}}\cpntools_3.4.0.exe'
+        arguments: --mode unattended
