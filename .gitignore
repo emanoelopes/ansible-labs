@@ -2,4 +2,6 @@ open_vault.txt
 mynodes.ini
 macs.ini
 *.exe
+*.zip
 group_vars/all.yaml
+SMD*

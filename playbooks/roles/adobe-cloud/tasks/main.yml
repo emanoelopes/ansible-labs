@@ -1,0 +1,6 @@
+---
+- name: Uinstall Adobe Creative Cloud client
+  win_package:
+    path: C:\Program Files (x86)\Adobe\Adobe Creative Cloud\Utils\Creative Cloud Uninstaller.exe
+    arguments: -u
+

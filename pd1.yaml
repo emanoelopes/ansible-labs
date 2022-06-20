@@ -1,13 +1,9 @@
 ---
-- name: testes para o pd1 que está no domínio ufcvirtual.local
-  hosts: pd1
-  tasks:
-
-#    - name: Enviar sinal de despertar
-#    #      community.windows.win_wakeonlan:
-#    #        mac: 84:2B:2B:7B:2B:A0
-#    #        broadcast: 10.102.227.255
-  - name: Install all updates and reboot as many times as needed
-    ansible.windows.win_updates:
-      category_names: '*'
-      reboot: yes
+#- name: WakeOnLan 
+#      community.windows.win_wakeonlan:
+#        mac: 84:2B:2B:7B:2B:A0
+#        broadcast: 10.102.227.255
+- name: Install all updates and reboot as many times as needed
+  ansible.windows.win_updates:
+    category_names: '*'
+    reboot: yes

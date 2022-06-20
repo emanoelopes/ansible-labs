@@ -1,0 +1,7 @@
+---
+- name: Install critical and security updates 
+  win_updates:
+    category_names:
+      - SecurityUpdates
+      - CriticalUpdades
+    register: update_result

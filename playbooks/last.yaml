@@ -1,0 +1,5 @@
+---
+- name: Lab tests 
+  hosts: lab4 
+  roles: 
+    - adobe-cloud

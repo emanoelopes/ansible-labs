@@ -24,6 +24,4 @@
       wake_to_run: yes
       state: present
       enabled: yes
-      #  - name: Show facts
-      #    ansible.builtin.debug:
-      #      var: ansible_facts
+
