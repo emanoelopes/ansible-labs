@@ -4,4 +4,4 @@
     category_names:
       - SecurityUpdates
       - CriticalUpdades
-    register: update_result
+      - UpdateRollups

@@ -1,5 +1,6 @@
 ---
 - name: Lab tests 
-  hosts: lab4 
+  hosts: all 
   roles: 
-    - adobe-cloud
+    - win_updates 
+    - plugin_flash_player
