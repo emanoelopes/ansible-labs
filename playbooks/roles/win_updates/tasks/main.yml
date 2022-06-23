@@ -1,5 +1,5 @@
 ---
-- name: Install critical and security updates 
+- name: Install all updates 
   win_updates:
     category_names:
       - SecurityUpdates

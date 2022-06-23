@@ -1,0 +1,6 @@
+---
+- name: Laboratório 5 
+  hosts: lab5
+  roles: 
+    - plugin_flash_player
+

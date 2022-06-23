@@ -2,9 +2,10 @@
 - name: Gerenciando lab2
   hosts: lab2
   roles:
-    - bios780
-  tasks:
-    - name: Execute Winsat formal on 780
-      win_command: winsat formal
-      when: ansible_facts['product_name'] == "OptiPlex 780"
+    - plugin_flash_player
+#  tasks:
+#    - name: Execute Winsat formal on 780
+#      win_command: winsat formal
+#      when: ansible_facts['product_name'] == "OptiPlex 780"
+#  
 

@@ -1,6 +1,6 @@
 ---
 - name: Lab tests 
-  hosts: all 
+  hosts: lab1 
   roles: 
     - win_updates 
-    - plugin_flash_player
+    
