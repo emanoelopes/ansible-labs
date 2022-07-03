@@ -1,4 +1,4 @@
-- name: Instalar o NVDA
+- name: Install NVDA
   ansible.windows.win_package:
     path: https://www.nvaccess.org/download/nvda/releases/2021.3.5/nvda_2021.3.5.exe
     arguments:
