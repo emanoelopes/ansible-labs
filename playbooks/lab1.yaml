@@ -1,0 +1,5 @@
+---
+- name: Create a powerbi student user account 
+  hosts: lab1 
+  roles:
+    - powerbi

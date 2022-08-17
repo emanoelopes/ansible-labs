@@ -1,7 +1,5 @@
 ---
-- name: Gerenciando o Laboratório 4
-  hosts: lab4 
-  #run_once: true
-  gather_facts: no
+- name: win updates 
+  hosts: lab4
   roles:
-    - adobe-cloud
+    - win_updates 
