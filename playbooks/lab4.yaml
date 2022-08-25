@@ -1,7 +1,6 @@
 ---
 - name: Gerenciando o Laboratório 4
-  hosts: lab4 
+  hosts: 10.102.224.224 
   #run_once: true
-  gather_facts: no
   roles:
-    - adobe-cloud
+    - powerbi 
