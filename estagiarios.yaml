@@ -1,11 +1,10 @@
 ---
 
-- name: configuração dos computadores dos estagiários
+- name: Trainee computers 
   hosts: estagiarios
   become: yes
-  gather_facts: false
   tasks:
-  - name: Atualização de todos pacotes.
+  - name: Update all packages 
     apt: 
       update_cache: yes
       upgrade: 'yes'

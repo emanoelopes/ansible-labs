@@ -1,11 +1,24 @@
 ---
 - name: Gerenciando lab2
   hosts: lab2
-  roles:
-    - plugin_flash_player
-#  tasks:
-#    - name: Execute Winsat formal on 780
-#      win_command: winsat formal
-#      when: ansible_facts['product_name'] == "OptiPlex 780"
+  tasks:
+    - name: Create user with admin privilegies
+      win_user:
+        name: localwp
+        password: wordpress
+        state: present
+        groups:
+          - Administradores  
+      tags: create_user
+    - name: ensure localwp installer is on windows host
+      win_copy: 
+        src: local-6.4.2-windows.exe
+        dest: c:\Users\localwp\Downloads 
+      tags: copy
+    - name: install localwp
+      win_package:
+        path: c:\Users\localwp\downloads\local-6.4.2-windows.exe
+        state: present
+      tags: install
 #  
 
