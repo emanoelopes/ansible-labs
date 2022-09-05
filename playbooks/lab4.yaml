@@ -1,6 +1,5 @@
 ---
 - name: Gerenciando o Laboratório 4
-  hosts: 10.102.224.224 
-  #run_once: true
+  hosts: all
   roles:
-    - powerbi 
+    - energia 
