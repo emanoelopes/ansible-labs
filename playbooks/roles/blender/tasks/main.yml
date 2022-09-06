@@ -1,0 +1,5 @@
+---
+- name: Blender install 
+  ansible.windows.win_chocolatey:
+    name: blender
+    state: present

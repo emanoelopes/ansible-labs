@@ -1,0 +1,5 @@
+---
+- name: install blender at lab1
+  hosts: lab1
+  roles:
+    - blender 
