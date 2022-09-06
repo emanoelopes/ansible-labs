@@ -9,5 +9,9 @@
   ansible.windows.win_reboot:
   when: wsl_status.reboot_required
 
+- name: Update WSL kernel
+  ansible.windows.win_package:
+    path: https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
+    state: present  
 - name: install Ubuntu
   win_command: wsl --install -d ubuntu
