@@ -1,5 +1,5 @@
 ---
-- name: install blender at lab1
+- name: lab1
   hosts: lab1
   roles:
-    - blender 
+    - wsl
