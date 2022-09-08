@@ -1,5 +1,12 @@
 ---
+<<<<<<< HEAD
 - name: win updates 
   hosts: 10.102.224.120 
   roles:
     - win_updates 
+=======
+- name: Gerenciando o Laboratório 4
+  hosts: all
+  roles:
+    - energia 
+>>>>>>> c036141d5ed5771a2384c4d1926c17c099420fb1
