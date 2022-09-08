@@ -1,5 +1,5 @@
 ---
 - name: win updates 
-  hosts: lab4
+  hosts: 10.102.224.120 
   roles:
     - win_updates 
