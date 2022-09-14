@@ -1,15 +1,5 @@
 ---
-<<<<<<< HEAD
-- name: Create a powerbi student user account 
-  hosts: lab1 
-  tasks:
-    - name: Install blender
-      win_chocolatey:
-        name: blender
-        state: present
-=======
 - name: lab1
   hosts: lab1
   roles:
     - wsl
->>>>>>> c036141d5ed5771a2384c4d1926c17c099420fb1

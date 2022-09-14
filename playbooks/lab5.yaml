@@ -1,6 +1,6 @@
 ---
 - name: Laboratório 5 
-  hosts: 10.102.226.71 
+  hosts: lab5 
   roles: 
-    - nvda
+    - inkscape 
 

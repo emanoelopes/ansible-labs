@@ -1,5 +1,5 @@
 ---
-- name: Gerenciando lab2
+- name: prepare lab2 to localwp course by Otacilio 
   hosts: lab2
   tasks:
     - name: Create user with admin privilegies
