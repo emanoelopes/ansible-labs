@@ -3,6 +3,4 @@
   win_updates:
     category_names:
       - SecurityUpdates
-      - CriticalUpdades
-      - UpdateRollups
     reboot: yes
