@@ -1,0 +1,7 @@
+---
+- name: Ensure Python and Pycharm are installed
+  win_chocolatey:
+    name:
+      - python
+      - pycharm-community
+    state: present
