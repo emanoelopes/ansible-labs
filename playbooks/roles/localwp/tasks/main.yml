@@ -2,7 +2,7 @@
 - name: prepare lab2 to localwp course by Otacilio 
   hosts: lab2
   tasks:
-    - name: Create user with admin privilegies
+    - name: Ensure admin user 'localwp' is present 
       win_user:
         name: localwp
         password: wordpress
@@ -10,15 +10,25 @@
         groups:
           - Administradores  
       tags: create_user
-    - name: ensure localwp installer is on windows host
+    - name: Ensure localwp user is absent
+      win_user:
+        name: localwp
+        state: absent
+      tags: remove_user
+    - name: Ensure localwp installer is on windows host
       win_copy: 
         src: local-6.4.2-windows.exe
         dest: c:\Users\localwp\Downloads 
       tags: copy
-    - name: install localwp
+    - name: Install localwp
       win_package:
         path: c:\Users\localwp\downloads\local-6.4.2-windows.exe
         state: present
       tags: install
+    - name: Uninstall localwp
+      win_package:
+        path: local-6.4.2-windows.exe
+        state: absent
+      tags: uninstall 
 #  
 
