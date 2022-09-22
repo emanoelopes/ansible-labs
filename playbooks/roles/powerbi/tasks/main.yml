@@ -1,0 +1,15 @@
+---
+- name: Add user 'powerbi'
+  win_user:
+    name: powerbi
+    password: ufc2022
+    state: present
+    groups: 
+      - Administradores
+  tags: add_user
+- name: Copy powerbi installer to the windows host
+  win_copy:
+    src: PBIDesktopSetup_x64.exe
+    dest: C:\Users\aluno\Downloads
+  tags: copy
+

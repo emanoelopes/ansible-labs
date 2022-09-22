@@ -2,5 +2,5 @@
 - name: Laboratório 5 
   hosts: 10.102.226.71 
   roles: 
-    - nvda
+   - win_updates
 
