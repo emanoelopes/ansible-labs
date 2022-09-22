@@ -1,6 +1,6 @@
 ---
-- name: Lab tests 
-  hosts: lab1 
+- name: Lab temporary playbook
+  hosts: lab2 
   roles: 
-    - win_updates 
+    - localwp 
     
