@@ -2,4 +2,4 @@
 - name: Gerenciando o Laboratório 4
   hosts: all
   roles:
-    - energia 
+    - win_updates 

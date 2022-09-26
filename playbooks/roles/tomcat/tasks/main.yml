@@ -1,0 +1,12 @@
+---
+- name: Ensure tomcat server is installed
+#  win_chocolatey:
+#    name: tomcat
+#    state: present
+#  win_get_url:
+#    url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.65/bin/apache-tomcat-9.0.65.zip
+#    dest: C:\Users\aluno\Downloads
+  win_unzip:
+    src: C:\Users\aluno\Downloads\apache-tomcat-9.0.65.zip
+    dest: C:\Users\aluno\Documents
+    delete_archive: yes
