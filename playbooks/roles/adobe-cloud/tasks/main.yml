@@ -1,7 +1,4 @@
 ---
-#- name: Uinstall Illustrator 26.3.1
-#  win_command: winget uninstall --silent ILST_26_3_1
-
 - name: Remove Illustrator Portable
   win_file:
     path: C:\Users\aluno\Documents\Adobe Illustrator 2022 Portable.exe

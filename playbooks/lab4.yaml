@@ -1,5 +1,5 @@
 ---
-- name: Gerenciando o Laboratório 4
-  hosts: all
+- name: win updates 
+  hosts: 10.102.224.120 
   roles:
     - win_updates 

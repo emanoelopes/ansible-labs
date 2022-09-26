@@ -1,0 +1,5 @@
+---
+- name: win updates all computers without automatic reboots
+  hosts: all
+  roles:
+    - win_updates 

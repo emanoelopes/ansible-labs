@@ -2,4 +2,8 @@
 - name: lab1
   hosts: lab1
   roles:
+<<<<<<< HEAD
     - tomcat 
+=======
+    - win_update
+>>>>>>> 695be829d4ccce334b234b5469c958cf54a041a5
