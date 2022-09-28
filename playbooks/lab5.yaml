@@ -2,5 +2,5 @@
 - name: Laboratório 5 
   hosts: lab5
   roles: 
-    - win_updates
+    - pycharm 
 

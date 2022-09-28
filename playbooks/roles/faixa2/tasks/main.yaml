@@ -1,0 +1,58 @@
+- name: Install chocolatey packages
+  win_chocolatey:
+    name: 
+      - gimp 
+      - inkscape
+      - krita
+      - anaconda3
+      - audacity
+      - arduino
+      - vscode
+      - openjdk
+      - octave
+    state: present
+
+#- name: Install wick editor
+#  win_package:
+#    path: Windows_Wick.Editor.Setup.1.19.0.exe
+#    state: present
+
+#- name: Install FontForge
+#  win_package:
+#    path: https://github.com/fontforge/fontforge/releases/download/20220308/FontForge-2022-03-08-Windows.exe
+#    state: present
+
+#- name: Glyphr Studio
+#  win_package:
+#    path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
+#    state: present
+#
+#- name: MediBang Paint Pro
+#  win_package:
+#    path: https://medibangpaint.com/static/installer/MediBangPaintPro/MediBangPaintProSetup-28.1-64bit.exe
+#    state: present
+#    arguments:
+#    - /silent
+#
+#- name: Kicad
+#  win_package:
+#    path: https://github.com/KiCad/kicad-source-mirror/releases/download/6.0.6/kicad-6.0.6_1-x86_64.exe
+#    state: present
+
+- name: Downloading Processing 3.5.4
+  win_get_url: 
+    url: https://github.com/processing/processing/releases/download/processing-0270-3.5.4/processing-3.5.4-windows64.zip
+    dest: c:\Users\aluno\Downloads
+
+- name: Unzip Processing 3.5.4
+  win_unzip: 
+    src: c:\Users\aluno\Downloads\processing-3.5.4-windows64.zip
+    dest: c:\Program Files
+    delete_archive: yes
+
+- name: Create Processing shortcut on the desktop 
+  community.windows.win_shortcut:
+    src: C:\Program Files\processing-3.5.4\processing.exe
+    dest: C:\Users\aluno\Desktop\processing.lnk
+    icon: C:\Program Files\processing-3.5.4\processing.exe,0
+
