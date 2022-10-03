@@ -1,7 +1,6 @@
 ---
 - name: Install all updates 
   win_updates:
-    reboot: yes
     category_names:
       - SecurityUpdates
       - CriticalUpdades

@@ -1,6 +1,0 @@
----
-- name: Laboratório 5 
-  hosts: lab5
-  roles: 
-    - pycharm 
-

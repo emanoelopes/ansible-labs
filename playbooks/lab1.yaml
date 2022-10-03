@@ -1,5 +1,0 @@
----
-- name: lab1
-  hosts: lab1
-  roles:
-    - tomcat 
