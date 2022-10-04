@@ -8,9 +8,4 @@
     apt: 
       update_cache: yes
       upgrade: 'yes'
-#  - name: Instalação de utilitários e programas
-#    apt:
-#      pkg:
-#      - 
-#      - 
 
