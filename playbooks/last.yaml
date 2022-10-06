@@ -1,6 +1,7 @@
 ---
 - name: Lab temporary playbook
-  hosts: lab2 
-  roles: 
-    - localwp 
+  hosts: all
+  tasks:
+    - name: Install updates
+      import_tasks: win_updates.yaml
     

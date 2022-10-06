@@ -1,7 +1,7 @@
 ---
 - name: Install all updates 
-  win_updates:
+  ansible.windows.win_updates:
     category_names:
       - SecurityUpdates
-      - CriticalUpdades
+      - CriticalUpdates
       - UpdateRollups
