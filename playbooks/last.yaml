@@ -1,5 +1,5 @@
 ---
-- name: Lab temporary playbook
+- name: Temporary playbook
   hosts: all
   tasks:
     - name: Install updates

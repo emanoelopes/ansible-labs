@@ -1,5 +1,5 @@
 ---
-- name: Install all updates 
+- name: Install important updates 
   ansible.windows.win_updates:
     category_names:
       - SecurityUpdates
