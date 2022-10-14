@@ -1,5 +1,5 @@
 - name: assert
-  hosts: 10.102.225.228
+  hosts: lab5 
 
   tasks:
   - name: check if memory is between 7000 and 9000 MB
@@ -13,3 +13,7 @@
       - result.evaluated_to is defined
       - result.evaluated_to == False
     failed_when: False
+    when: (ansible_product_name == "32091M5") or 
+          (ansible_product_name == "3209-1M5") or
+          (ansible_product_name == "3209C4P")
+
