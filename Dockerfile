@@ -8,7 +8,7 @@ ARG MITOGEN_VERSION
 ARG VCS_REF
 
 # Metadata
-LABEL maintainer="Pascal A. <emanoelopes@gmail.com>" \
+LABEL maintainer="Emanoel Lopes <emanoelopes@gmail.com>" \
       org.label-schema.url="https://github.com/emanoelopes/ansible-labs/README.md" \
       org.label-schema.build-date=${BUILD_DATE} \
       org.label-schema.version=${ANSIBLE_VERSION} \
