@@ -1,7 +1,9 @@
 ---
-- name: Install important updates 
+- name: Install drivers updates 
   ansible.windows.win_updates:
-    category_names:
-      - SecurityUpdates
-      - CriticalUpdates
-      - UpdateRollups
+#    category_names:
+#      - SecurityUpdates
+#      - CriticalUpdates
+#      - UpdateRollups
+#      - FeaturePacks
+     category_names: Drivers 
