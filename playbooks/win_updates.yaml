@@ -6,4 +6,9 @@
 #      - CriticalUpdates
 #      - UpdateRollups
 #      - FeaturePacks
-     category_names: Drivers 
+     category_names: 
+       - Drivers 
+       - Definition Updates
+     accept_list:
+       - KB2267602
+
