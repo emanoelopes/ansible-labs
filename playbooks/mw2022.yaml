@@ -1,0 +1,5 @@
+---
+- name: Media Week install playbook 
+  hosts: "{{ local }}"
+  roles:
+    - blender 
