@@ -3,4 +3,4 @@
   win_chocolatey:
     name: blender
     state: present
-  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+#  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
