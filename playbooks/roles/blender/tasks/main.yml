@@ -2,11 +2,11 @@
 - name: Install Blender
   win_chocolatey:
     name: blender
-    state: present
+    state: latest 
 #  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
 - name: Ensure shortcut is present
   win_shortcut:
     src: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe
     dest: C:\Users\Public\Desktop\Blender.lnk
     icon: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe,0
-  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+#  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
