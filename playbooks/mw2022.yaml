@@ -1,5 +1,11 @@
 ---
 - name: Media Week install playbook 
   hosts: "{{ local }}"
-  roles:
-    - blender 
+  tasks:
+    - name: Install apps from chocolatey repo
+      win_chocolatey:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - flutter
+        - vscode
