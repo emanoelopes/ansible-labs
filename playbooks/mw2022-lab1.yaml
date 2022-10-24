@@ -1,0 +1,12 @@
+---
+- name: Install 
+  hosts: "{{ local }}"
+  tasks:
+    - name: Copy aseprite zip file to the hosts
+      win_copy:
+        src: aseprite.zip
+        dest: c:\Users\aluno\Downloads
+    - name: 
+      win_unzip:
+        src: c:\Users\aluno\Downloads\aseprite.zip 
+        dest: c:\Users\aluno\Desktop

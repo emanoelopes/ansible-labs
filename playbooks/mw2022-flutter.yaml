@@ -1,0 +1,12 @@
+---
+- name: Install flutter 
+  hosts: lab4
+  tasks:
+    - name: 
+      win_copy:
+        name: 
+        state: latest
+      loop:
+        - flutter
+        - vscode
+        - git
