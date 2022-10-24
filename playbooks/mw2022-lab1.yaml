@@ -42,5 +42,9 @@
         src: https://forms.gle/eHdye76nxznCSUWu5
         dest: c:\Users\aluno\Desktop\oficina_link_form.lnk
       tags: link_form
- 
+    - name: install C++ Redistributable 2013
+      win_chocolatey:
+        name: vcredist2013 
+        state: latest
+      tags: vcredist
 
