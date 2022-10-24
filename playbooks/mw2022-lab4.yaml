@@ -1,6 +1,6 @@
 ---
 - name: Install flutter 
-  hosts: lab4
+  hosts: "{{ local }}" 
   tasks:
     - name: Install apps from chocolatey repo
       win_chocolatey:
@@ -33,10 +33,12 @@
     - name: add flutter install folder to system path
       win_path:
         elements: C:\tools\flutter\bin
-    - name: Reboot after changing system path
-      win_reboot: 
+      tags: flutter_path
+#    - name: Reboot after changing system path
+#      win_reboot: 
     - name: Add an git exception for c:\tools\flutter directory
       win_command: "{{ item }}"
       loop: 
-        - git config --global --add safe.directory C:/tools/flutter
+        - git config --global --add safe.directory C:\tools\flutter
         - flutter doctor --android-licenses
+      tags: commands
