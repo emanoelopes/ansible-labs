@@ -21,7 +21,6 @@
         program: c:\users\aluno\appdata\local\android\sdk\platform-tools\adb.exe
         state: present
         enabled: yes
-        state: present
         action: allow
         direction: in 
         localport: any
