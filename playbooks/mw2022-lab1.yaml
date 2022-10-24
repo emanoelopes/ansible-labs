@@ -1,11 +1,14 @@
 ---
-- name: Install 
-  hosts: "{{ local }}"
+- name: Copy and unzip content to Desktop
+  hosts: lab1 
+  vars:
+    aluno_download: c:\Users\aluno\Downloads
+
   tasks:
     - name: Copy aseprite zip file to the hosts
       win_copy:
         src: aseprite.zip
-        dest: c:\Users\aluno\Downloads
+        dest: "{{ aluno_download }}"
     - name: 
       win_unzip:
         src: c:\Users\aluno\Downloads\aseprite.zip 
