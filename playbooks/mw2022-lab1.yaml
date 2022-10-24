@@ -26,6 +26,17 @@
         dest: "{{ aluno_download }}"
         delete_archive: yes
       tags: spriter
+    - name: Install spriter
+      win_package:
+        path: '{{ aluno_download }}\Spriter_r11.exe'
+        arguments: /SP /silent
+      tags: spriter
+    - name: Create spriter shortcut
+      win_shortcut:
+        src: c:\Program Files (x86)\Spriter\Spriter.exe
+        dest: c:\users\aluno\Desktop\Spriter.lnk
+        icon: c:\Program Files (x86)\Spriter\Spriter.exe,0
+      tags: spriter
     - name: create a shortcut
       win_shortcut:
         src: https://forms.gle/eHdye76nxznCSUWu5
