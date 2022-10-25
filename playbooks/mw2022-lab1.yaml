@@ -1,0 +1,50 @@
+---
+- name: aseprite and spriter install, create shortcut. 
+  hosts: "{{ local }}"
+  vars:
+    aluno_download: c:\Users\aluno\Downloads
+  tasks:
+    - name: Copy aseprite zip file to the hosts
+      win_copy:
+        src: aseprite.zip #https://drive.google.com/file/d/14-_rblzRIX9Z0q2mjoPnk8eLFt0f3sNP/view?usp=drivesdk
+        dest: "{{ aluno_download }}"
+      tags: aseprite
+    - name: 
+      win_unzip:
+        src: '{{ aluno_download }}\aseprite.zip' 
+        dest: c:\Users\aluno\Desktop
+        delete_archive: yes
+      tags: aseprite
+    - name: Download Spriter to the hosts
+      win_get_url: 
+        url: https://brashmonkey.com/brashmonkey/spriter/windows/Spriter_r11.zip
+        dest: "{{ aluno_download }}"
+      tags: spriter
+    - name: Unzip Spriter 
+      win_unzip:
+        src: '{{ aluno_download }}/Spriter_r11.zip'
+        dest: "{{ aluno_download }}"
+        delete_archive: yes
+      tags: spriter
+    - name: Install spriter
+      win_package:
+        path: '{{ aluno_download }}\Spriter_r11.exe'
+        arguments: /SP /silent
+      tags: spriter
+    - name: Create spriter shortcut
+      win_shortcut:
+        src: c:\Program Files (x86)\Spriter\Spriter.exe
+        dest: c:\users\aluno\Desktop\Spriter.lnk
+        icon: c:\Program Files (x86)\Spriter\Spriter.exe,0
+      tags: spriter
+    - name: create a shortcut
+      win_shortcut:
+        src: https://forms.gle/eHdye76nxznCSUWu5
+        dest: c:\Users\aluno\Desktop\oficina_link_form.lnk
+      tags: link_form
+    - name: install C++ Redistributable 2013
+      win_chocolatey:
+        name: vcredist2013 
+        state: latest
+      tags: vcredist
+

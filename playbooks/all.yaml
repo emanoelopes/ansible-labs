@@ -1,5 +1,6 @@
 ---
-- name: win updates all computers without automatic reboots
-  hosts: all
-  roles:
-    - win_updates 
+- name: Trying somenthing new
+  hosts: "{{ local }}"
+  tasks:
+    - name: Update Windows
+      import_tasks: win_updates.yaml

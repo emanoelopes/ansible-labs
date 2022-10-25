@@ -1,0 +1,44 @@
+---
+- name: Install flutter 
+  hosts: "{{ local }}" 
+  tasks:
+    - name: Install apps from chocolatey repo
+      win_chocolatey:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - flutter
+        - vscode
+        - git
+    - name: Create android studio shortcut on the desktop
+      community.windows.win_shortcut:
+        src: C:\Program Files\Android\Android Studio\bin\studio64.exe
+        dest: C:\Users\Public\Desktop\Android Studio.lnk
+        icon: C:\Program Files\Android\Android Studio\bin\studio64.exe,0
+    - name: Add firewall rule to provide access to sdk android platform tools
+      win_firewall_rule:
+        name: adb
+        program: c:\users\aluno\appdata\local\android\sdk\platform-tools\adb.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in 
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+      tags: firewall
+
+    - name: add flutter install folder to system path
+      win_path:
+        elements: C:\tools\flutter\bin
+      tags: flutter_path
+#    - name: Reboot after changing system path
+#      win_reboot: 
+    - name: Add an git exception for c:\tools\flutter directory
+      win_command: "{{ item }}"
+      loop: 
+        - git config --global --add safe.directory C:\tools\flutter
+        - flutter doctor --android-licenses
+      tags: commands
