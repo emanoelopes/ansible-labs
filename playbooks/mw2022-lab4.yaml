@@ -28,14 +28,11 @@
         remoteport: any
         remoteip: any
         protocol: tcp
-      tags: firewall
-
     - name: add flutter install folder to system path
       win_path:
         elements: C:\tools\flutter\bin
-      tags: flutter_path
-#    - name: Reboot after changing system path
-#      win_reboot: 
+    - name: Reboot after changing system path
+      win_reboot: 
     - name: Add an git exception for c:\tools\flutter directory
       win_command: "{{ item }}"
       become: yes
