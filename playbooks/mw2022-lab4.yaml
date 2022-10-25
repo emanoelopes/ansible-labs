@@ -38,7 +38,10 @@
 #      win_reboot: 
     - name: Add an git exception for c:\tools\flutter directory
       win_command: "{{ item }}"
+      become: yes
+      become_method: runas
+      become_user: suporte
       loop: 
-        - git config --global --add safe.directory C:\tools\flutter
+        - git config --global --add safe.directory C:/tools/flutter
         - flutter doctor --android-licenses
       tags: commands
