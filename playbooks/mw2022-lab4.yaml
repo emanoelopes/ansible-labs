@@ -42,3 +42,8 @@
         - git config --global --add safe.directory C:/tools/flutter
         - flutter doctor --android-licenses
       tags: commands
+    - name: Ensure aluno user has not admin privilegies
+      win_group:
+        name: aluno
+        groups: Users
+      tags: aluno_not_admin
