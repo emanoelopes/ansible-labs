@@ -1,14 +1,16 @@
 ---
 - name: Install drivers updates 
   ansible.windows.win_updates:
-#    category_names:
+    category_names:
 #      - SecurityUpdates
 #      - CriticalUpdates
 #      - UpdateRollups
 #      - FeaturePacks
-     category_names: 
-       - Drivers 
-       - Definition Updates
-     accept_list:
-       - KB2267602
+      - Drivers 
+      - Definition Updates
+      - Updates
+      - Windows 11
+    state: searched
+    accept_list:
+      - KB2267602
 
