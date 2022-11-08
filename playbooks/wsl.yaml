@@ -16,6 +16,6 @@
     state: present  
   tags: update
 
-- name: install Ubuntu
-  win_command: wsl --install -d ubuntu
-  tags: install_ubuntu
+#- name: install Ubuntu
+#  win_command: wsl --install -d ubuntu
+#  tags: install_ubuntu

@@ -1,7 +1,6 @@
 ---
 - name: Temporary playbook
-  hosts: all
+  hosts: '{{ local }}'
   tasks:
-    - name: Install updates
-      import_tasks: win_updates.yaml
-    
+    - name: Ensure WSL2 is activated
+      import_tasks: wsl.yaml
