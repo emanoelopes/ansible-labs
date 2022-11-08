@@ -1,0 +1,13 @@
+---
+- name: Create multi-machines vms
+  aluno_downloads: C:\Users\aluno\downloads
+  hosts: 10.102.226.112
+  tasks:
+    - name: send vagrantfile to host
+      win_copy:
+        src: Vagrantfile
+        dest: "{{ aluno_downloads }}"
+    - name: Execute vagrant
+      win_shell: vagrant up
+      args:
+        chdir: "{{ aluno_downloads }}"
