@@ -1,8 +1,8 @@
 ---
 - name: Create multi-machines vms
-  aluno_downloads: C:\Users\aluno\downloads
   hosts: 10.102.226.112
-  tasks:
+  tasks:  
+  aluno_downloads: C:\Users\aluno\downloads
     - name: send vagrantfile to host
       win_copy:
         src: Vagrantfile
