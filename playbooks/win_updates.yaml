@@ -10,6 +10,7 @@
      - Definition Updates
      - Updates
      - Windows 11
+     - Microsoft Defender Antivirus
    state: searched
    accept_list:
      - KB2267602
