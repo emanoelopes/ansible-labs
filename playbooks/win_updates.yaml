@@ -11,7 +11,9 @@
      - Updates
      - Windows 11
      - Microsoft Defender Antivirus
-   state: searched
+     - Windows 10 LTSB
+     - Windows 10, version 1903 and later
+   #state: searched
    accept_list:
      - KB2267602
      - KB5018859
