@@ -1,20 +1,20 @@
 ---
-- name: Install Postgresql 15
-  hosts: 10.102.227.142
+- name: Install Postgresql 
+  hosts: 10.102.227.171
 
   tasks:
     - name: Install
       win_chocolatey:
-        name: postgresql15
+        name: postgresql
        #install_args: "--params '/Username:postgres /Password:ufc123'"
-        package_params: "'/Username:postgres /Password:ufc123'"
-        state: absent 
+        package_params: "/Password:ufc123"
+        state: present 
       tags:
         - install
     - name: Ensure user postgres has 'ufc123' password
       community.postgresql.postgresql_user:
         name: postgres
         password: ufc123
-        comment: Usuário para uso didático
+        comment: Password for classes 
       tags: 
         - password
