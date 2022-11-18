@@ -1,0 +1,17 @@
+---
+- name: Install Postgresql15
+  hosts: 10.102.227.142
+  tasks:
+    - name: Install 
+      win_chocolatey:
+        name: postgresql15
+       #install_args: "--params '/Username:postgres /Password:ufc123'"
+        package_params: "'/Username:postgres /Password:ufc123'"
+        state: reinstalled
+      tags: install
+    - name: Change postgres password
+      community.general.postgresql_user:
+        name: postgres
+        password: ufc123
+        state: present
+      tags: password
