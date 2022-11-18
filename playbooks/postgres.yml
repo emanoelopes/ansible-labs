@@ -3,18 +3,18 @@
   hosts: 10.102.227.142
 
   tasks:
-    - name: Install:q
+    - name: Install
       win_chocolatey:
         name: postgresql15
        #install_args: "--params '/Username:postgres /Password:ufc123'"
         package_params: "'/Username:postgres /Password:ufc123'"
-        state: present 
+        state: absent 
       tags:
         - install
-    - name: Change postgres password
+    - name: Ensure user postgres has 'ufc123' password
       community.postgresql.postgresql_user:
         name: postgres
-        db: postgres
+        password: ufc123
         comment: Usuário para uso didático
       tags: 
         - password
