@@ -9,10 +9,12 @@
        #install_args: "--params '/Username:postgres /Password:ufc123'"
         package_params: "'/Username:postgres /Password:ufc123'"
         state: present 
-      tags: install
+      tags:
+        - install
     - name: Change postgres password
       community.postgresql.postgresql_user:
-        name: "postgres"
-        password: "ufc123"
-        encrypted: true
-      tags: password
+        name: postgres
+        db: postgres
+        comment: Usuário para uso didático
+      tags: 
+        - password
