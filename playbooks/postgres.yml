@@ -3,7 +3,7 @@
   hosts: 10.102.227.142
 
   tasks:
-    - name: Install 
+    - name: Install:q
       win_chocolatey:
         name: postgresql15
        #install_args: "--params '/Username:postgres /Password:ufc123'"
