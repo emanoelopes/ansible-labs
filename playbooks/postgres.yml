@@ -1,20 +1,27 @@
 ---
 - name: Install Postgresql 
-  hosts: 10.102.227.171
+  hosts: 10.102.227.142
+  vars:
+    install_dir: c:\Users\aluno\Downloads\
+    install_file: postgresql-15.1-1-windows-x64.exe
 
   tasks:
-    - name: Install
+    - name: Copy Postgresql 15 install file to hosts
+      win_copy:
+        src: '{{ install_file }}'
+        dest: '{{ install_dir }}'
+      tags: postgresql_copy
+
+    - name: Install Postgres and set postgres user password
+      win_package:
+        path: c:\Users\aluno\Downloads\postgresql-15.1-1-windows-x64.exe
+        arguments: 
+          - --mode unattended
+          - --superpassword ufc123
+      tags: postgresql_install
+
+    - name: Install Pgadmin4
       win_chocolatey:
-        name: postgresql
-       #install_args: "--params '/Username:postgres /Password:ufc123'"
-        package_params: "/Password:ufc123"
-        state: present 
-      tags:
-        - install
-    - name: Ensure user postgres has 'ufc123' password
-      community.postgresql.postgresql_user:
-        name: postgres
-        password: ufc123
-        comment: Password for classes 
-      tags: 
-        - password
+        name: pgadmin4
+        state: present
+      tags: pgadmin4_install
