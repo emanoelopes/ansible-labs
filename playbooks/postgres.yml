@@ -1,27 +1,35 @@
 ---
 - name: Install Postgresql 
-  hosts: 10.102.227.142
-  vars:
-    install_dir: c:\Users\aluno\Downloads\
-    install_file: postgresql-15.1-1-windows-x64.exe
+  hosts: '{{ local}}' 
 
-  tasks:
+  vars:
+    temp_dir: c:\Users\aluno\Downloads\
+    old_install_dir: c:\Program Files\postgreSQL 
+    install_file: postgresql-15.1-1-windows-x64.exe 
+
+  pre_tasks: 
+    - name: Remove any pre-existent installation directory 
+      win_file: 
+        path: '{{ old_install_dir }}'
+        state: absent
+  
     - name: Copy Postgresql 15 install file to hosts
       win_copy:
         src: '{{ install_file }}'
-        dest: '{{ install_dir }}'
+        dest: '{{ temp_dir }}'
       tags: postgresql_copy
 
-    - name: Install Postgres and set postgres user password
-      win_package:
-        path: c:\Users\aluno\Downloads\postgresql-15.1-1-windows-x64.exe
-        arguments: 
-          - --mode unattended
-          - --superpassword ufc123
+  tasks:
+    - name: Install Postgres and set postgres password
+      win_shell: 'postgresql-15.1-1-windows-x64.exe --unattendedmodeui none --mode unattended --superpassword ufc123'
+      args:
+        chdir: '{{ temp_dir }}'
+        executable: cmd
       tags: postgresql_install
 
-    - name: Install Pgadmin4
-      win_chocolatey:
-        name: pgadmin4
-        state: present
-      tags: pgadmin4_install
+
+#    - name: Install Pgadmin4
+#      win_chocolatey:
+#        name: pgadmin4
+#        state: present
+#      tags: pgadmin4_install
