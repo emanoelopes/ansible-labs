@@ -1,6 +1,6 @@
 ---
-- name: Install Postgresql 
-  hosts: '{{ local}}' 
+- name: Install PostgreSQL 15.1 on Windows hosts 
+  hosts: '{{ local }}' 
 
   vars:
     temp_dir: c:\Users\aluno\Downloads\
@@ -12,24 +12,19 @@
       win_file: 
         path: '{{ old_install_dir }}'
         state: absent
-  
-    - name: Copy Postgresql 15 install file to hosts
+        
+  #From Ansible controller directory '/home/ansible_labs/playbooks/postgresql-15.1-1-windows-x64.exe'
+    - name: Copy PostgreSQL install file to hosts
       win_copy:
         src: '{{ install_file }}'
         dest: '{{ temp_dir }}'
       tags: postgresql_copy
 
   tasks:
-    - name: Install Postgres and set postgres password
+    - name: Install PostgreSQL 15.1 and set postgres password
       win_shell: 'postgresql-15.1-1-windows-x64.exe --unattendedmodeui none --mode unattended --superpassword ufc123'
       args:
         chdir: '{{ temp_dir }}'
         executable: cmd
       tags: postgresql_install
-
-
-#    - name: Install Pgadmin4
-#      win_chocolatey:
-#        name: pgadmin4
-#        state: present
-#      tags: pgadmin4_install
+      
