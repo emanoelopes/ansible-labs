@@ -1,7 +1,13 @@
+---
 - name: assert
   hosts: all
-
   tasks:
+#  - name: Classify hosts depending on the model
+#    group_by:
+#      key: model_{{ ansible_product_name }}
+#
+#- hosts: model_3209*
+#  tasks:
   - name: check if memory is between 7000 and 9000 MB
     assert:
       that:

@@ -1,0 +1,5 @@
+---
+- name: Set autologon for user1
+  community.windows.win_auto_logon:
+    username: aluno
+    password: aluno

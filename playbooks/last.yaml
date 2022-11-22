@@ -2,5 +2,10 @@
 - name: Temporary playbook
   hosts: '{{ local }}'
   tasks:
-    - name: Ensure WSL2 is activated
-      import_tasks: wsl.yaml
+  #  - name: Ensure WSL2 is activated
+  #    import_tasks: wsl.yaml
+
+    - name: Set autologon for user1
+      community.windows.win_auto_logon:
+        username: aluno
+        password: aluno
