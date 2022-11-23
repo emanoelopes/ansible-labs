@@ -3,7 +3,12 @@
   hosts: '{{ local }}'
   tasks:
    - name: Install windows Exporter 
-     import_tasks: windows_exporter.yml 
+     import_tasks: windows_exporter.yml
+     tags: prometheus 
+  
+   - name: Install Windows Updates
+     import_tasks: win_updates.yaml
+     tags: win_updates
 
 #   - name: Set autologon for user1
 #     community.windows.win_auto_logon:
