@@ -2,10 +2,10 @@
 - name: Temporary playbook
   hosts: '{{ local }}'
   tasks:
-  #  - name: Ensure WSL2 is activated
-  #    import_tasks: wsl.yaml
+   - name: Install windows Exporter 
+     import_tasks: windows_exporter.yml 
 
-    - name: Set autologon for user1
-      community.windows.win_auto_logon:
-        username: aluno
-        password: aluno
+#   - name: Set autologon for user1
+#     community.windows.win_auto_logon:
+#       username: aluno
+#       password: aluno
