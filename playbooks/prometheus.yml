@@ -1,0 +1,14 @@
+---
+- name: Install prometheus and grafana VM
+  win_chocolatey:
+    name:
+    - vagrant
+    - virtualbox
+    state: present
+
+- name: Create Vagrant file
+  win_shell: "curl -o Vagrantfile 'https://raw.githubusercontent.com/cirolini/prometheus-curso-monitoring/main/02_install_prometheus/vagrant/Vagrantfile'"
+  args:
+    chdir: C:\Users\aluno
+
+- 
