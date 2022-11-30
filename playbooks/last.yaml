@@ -10,11 +10,12 @@
 #     import_tasks: win_updates.yaml
 #     tags: win_updates
 
-#   - name: Set autologon for user aluno
-#     community.windows.win_auto_logon:
-#       username: aluno
-#       password: aluno
+    - name: Set autologon for user aluno
+      community.windows.win_auto_logon:
+        username: aluno
+        password: aluno
+      tags: aluno_auto_logon
 
-    - name: Install prometheus VM
-      import_tasks: prometheus.yml
-      tags: prometheus
+#    - name: Install prometheus VM
+#      import_tasks: prometheus.yml
+#      tags: prometheus
