@@ -10,6 +10,9 @@
       - vscode
       - openjdk
       - octave
+      - selenium
+      - nodejs
+      - postman
     state: present
 
 #- name: Install wick editor
@@ -56,3 +59,8 @@
     dest: C:\Users\aluno\Desktop\processing.lnk
     icon: C:\Program Files\processing-3.5.4\processing.exe,0
 
+- name: Applied Test Software #SMD0048
+  community.general.npm: 
+    name: cypress
+    global: true  
+  tags: mocha
