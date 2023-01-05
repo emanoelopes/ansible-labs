@@ -1,10 +1,10 @@
 ---
 - name: House Keeping old log files
-  hosts: 10.102.227.115
+  hosts: 10.102.227.123 
   vars:
-    directories: ['C:\Users\aluno\Downloads']
-    filepattern: ['*.*']
-    age: 12m
+    directories: ['C:\Users\aluno\Downloads','C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
+    filepattern: ['/^shoot/']
+    age: 12d
   tasks:
     - name: Find old files  
       tags: always
@@ -14,6 +14,7 @@
         age_stamp: mtime
         patterns: "{{filepattern}}"
         recurse: yes
+        use_regex: true
       register: filestoremove
     - name: list of files to be removed
       tags: always
