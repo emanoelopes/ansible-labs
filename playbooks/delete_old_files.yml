@@ -1,34 +1,19 @@
 ---
 - name: House Keeping old log files
-  hosts: lab1 
+  hosts: 10.102.227.116
   vars:
     directories: ['C:\Users\aluno\Downloads','C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
-    filepattern: ['*.*']
-    age: 6m 
   tasks:
-    - name: Find old files  
+    - name: Collect files 
       tags: always
       win_find:
-        paths: "{{directories}}"
-        age: "{{age}}"
-        age_stamp: mtime
-        patterns: "{{filepattern}}"
-        recurse: yes
-      register: filestoremove
-    - name: list of files to be removed
-      tags: never,list 
-      vars:
-        files: "{{ filestoremove.files | json_query('[].path') }}"
-      debug: var=files
-      when: filestoremove.matched > 0
-    - name: remove the files found - this would work only when you call the – tags=delete
-      tags: never,delete
-      throttle: 1
-      vars:
-        files: "{{ filestoremove.files | json_query('[].path') }}"
+        paths: "{{ directories }}"
+        recurse: true 
+        file_type: directory 
+      register: collected_files 
+    - name: remove collected files
+      tags: never, delete
       win_file:
-        path: "{{item}}"
+        path: "{{ item.path }}"
         state: absent
-      with_items:
-        - "{{files}}"
-      when: filestoremove.matched > 0
+      with_items: "{{ collected_files }}"
