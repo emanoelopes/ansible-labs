@@ -1,5 +1,5 @@
 ---
-- name: House Keeping old log files
+- name: Removing old files 
   hosts: 10.102.227.116
   vars:
     directories: ['C:\Users\aluno\Downloads','C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
