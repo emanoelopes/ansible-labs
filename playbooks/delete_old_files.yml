@@ -11,9 +11,16 @@
         recurse: true 
         file_type: directory 
       register: collected_files 
+
+#    - name: Return file names
+#      tags: always
+#      debug:
+#        msg: "{{ item.filename }}"
+#      with_items: "{{ collected_files.files }}"
+
     - name: remove collected files
       tags: never, delete
       win_file:
         path: "{{ item.path }}"
         state: absent
-      with_items: "{{ collected_files }}"
+      with_items: "{{ collected_files.files }}"
