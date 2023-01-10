@@ -1,24 +1,33 @@
 ---
-- name: Removing old files 
-  hosts: 10.102.227.116
+- name: Remove old user files and directories
+  hosts: 10.102.227.121
+  gather_facts: false
   vars:
     directories: ['C:\Users\aluno\Downloads','C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
   tasks:
-    - name: Collect files 
+    - name: Collect directories 
       tags: always
       win_find:
         paths: "{{ directories }}"
         recurse: true 
         file_type: directory 
-      register: collected_files 
+      register: collected_directories
+    
+    - name: remove directories
+      tags: never, delete
+      win_file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ collected_directories.files }}"
 
-#    - name: Return file names
-#      tags: always
-#      debug:
-#        msg: "{{ item.filename }}"
-#      with_items: "{{ collected_files.files }}"
+    - name: Collect files 
+      tags: always
+      win_find:
+        paths: "{{ directories }}"
+        recurse: true 
+      register: collected_files
 
-    - name: remove collected files
+    - name: remove files
       tags: never, delete
       win_file:
         path: "{{ item.path }}"
