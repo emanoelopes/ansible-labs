@@ -20,16 +20,32 @@
 #    path: Windows_Wick.Editor.Setup.1.19.0.exe
 #    state: present
 
-#- name: Install FontForge
-#  win_package:
-#    path: https://github.com/fontforge/fontforge/releases/download/20220308/FontForge-2022-03-08-Windows.exe
-#    state: present
+- name: Install FontForge
+  tags: never,fontforge
+  win_package:
+    path: https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe
+    state: present
 
-#- name: Glyphr Studio
-#  win_package:
-#    path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
-#    state: present
-#
+- name: Glyphr Studio
+  tags: never,glyphr
+  win_package:
+    path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
+    state: present
+
+- name: Download P5 JS
+  tags:never,p5
+  win_get_url:
+    url: https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip
+    dest: "{{ downloads }}"
+
+
+- name: Unzip P5 JS
+  tags:never,p5
+  win_unzip: 
+    src: "{{ downloads }}"/p5.zip
+    dest: "{{ downloads }} 
+    delete_archive:yes
+
 #- name: MediBang Paint Pro
 #  win_package:
 #    path: https://medibangpaint.com/static/installer/MediBangPaintPro/MediBangPaintProSetup-28.1-64bit.exe
@@ -63,4 +79,4 @@
   community.general.npm: 
     name: cypress
     global: true  
-  tags: mocha
+  tags: never, mocha
