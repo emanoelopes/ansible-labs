@@ -17,4 +17,5 @@
    accept_list:
      - KB2267602
      - KB5018859
+   reboot: yes
 
