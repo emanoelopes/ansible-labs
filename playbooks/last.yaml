@@ -1,8 +1,6 @@
 ---
 - name: Temporary playbook
   hosts: '{{ local }}'
-  roles:
-    - faixa2 
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
@@ -27,6 +25,3 @@
         password: aluno
       tags: never, aluno_auto_logon
 
-    - name: Install prometheus VM
-      import_tasks: prometheus.yml
-      tags: never, prometheus
