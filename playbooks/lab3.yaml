@@ -4,7 +4,6 @@
   #remote_user: suporte
   roles: 
   #  - geerlingguy.mac.homebrew
-  - davinci_resolve
  #become: yes
  #  vars:
  #    brew_cask_packages:
