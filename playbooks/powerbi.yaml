@@ -1,12 +1,14 @@
 ---
-- name: Add user 'powerbi'
-  win_user:
+- name: Create a powerbi student user account 
+  ansible.windows.win_user:
     name: powerbi
-    password: ufc2022
+    password: ufc2023
+    groups: Administradores
+    password_never_expires: yes
+    user_cannot_change_password: yes
     state: present
-    groups: 
-      - Administradores
   tags: add_user
+
 - name: Copy powerbi installer to the windows host
   win_copy:
     src: PBIDesktopSetup_x64.exe
