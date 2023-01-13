@@ -1,5 +1,0 @@
-- name: Enviar uma cópia do aplicativo de atualização para o host de destino
-  win_copy:
-    src: O780-A15.exe
-    dest: C:\Users\aluno\Downloads
-  when: ansible_facts['bios_version'] != "A15"
