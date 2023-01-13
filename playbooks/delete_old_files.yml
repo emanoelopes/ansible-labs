@@ -13,7 +13,7 @@
         file_type: directory 
       register: collected_directories
     
-    - name: remove directories
+    - name: Remove directories
       tags: never, delete
       win_file:
         path: "{{ item.path }}"
@@ -27,7 +27,7 @@
         recurse: true 
       register: collected_files
 
-    - name: remove files
+    - name: Remove files
       tags: never, delete
       win_file:
         path: "{{ item.path }}"
