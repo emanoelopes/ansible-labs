@@ -1,6 +1,6 @@
 # Managing Windows and macOS hosts with Ansible
 
-This repository contains Ansible playbooks, roles and tasks to manage on-premises Windows 10 and macOS computer labs. 
+This repository contains Ansible playbooks, roles and tasks to manage on-premises Windows 10/11  and macOS computer labs. 
 
 Created to support mantaining daily techinical routines like: 
 - Install apps;
