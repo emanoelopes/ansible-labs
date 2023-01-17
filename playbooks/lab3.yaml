@@ -1,18 +1,22 @@
 ---
 - name: lab3
-  hosts: 10.102.227.92 
-  #roles: 
-  #  - geerlingguy.mac.homebrew
-  become: false 
+  hosts: 10.102.227.101
+  roles: 
+    - geerlingguy.mac.homebrew
+    - geerlingguy.mac.mas
+  become: false
   vars:
-    brew_cask_packages:
+    homebrew_cask_apps:
       - blender
-    brew_packages:
+      - firefox
+    homebrew_installed_packages:
       - tmux
-      - zsh
-      - zsh-syntax-higlighting
+      - node
+    homebrew_cask_accept_external_apps: true
+    homebrew_cask_appdir: /Applications
     install_homebrew_if_missing: false 
-    upgrade_homebrew_packages: true
+    homebrew_upgrade_all_packages: false    
+    mas_upgrade_all_apps: true
   pre_tasks:
     - name: Ensuring Homebrew is Installed
       stat:
