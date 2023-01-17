@@ -1,4 +1,5 @@
 - name: Install chocolatey packages
+  gather_facts: false
   win_chocolatey:
     name: 
       - gimp 
@@ -29,19 +30,19 @@
 #    state: present
 
 - name: Install FontForge
-  tags: never,fontforge,faixa2
+  tags: never,faixa2
   win_package:
     path: https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe
     state: present
 
 - name: Glyphr Studio
-  tags: never,glyphr,faixa2
+  tags: never,faixa2
   win_package:
     path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
     state: present
 
 - name: Download P5 JS
-  tags: never,p5,faixa1,faixa2
+  tags: never,faixa1,faixa2
   win_get_url:
     url: https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip
     dest: "{{ downloads }}"
@@ -69,30 +70,31 @@
   win_get_url: 
     url: https://github.com/processing/processing/releases/download/processing-0270-3.5.4/processing-3.5.4-windows64.zip
     dest: "{{ downloads }}"
-  tags: processing,faixa2
+  tags: never,faixa2
 
 - name: Unzip Processing 3.5.4
   win_unzip: 
     src: "{{ downloads }}/processing-3.5.4-windows64.zip"
     dest: c:\Program Files
     delete_archive: yes
-  tags: processing,faixa2
+  tags: never,faixa2
 
 - name: Create Processing shortcut on the desktop 
   community.windows.win_shortcut:
     src: C:\Program Files\processing-3.5.4\processing.exe
     dest: C:\Users\aluno\Desktop\processing.lnk
     icon: C:\Program Files\processing-3.5.4\processing.exe,0
-  tags: processing,faixa2
+  tags: never,processing,faixa2
 
 - name: Create a shortcut for inkscape
   win_shortcut:
-    src: c:\Arquivos de programas\inkscape\inkscape.exe
+    src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
     dest: c:\Users\aluno\Desktop\inkscape.lnk
-  tags: faixa2
+    icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
+  tags: never,faixa2
 
 - name: Applied Test Software #SMD0048
   community.general.npm: 
     name: cypress
     global: true  
-  tags: never, mocha,faixa2
+  tags: never,faixa2
