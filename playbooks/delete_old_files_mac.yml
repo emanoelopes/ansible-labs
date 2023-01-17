@@ -2,11 +2,13 @@
 - name: Remove old user files and directories
   hosts: lab3 
   become: true
+  gather_facts: false
   vars:
     user: 'aluno'
     directories: ['/Users/{{ user }}/Desktop','/Users/{{ user }}/Downloads','/Users/{{ user }}/Documents']
   tasks:
     - name: Collect directories and files
+      throttle: 1
       tags: always
       find:
         paths: "{{ directories }}" 
@@ -18,11 +20,12 @@
       register: collected
     
     - name: show files and directories
-      tags: always
+      tags: never,show
       debug:
         var: collected
     
     - name: remove files and directories
+      throttle: 1
       tags: never, delete
       file:
         path: "{{ item.path }}"
