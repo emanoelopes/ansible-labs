@@ -1,5 +1,4 @@
 - name: Install chocolatey packages
-  gather_facts: false
   win_chocolatey:
     name: 
       - gimp 
@@ -22,6 +21,7 @@
       - python
       - pycharm
       - androidstudio
+    state: present
   tags: never,faixa1
 
 #- name: Install wick editor
@@ -91,7 +91,7 @@
     src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
     dest: c:\Users\aluno\Desktop\inkscape.lnk
     icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
-  tags: never,faixa2
+  tags: never,faixa2,ink
 
 - name: Applied Test Software #SMD0048
   community.general.npm: 
