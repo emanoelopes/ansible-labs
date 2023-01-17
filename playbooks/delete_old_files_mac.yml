@@ -10,6 +10,7 @@
     - name: Collect directories and files
       throttle: 1
       tags: always
+      ignore_errors: true
       find:
         paths: "{{ directories }}" 
         recurse: true 
@@ -27,6 +28,7 @@
     - name: remove files and directories
       throttle: 1
       tags: never, delete
+      ignore_errors: true
       file:
         path: "{{ item.path }}"
         state: absent
