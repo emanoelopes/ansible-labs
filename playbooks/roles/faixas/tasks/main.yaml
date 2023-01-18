@@ -68,7 +68,7 @@
 
 - name: Downloading Processing 
   win_get_url: 
-    url: "{{ procesing_url }}" 
+    url: "{{ processing_url }}" 
     dest: "{{ downloads }}"
   tags: never,faixa2,processing
 
@@ -83,7 +83,7 @@
   community.windows.win_shortcut:
     src: "{{ processing_exec_file }}"
     dest: C:\Users\aluno\Desktop\processing.lnk
-    icon: "{{ processing_exec_file }}",0
+    icon: "{{ processing_exec_file }},0"
   tags: never,processing,faixa2
 
 - name: Create a shortcut for inkscape
