@@ -66,24 +66,24 @@
 #    path: https://github.com/KiCad/kicad-source-mirror/releases/download/6.0.6/kicad-6.0.6_1-x86_64.exe
 #    state: present
 
-- name: Downloading Processing 3.5.4
+- name: Downloading Processing 
   win_get_url: 
-    url: https://github.com/processing/processing/releases/download/processing-0270-3.5.4/processing-3.5.4-windows64.zip
+    url: "{{ procesing_url }}" 
     dest: "{{ downloads }}"
-  tags: never,faixa2
+  tags: never,faixa2,processing
 
-- name: Unzip Processing 3.5.4
+- name: Unzip Processing 
   win_unzip: 
-    src: "{{ downloads }}/processing-3.5.4-windows64.zip"
+    src: "{{ downloads }}/{{ processing_zip_file }}"
     dest: c:\Program Files
     delete_archive: yes
-  tags: never,faixa2
+  tags: never,faixa2,processing
 
 - name: Create Processing shortcut on the desktop 
   community.windows.win_shortcut:
-    src: C:\Program Files\processing-3.5.4\processing.exe
+    src: "{{ processing_exec_file }}"
     dest: C:\Users\aluno\Desktop\processing.lnk
-    icon: C:\Program Files\processing-3.5.4\processing.exe,0
+    icon: "{{ processing_exec_file }}",0
   tags: never,processing,faixa2
 
 - name: Create a shortcut for inkscape
@@ -91,7 +91,7 @@
     src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
     dest: c:\Users\aluno\Desktop\inkscape.lnk
     icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
-  tags: never,faixa2,ink
+  tags: never,faixa2,inkscape
 
 - name: Applied Test Software #SMD0048
   community.general.npm: 
