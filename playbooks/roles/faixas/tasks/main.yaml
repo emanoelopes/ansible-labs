@@ -20,8 +20,8 @@
     name: 
       - python
       - pycharm
-      - androidstudio
-    state: present
+      - wireshark
+    state: latest 
   tags: never,faixa1
 
 #- name: Install wick editor
@@ -42,7 +42,7 @@
     state: present
 
 - name: Download P5 JS
-  tags: never,faixa1,faixa2
+  tags: never,p5,faixa1,faixa2
   win_get_url:
     url: https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip
     dest: "{{ downloads }}"
@@ -70,21 +70,21 @@
   win_get_url: 
     url: "{{ processing_url }}" 
     dest: "{{ downloads }}"
-  tags: never,faixa2,processing
+  tags: never,faixa1,faixa2,processing
 
 - name: Unzip Processing 
   win_unzip: 
     src: "{{ downloads }}/{{ processing_zip_file }}"
     dest: c:\Program Files
     delete_archive: yes
-  tags: never,faixa2,processing
+  tags: never,faixa1,faixa2,processing
 
 - name: Create Processing shortcut on the desktop 
   community.windows.win_shortcut:
     src: "{{ processing_exec_file }}"
     dest: C:\Users\aluno\Desktop\processing.lnk
     icon: "{{ processing_exec_file }},0"
-  tags: never,processing,faixa2
+  tags: never,processing,faixa1,faixa2
 
 - name: Create a shortcut for inkscape
   win_shortcut:
@@ -98,3 +98,17 @@
     name: cypress
     global: true  
   tags: never,faixa2
+
+- name: Download Android Studio 2022.1 Eletric Eel
+  win_get_url:
+    url: "{{ androidstudio_url }}"
+    dest: "{{ downloads }}"
+  register: androidstudio_downloaded
+  tags: never,androidstudio
+
+- name: Install Android Studio
+  win_package:
+    #path: "{{ downloads }}/{{ androidstudio_exe_file }}"
+    path: "{{ androidstudio_downloaded.dest }}"
+    arguments: /S
+  tags: never,androidstudio
