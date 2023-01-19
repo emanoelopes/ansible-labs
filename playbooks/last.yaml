@@ -15,6 +15,7 @@
     - name: reboot 
       win_reboot:
         reboot_timeout: 3600
+        msg: "Restarting to apply updates"
       tags: never, reboot
 
     - name: Install Windows Updates

@@ -19,7 +19,7 @@
   win_chocolatey:
     name: 
       - python
-      - pycharm
+      - pycharm-community
       - wireshark
     state: latest 
   tags: never,faixa1
@@ -104,11 +104,11 @@
     url: "{{ androidstudio_url }}"
     dest: "{{ downloads }}"
   register: androidstudio_downloaded
-  tags: never,androidstudio
+  tags: never,faixa1,androidstudio
 
 - name: Install Android Studio
   win_package:
-    #path: "{{ downloads }}/{{ androidstudio_exe_file }}"
-    path: "{{ androidstudio_downloaded.dest }}"
+    path: "{{ downloads }}/{{ androidstudio_exe_file }}"
+    #path: "{{ androidstudio_downloaded.dest }}"
     arguments: /S
-  tags: never,androidstudio
+  tags: never,faixa1,androidstudio_install
