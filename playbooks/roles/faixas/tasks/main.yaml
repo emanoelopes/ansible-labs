@@ -21,6 +21,7 @@
       - python
       - pycharm-community
       - wireshark
+      - eclipse-cpp
     state: latest 
   tags: never,faixa1
 
@@ -111,4 +112,5 @@
     path: "{{ downloads }}/{{ androidstudio_exe_file }}"
     #path: "{{ androidstudio_downloaded.dest }}"
     arguments: /S
+    state: present
   tags: never,faixa1,androidstudio_install
