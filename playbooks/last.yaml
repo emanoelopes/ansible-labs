@@ -1,8 +1,8 @@
 ---
 - name: Temporary playbook
   hosts: '{{ local }}'
-  roles:
-    - faixas
+#  roles:
+ #   - faixas
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
@@ -27,4 +27,10 @@
         username: aluno
         password: aluno
       tags: never, aluno_auto_logon
+    
+    - name: Trash Bin clean
+      win_shell: rd /s /q %systemdrive%\$Recycle.bin
+      args: 
+        executable: cmd
+      tags: never,bin
 
