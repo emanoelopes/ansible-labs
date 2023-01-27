@@ -18,6 +18,9 @@
     homebrew_upgrade_all_packages: false    
     mas_upgrade_all_apps: true
   pre_tasks:
+    #- name: Ensuring macOS is the latest version
+    #  command: softwareupdate -l
+    #  register: macos_update_check
     - name: Ensuring Homebrew is Installed
       stat:
         path: /usr/local/bin/brew
@@ -46,3 +49,6 @@
       homebrew:
         upgrade_all: "{{ upgrade_homebrew_packages }}"
       register: result
+    #- name: Update macOS
+    #  command: softwareupdate -i 
+    #  when: macos_update_check
