@@ -1,6 +1,6 @@
 ---
 - name: lab3
-  hosts: 10.102.227.101
+  hosts: 10.102.227.103
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
@@ -9,13 +9,17 @@
     homebrew_cask_apps:
       - blender
       - firefox
+      - vlc
     homebrew_installed_packages:
       - tmux
       - node
+      - mas
     homebrew_cask_accept_external_apps: true
     homebrew_cask_appdir: /Applications
-    install_homebrew_if_missing: false 
-    homebrew_upgrade_all_packages: false    
+    install_homebrew_if_missing: false
+    homebrew_upgrade_all_packages: false 
+    mas_installed_apps:
+      - { id: 421131143, name: "MPlayerX" }   
     mas_upgrade_all_apps: true
   pre_tasks:
     #- name: Ensuring macOS is the latest version
