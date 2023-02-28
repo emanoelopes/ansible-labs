@@ -1,6 +1,7 @@
 - name: Install chocolatey packages
   win_chocolatey:
     name: 
+      - asio4all #sound driver for reaper
       - gimp 
       - inkscape
       - krita
@@ -13,6 +14,7 @@
       - selenium
       - nodejs
       - postman
+      - reaper
     state: present
   tags: never,faixa2
   
