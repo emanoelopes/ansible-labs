@@ -1,8 +1,8 @@
 ---
 - name: Temporary playbook
   hosts: '{{ local }}'
-#  roles:
- #   - faixas
+  roles:
+    - faixas
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml

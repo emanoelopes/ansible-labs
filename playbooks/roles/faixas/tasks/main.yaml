@@ -89,6 +89,14 @@
     icon: "{{ processing_exec_file }},0"
   tags: never,processing,faixa1,faixa2
 
+- name: Create DaVinci shortcut on the desktop 
+  community.windows.win_shortcut:
+    src: "{{ davinci_exec_file }}"
+    dest: C:\Users\aluno\Desktop\davinci.lnk
+    icon: "{{ davinci_exec_file }},0"
+  tags: never,davinci,faixa1,faixa2
+
+
 - name: Create a shortcut for inkscape
   win_shortcut:
     src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
