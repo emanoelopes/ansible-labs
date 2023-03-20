@@ -4,4 +4,4 @@
     name:
       - python
       - pycharm-community
-    state: present
+    state: latest

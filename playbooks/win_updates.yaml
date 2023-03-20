@@ -6,27 +6,27 @@
 
 - name: Pre Updates Check
   ansible.windows.win_updates:
-   category_names:
-     - Application
-     - Connectors
-     - SecurityUpdates
-     - CriticalUpdates
-     - QualityUpdates
-     - UpdateRollups
-     - FeaturePacks
-     - ServicePacks
-     - Drivers
-     - DeveloperKits
-     - DefinitionUpdates
-     - Updates
-     - Windows 11
-     - Microsoft Defender Antivirus
-     - Windows 10 LTSB
-     - Windows 10, version 1903 and later
-     - Guidance
-     - Tools
-   state: searched
-   log_path: C:\Windows\Temp\Pre-AllUpdatesFound.txt
+    category_names:
+      - Application
+      - Connectors
+      - SecurityUpdates
+      - CriticalUpdates
+      - QualityUpdates
+      - UpdateRollups
+      - FeaturePacks
+      - ServicePacks
+      - Drivers
+      - DeveloperKits
+      - DefinitionUpdates
+      - Updates
+      - Windows 11
+      - Microsoft Defender Antivirus
+      - Windows 10 LTSB
+      - Windows 10, version 1903 and later
+      - Guidance
+      - Tools
+    state: searched
+    log_path: C:\Windows\Temp\Pre-AllUpdatesFound.txt
 
 - name: First update run
   ansible.windows.win_updates:
@@ -45,14 +45,14 @@
 
 - name: Second update run
   ansible.windows.win_updates:
-   category_names:
-     - SecurityUpdates
-     - CriticalUpdates
-     - UpdateRollups
-     - Updates
-   reboot: yes
-   state: installed
-   log_path: C:\Windows\Temp\ansible_updates_second_run.txt
+    category_names:
+      - SecurityUpdates
+      - CriticalUpdates
+      - UpdateRollups
+      - Updates
+    reboot: yes
+    state: installed
+    log_path: C:\Windows\Temp\ansible_updates_second_run.txt
 
 #- name: Second update run reboot
 #  win_reboot:
@@ -60,14 +60,14 @@
 
 - name: Third update run
   ansible.windows.win_updates:
-   category_names:
-     - SecurityUpdates
-     - CriticalUpdates
-     - UpdateRollups
-     - Updates
-   reboot: yes
-   state: installed
-   log_path: C:\Windows\Temp\ansible_updates_third_run.txt
+    category_names:
+      - SecurityUpdates
+      - CriticalUpdates
+      - UpdateRollups
+      - Updates
+    reboot: yes
+    state: installed
+    log_path: C:\Windows\Temp\ansible_updates_third_run.txt
 
 #- name: Third update run reboot
 #  win_reboot:
