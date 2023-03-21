@@ -1,7 +1,17 @@
 ---
+pycharm_exec_path="C:\program files\jetbrains\pycharm community edition 2022.3.3\bin\pycharm64.exe"
+
 - name: Ensure Python and Pycharm are installed
   win_chocolatey:
     name:
       - python
       - pycharm-community
     state: latest
+- name: Ensure firewall rule for Pycharm is enabled
+  win_firewall_rule:
+    name: PyCharm
+    program: "{{ pycharm_exec_path }}"
+    direction: in
+    action: allow
+    state: present
+    enabled: yes
