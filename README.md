@@ -10,6 +10,17 @@ Created to support mantaining daily techinical routines like:
 - Windows updates: Drivers, Definitions Updates, etc.
 - and much more.
 
+Example:
+
+ansible-playbook playbooks/last.yaml -e "local=ip_address" -k -t netbeans
+
+ansible-playbok --------  Using a playbook file;
+playbooks/last.yaml ----  Playbook file location;
+-e "local=ip_address" --  Especify local variable;
+-k ---------------------  Ask admin user password;
+-t ---------------------  Call a especific tag.
+
+
 # License
 
 GPL3 
