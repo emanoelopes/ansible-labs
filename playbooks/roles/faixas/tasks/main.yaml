@@ -124,3 +124,15 @@
     arguments: /S
     state: present
   tags: never,faixa1,androidstudio_install
+
+- name: Ensure tomcat files are copied already to the hosts
+  win_get_url:
+    url: "{{ tomcat_url }}"
+    dest: "{{ windows_temp_folder }}"
+  tags: never,tomcat_download
+
+- name: Ensure that apache files are unziped at documents folder
+  win_unzip:
+    src: "{{ tomcat_zip_file }}"
+    dest: "{{ aluno_documents_folder }}"
+  tags: never,tomcat_unzip

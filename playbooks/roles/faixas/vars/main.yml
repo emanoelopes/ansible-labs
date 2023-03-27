@@ -1,4 +1,8 @@
+tomcat_url: 'https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.73/bin/apache-tomcat-9.0.73.zip'
+tomcat_zip_file: 'c:\Windows\Temp\apache-tomcat-9.0.73.zip'
+windows_temp_folder: 'c:\Windows\Temp'
 downloads: 'c:\Users\aluno\Downloads'
+aluno_documents_folder: 'c:\Users\aluno\Documents'  
 p5_url: 'https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip'
 aplicativos: 'c:\Aplicativos'
 processing_url: 'https://github.com/processing/processing4/releases/download/processing-1289-4.1.1/processing-4.1.1-windows-x64.zip'
