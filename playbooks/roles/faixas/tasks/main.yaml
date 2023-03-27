@@ -142,3 +142,33 @@
     path: "{{ apache_netbeans_url }}"
     arguments: --silent
   tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to netbeans
+  win_firewall_rule:
+    name: netbeans
+    program: c:\program files\netbeans-17\netbeans\bin\netbeans64.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to OpenJDK Platform
+  win_firewall_rule:
+    name: OpenJDK Platform
+    program: c:\program files\openjdk\jdk-18.0.2\bin\java.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
