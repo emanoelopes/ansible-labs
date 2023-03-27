@@ -129,15 +129,15 @@
   win_get_url:
     url: "{{ tomcat_url }}"
     dest: "{{ windows_temp_folder }}"
-  tags: never,tomcat_download
+  tags: never,tomcat
 
 - name: Ensure that tomcat files are unziped at documents folder
   win_unzip:
     src: "{{ tomcat_zip_file }}"
     dest: "{{ aluno_documents_folder }}"
-  tags: never,tomcat_unzip
+  tags: never,tomcat
 
-- name: Ensure apache netbeans are installed
+- name: Ensure apache netbeans is installed
   win_package:
     path: "{{ apache_netbeans_url }}"
     arguments: --silent
@@ -160,8 +160,23 @@
 
 - name: Add firewall rule to provide access to OpenJDK Platform
   win_firewall_rule:
-    name: OpenJDK Platform
+    name: OpenJDK 18 Platform
     program: c:\program files\openjdk\jdk-18.0.2\bin\java.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to OracleJDK Platform
+  win_firewall_rule:
+    name: OracleJDK 17 Platform
+    program: c:\program files\java\jdk-17.0.2\bin\java.exe
     state: present
     enabled: yes
     action: allow

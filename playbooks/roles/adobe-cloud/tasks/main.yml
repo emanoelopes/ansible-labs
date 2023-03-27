@@ -1,5 +1,0 @@
----
-- name: Remove Illustrator Portable
-  win_file:
-    path: C:\Users\aluno\Documents\Adobe Illustrator 2022 Portable.exe
-    state: absent
