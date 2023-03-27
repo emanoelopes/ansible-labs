@@ -85,14 +85,14 @@
 - name: Create Processing shortcut on the desktop 
   community.windows.win_shortcut:
     src: "{{ processing_exec_file }}"
-    dest: C:\Users\aluno\Desktop\processing.lnk
+    dest: "{{ aluno_desktop }}/processing.lnk"
     icon: "{{ processing_exec_file }},0"
   tags: never,processing,faixa1,faixa2
 
 - name: Create DaVinci shortcut on the desktop 
   community.windows.win_shortcut:
     src: "{{ davinci_exec_file }}"
-    dest: C:\Users\aluno\Desktop\davinci.lnk
+    dest: "{{ aluno_desktop }}/davinci.lnk"
     icon: "{{ davinci_exec_file }},0"
   tags: never,davinci,faixa1,faixa2
 

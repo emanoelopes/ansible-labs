@@ -33,4 +33,8 @@
       args: 
         executable: cmd
       tags: never,bin
+    
+    - name: NVDA
+      import_tasks: nvda.yaml
+      tags: never,nvda
 
