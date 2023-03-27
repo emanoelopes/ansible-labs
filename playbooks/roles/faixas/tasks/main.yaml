@@ -131,8 +131,14 @@
     dest: "{{ windows_temp_folder }}"
   tags: never,tomcat_download
 
-- name: Ensure that apache files are unziped at documents folder
+- name: Ensure that tomcat files are unziped at documents folder
   win_unzip:
     src: "{{ tomcat_zip_file }}"
     dest: "{{ aluno_documents_folder }}"
   tags: never,tomcat_unzip
+
+- name: Ensure apache netbeans are installed
+  win_package:
+    path: "{{ apache_netbeans_url }}"
+    arguments: --silent
+  tags: never,apache_netbeans
