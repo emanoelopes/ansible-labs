@@ -2,15 +2,15 @@
   win_chocolatey:
     name: 
       - asio4all #sound driver for reaper
-      - gimp 
-      - inkscape
-      - krita
+      - gimp #smd0056,smd0057,smd0088,smd0089,smd0098,smd0105,smd0110 
+      - inkscape #smd0088,smd0105,smd0110
+      - krita #smd0057,smd0089,smd0098
       - anaconda3
       - audacity #smd0047
       - arduino #smd0112
       - vscode
       - openjdk
-      - octave
+      - octave #smd0047
       - selenium
       - nodejs
       - postman
@@ -23,7 +23,7 @@
       - python
       - pycharm-community
       - wireshark #smd0037
-      - eclipse-cpp
+      - eclipse-cpp #smd0035,smd0047,smd0079,smd0080
     state: latest 
   tags: never,faixa1
 
@@ -45,7 +45,7 @@
     state: present
 
 - name: Download P5 JS
-  tags: never,p5,faixa1,faixa2,smd0035
+  tags: never,p5,faixa1,faixa2,smd0035,sdm0047
   win_get_url:
     url: https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip
     dest: "{{ downloads }}"
