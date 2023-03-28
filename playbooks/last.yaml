@@ -3,6 +3,7 @@
   hosts: '{{ local }}'
   roles:
     - faixas
+    - energia
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml

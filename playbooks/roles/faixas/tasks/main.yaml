@@ -6,8 +6,8 @@
       - inkscape
       - krita
       - anaconda3
-      - audacity
-      - arduino
+      - audacity #smd0047
+      - arduino #smd0112
       - vscode
       - openjdk
       - octave
@@ -22,7 +22,7 @@
     name: 
       - python
       - pycharm-community
-      - wireshark
+      - wireshark #smd0037
       - eclipse-cpp
     state: latest 
   tags: never,faixa1
@@ -45,7 +45,7 @@
     state: present
 
 - name: Download P5 JS
-  tags: never,p5,faixa1,faixa2
+  tags: never,p5,faixa1,faixa2,smd0035
   win_get_url:
     url: https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip
     dest: "{{ downloads }}"
@@ -73,7 +73,7 @@
   win_get_url: 
     url: "{{ processing_url }}" 
     dest: "{{ downloads }}"
-  tags: never,faixa1,faixa2,processing
+  tags: never,faixa1,faixa2,processing,smd0095,smd0096,smd0106
 
 - name: Unzip Processing 
   win_unzip: 
@@ -104,11 +104,11 @@
     icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
   tags: never,faixa2,inkscape
 
-- name: Applied Test Software #SMD0048
+- name: Install Cypress for Applied Test classes #SMD0048
   community.general.npm: 
     name: cypress
     global: true  
-  tags: never,faixa2
+  tags: never,faixa2i,smd0048
 
 - name: Download Android Studio 2022.1 Eletric Eel
   win_get_url:
@@ -135,7 +135,7 @@
   win_unzip:
     src: "{{ tomcat_zip_file }}"
     dest: "{{ aluno_documents_folder }}"
-  tags: never,tomcat
+  tags: never,tomcat,smd0033
 
 - name: Ensure apache netbeans is installed
   win_package:

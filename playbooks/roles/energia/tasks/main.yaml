@@ -1,15 +1,25 @@
 ---
-- name: Escolher o plano de energia equilibrado para 7010, 780, m3209, 5400AIO
+- name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
+  community.windows.win_power_plan:
+    name: equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
+  when: 
+  - ansible_facts['product_name'] != "DB85PRO"
+  tags: never,balanced
+
+- name: Choose High Performance energy power plan for 7010, 780, m3209, 5400AIO
   community.windows.win_power_plan:
     name: alto desempenho #381b4222-f694-41f0-9685-ff5bb260df2e
   when: 
   - ansible_facts['product_name'] != "DB85PRO"
-- name: Escolher o plano Alto desempenho para os HP Compaq
+  tags: never,high_performance
+
+- name: Choose high power plan for HP Compaq 6005
   community.windows.win_power_plan:
     name: Alto desempenho
   when: ansible_facts['product_name'] == "HP Compaq 6005 Pro SFF PC" 
+  tags: always
 
-- name: Desligar todos os dias às 23h
+- name: Ensure schedule task 'Shutdown everyday at 23:00' is present
   community.windows.win_scheduled_task:
     name: Desligar às 23h
     description: Desligar todos os dias às 23h
@@ -24,11 +34,5 @@
     wake_to_run: yes
     state: present
     enabled: yes
-- name: Remover a tarefa de desligamento antiga
-  community.windows.win_scheduled_task:
-    name: 
-    - desligamento 2300
-    - Desligamento automático
-    - desligamento auto
-    state: absent
-#
+  tags: never,shutdown23
+

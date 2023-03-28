@@ -1,6 +1,0 @@
----
-- name: Updating Windows 
-  hosts: "{{ local }}"
-  tasks:
-    - name: Update Windows
-      import_tasks: win_updates.yaml
