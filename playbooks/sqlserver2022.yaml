@@ -1,4 +1,14 @@
-- name: Ensure SQL Server 2022 Developer Edition is installed
+- name: Create user sqlserver
+  win_user:
+    name: sqlserver
+    password: ufc20231
+    state: present
+    groups:
+      - Administradores
+  tags: never,sqlserver_create_user
+
+- name: Copy install files 
   win_copy:
-    src: sqlserver2022/
-    dest: c:\Users\aluno\Downloads
+    src: sqlserver/
+    dest: c:\Users\sqlserver\Downloads
+  tags: never,sqlserver_install_files
