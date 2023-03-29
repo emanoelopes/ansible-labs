@@ -9,6 +9,13 @@
       - Administradores
   tags: never,sqlserver_create_user
 
+- name: Move install files
+  win_copy:
+    src: c:\Users\sqlserver\Downloads\
+    dest: c:\Users\sqlserver.AIO-145\Downloads
+    remote_src: yes
+  tags: never,sqlserver_copy
+
 - name: Copy install files 
   win_copy:
     src: sqlserver/
