@@ -1,0 +1,4 @@
+- name: Ensure SQL Server 2022 Developer Edition is installed
+  win_copy:
+    src: sqlserver2022/
+    dest: c:\Users\aluno\Downloads
