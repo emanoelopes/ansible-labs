@@ -1,10 +1,9 @@
 ---
 - name: Temporary playbook
   hosts: '{{ local }}'
-  gather_facts: false
   roles:
-  #  - faixas
-  #  - energia
+    - faixas
+    - energia
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
@@ -41,5 +40,5 @@
       tags: never,nvda
    
     - name: SQLServer2022
-      import_tasks: sqlserver2022.yaml
-      tags: never,sqlserver2022
+      import_tasks: sqlserver.yaml
+      tags: never,sqlserver

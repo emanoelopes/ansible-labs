@@ -1,0 +1,26 @@
+- name: Create user sqlserver
+  win_user:
+    name: sqlserver
+    password: ufc20231
+    user_cannot_change_password: true
+    password_never_expires: true
+    state: present
+    groups:
+      - Administradores
+  tags: never,sqlserver_create_user
+
+- name: Copy install files 
+  win_copy:
+    src: sqlserver/
+    dest: c:\Users\sqlserver\Downloads
+  tags: never,sqlserver_files
+
+- name: Install SqlServer 
+  win_package:
+    path: c:\Users\sqlserver\Downloads
+    arguments:
+    - /Q
+    - /IACCEPTSQLSERVERLICENSETERMS 
+    - /ACTION="install"
+    - /PID="AAAAA-BBBBB-CCCCC-DDDDD-EEEEE"
+  tags: never,sqlserver_install
