@@ -9,25 +9,17 @@
       - Administradores
   tags: never,sqlserver_create_user
 
-- name: Copy install files
-  win_copy:
-    src: c:\Users\sqlserver\Downloads\
-    dest: c:\Users\sqlserver.AIO-145\Downloads
-    remote_src: yes
-  tags: never,sqlserver_copy
-
-- name: Copy install files 
-  win_copy:
-    src: sqlserver/
-    dest: c:\Users\sqlserver\Downloads
-  tags: never,sqlserver_files
+- name: Download SQL Server Management Studio (SSMS) 
+  win_get_url:
+    url: https://aka.ms/ssmsfullsetup
+    dest: c:\Users\sqlserver.AIO-145\Downloads\SSMS-Setup-ENU.exe
+  tags: never,sqlserver_download_ssms
 
 - name: Install SqlServer 
   win_package:
-    path: c:\Users\sqlserver\Downloads
+    path: https://go.microsoft.com/fwlink/p/?linkid=2215158&clcid=0x416&culture=pt-br&country=br #c:\Users\sqlserver\Downloads
     arguments:
     - /Q
     - /IACCEPTSQLSERVERLICENSETERMS 
     - /ACTION="install"
-    - /PID="AAAAA-BBBBB-CCCCC-DDDDD-EEEEE"
   tags: never,sqlserver_install
