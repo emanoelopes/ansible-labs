@@ -15,12 +15,19 @@
     dest: c:\Users\sqlserver.AIO-145\Downloads\SSMS-Setup-ENU.exe
   tags: never,ssms_download
 
-- name: Install SqlServer 
+- name: Install SQL Server 
   win_package:
     path: https://go.microsoft.com/fwlink/p/?linkid=2215158&clcid=0x416&culture=pt-br&country=br #c:\Users\sqlserver\Downloads
     arguments:
     - /Q
     - /IACCEPTSQLSERVERLICENSETERMS 
     - /ACTION="install"
-    - /SQLSYSADMINACCOUNTS="AIO-145\sqlserver" "AIO-145\aluno" "AIO-145\administrador"
   tags: never,sqlserver_install
+
+- name: Install SQL Server Management Studio (SSMS)
+  win_package:
+    path: c:\Users\sqlserver.AIO-145\Downloads\SSMS-Setup-ENU.exe
+    arguments:
+    - /install
+    - /quiet
+  tags: never,ssms_install

@@ -39,6 +39,6 @@
       import_tasks: nvda.yaml
       tags: never,nvda
    
-    - name: SQLServer2022
+    - name: SQLServer
       import_tasks: sqlserver.yaml
       tags: never,sqlserver
