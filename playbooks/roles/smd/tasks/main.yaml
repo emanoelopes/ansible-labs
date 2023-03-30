@@ -1,0 +1,189 @@
+- name: Install chocolatey packages
+  win_chocolatey:
+    name: 
+      - asio4all #sound driver for reaper
+      - gimp #smd0056,smd0057,smd0088,smd0089,smd0098,smd0105,smd0110 
+      - inkscape #smd0088,smd0105,smd0110
+      - krita #smd0057,smd0089,smd0098
+      - anaconda3
+      - audacity #smd0047
+      - arduino #smd0112
+      - vscode
+      - openjdk
+      - octave #smd0047
+      - selenium
+      - nodejs
+      - postman
+      - reaper
+    state: present
+  tags: never,faixa2
+  
+  win_chocolatey:
+    name: 
+      - python
+      - pycharm-community
+      - wireshark #smd0037
+      - eclipse-cpp #smd0035,smd0047,smd0079,smd0080
+    state: latest 
+  tags: never,faixa1
+
+#- name: Install wick editor
+#  win_package:
+#    path: Windows_Wick.Editor.Setup.1.19.0.exe
+#    state: present
+
+- name: Install FontForge
+  tags: never,faixa2
+  win_package:
+    path: https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe
+    state: present
+
+- name: Glyphr Studio
+  tags: never,faixa2
+  win_package:
+    path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
+    state: present
+
+- name: Download P5 JS
+  tags: never,p5,faixa1,faixa2,smd0035,sdm0047
+  win_get_url:
+    url: https://github.com/processing/p5.js/releases/download/v1.5.0/p5.zip
+    dest: "{{ downloads }}"
+
+- name: Unzip P5 JS
+  tags: never,p5,faixa1,faixa2
+  win_unzip: 
+    src: "{{ downloads }}/p5.zip"
+    dest: "{{ aplicativos }}/p5"
+    delete_archive: yes
+
+#- name: MediBang Paint Pro
+#  win_package:
+#    path: https://medibangpaint.com/static/installer/MediBangPaintPro/MediBangPaintProSetup-28.1-64bit.exe
+#    state: present
+#    arguments:
+#    - /silent
+#
+#- name: Kicad
+#  win_package:
+#    path: https://github.com/KiCad/kicad-source-mirror/releases/download/6.0.6/kicad-6.0.6_1-x86_64.exe
+#    state: present
+
+- name: Downloading Processing 
+  win_get_url: 
+    url: "{{ processing_url }}" 
+    dest: "{{ downloads }}"
+  tags: never,faixa1,faixa2,processing,smd0095,smd0096,smd0106
+
+- name: Unzip Processing 
+  win_unzip: 
+    src: "{{ downloads }}/{{ processing_zip_file }}"
+    dest: c:\Program Files
+    delete_archive: yes
+  tags: never,faixa1,faixa2,processing
+
+- name: Create Processing shortcut on the desktop 
+  community.windows.win_shortcut:
+    src: "{{ processing_exec_file }}"
+    dest: "{{ aluno_desktop }}/processing.lnk"
+    icon: "{{ processing_exec_file }},0"
+  tags: never,processing,faixa1,faixa2
+
+- name: Create DaVinci shortcut on the desktop 
+  community.windows.win_shortcut:
+    src: "{{ davinci_exec_file }}"
+    dest: "{{ aluno_desktop }}/davinci.lnk"
+    icon: "{{ davinci_exec_file }},0"
+  tags: never,davinci,faixa1,faixa2
+
+
+- name: Create a shortcut for inkscape
+  win_shortcut:
+    src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
+    dest: c:\Users\aluno\Desktop\inkscape.lnk
+    icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
+  tags: never,faixa2,inkscape
+
+- name: Install Cypress for Applied Test classes #SMD0048
+  community.general.npm: 
+    name: cypress
+    global: true  
+  tags: never,faixa2i,smd0048
+
+- name: Download Android Studio 2022.1 Eletric Eel
+  win_get_url:
+    url: "{{ androidstudio_url }}"
+    dest: "{{ downloads }}"
+  register: androidstudio_downloaded
+  tags: never,faixa1,androidstudio
+
+- name: Install Android Studio
+  win_package:
+    path: "{{ downloads }}/{{ androidstudio_exe_file }}"
+    #path: "{{ androidstudio_downloaded.dest }}"
+    arguments: /S
+    state: present
+  tags: never,faixa1,androidstudio_install
+
+- name: Ensure tomcat files are copied already to the hosts
+  win_get_url:
+    url: "{{ tomcat_url }}"
+    dest: "{{ windows_temp_folder }}"
+  tags: never,tomcat
+
+- name: Ensure that tomcat files are unziped at documents folder
+  win_unzip:
+    src: "{{ tomcat_zip_file }}"
+    dest: "{{ aluno_documents_folder }}"
+  tags: never,tomcat,smd0033
+
+- name: Ensure apache netbeans is installed
+  win_package:
+    path: "{{ apache_netbeans_url }}"
+    arguments: --silent
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to netbeans
+  win_firewall_rule:
+    name: netbeans
+    program: c:\program files\netbeans-17\netbeans\bin\netbeans64.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to OpenJDK Platform
+  win_firewall_rule:
+    name: OpenJDK 18 Platform
+    program: c:\program files\openjdk\jdk-18.0.2\bin\java.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to OracleJDK Platform
+  win_firewall_rule:
+    name: OracleJDK 17 Platform
+    program: c:\program files\java\jdk-17.0.2\bin\java.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
