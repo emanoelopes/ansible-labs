@@ -9,10 +9,18 @@
       - Administradores
   tags: never,sqlserver_create_user
 
+- name: Ensure download destination folder exists
+  win_file: 
+    path: c:\Users\sqlserver.AIO-145\Downloads
+    state: directory 
+  register: result
+  tags: never,ssms_download
+
 - name: Download SQL Server Management Studio (SSMS) 
   win_get_url:
     url: https://aka.ms/ssmsfullsetup
     dest: c:\Users\sqlserver.AIO-145\Downloads\SSMS-Setup-ENU.exe
+  when: result is succeeded
   tags: never,ssms_download
 
 - name: Install SQL Server 
