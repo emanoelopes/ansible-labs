@@ -13,7 +13,7 @@
   win_get_url:
     url: https://aka.ms/ssmsfullsetup
     dest: c:\Users\sqlserver.AIO-145\Downloads\SSMS-Setup-ENU.exe
-  tags: never,sqlserver_download_ssms
+  tags: never,ssms_download
 
 - name: Install SqlServer 
   win_package:
