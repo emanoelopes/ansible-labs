@@ -17,7 +17,7 @@
   community.windows.win_power_plan:
     name: Alto desempenho
   when: ansible_facts['product_name'] == "HP Compaq 6005 Pro SFF PC" 
-  tags: always
+  tags: never,high_performance 
 
 - name: Ensure schedule task 'Shutdown everyday at 23:00' is present
   community.windows.win_scheduled_task:
