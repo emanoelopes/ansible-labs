@@ -23,7 +23,7 @@ playbooks/last.yaml ----  Playbook file location;
 
 # License
 
-GPL3 
+gpl-3.0
 
 # Author Information
 
