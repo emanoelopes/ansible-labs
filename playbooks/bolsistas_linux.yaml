@@ -1,7 +1,7 @@
 ---
 
-- name: Trainee computers 
-  hosts: estagiarios
+- name: Trainee linux computers update
+  hosts: bolsistas 
   become: yes
   tasks:
   - name: Update all packages 

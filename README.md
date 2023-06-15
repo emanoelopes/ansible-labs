@@ -1,29 +1,31 @@
 # Managing Windows and macOS hosts with Ansible
 
-This repository contains Ansible playbooks, roles and tasks to manage on-premises Windows 10/11  and macOS computer labs. 
+This repository contains Ansible playbooks, roles and tasks to manage on-premises Windows 10/11 and macOS machines on computer labs. 
 
 Created to support mantaining daily techinical routines like: 
 - Install apps;
 - Users management;
 - Scheduled tasks management;
-- Change Power plan on Windows 10;
-- Windows updates: Drivers, Definitions Updates, etc.
+- Change power plan on Windows 10;
+- Windows updates: drivers, definitions updates etc.
 - and much more.
 
 Example:
 
-ansible-playbook playbooks/last.yaml -e "local=ip_address" -k -t netbeans
-
+```shell
+$ ansible-playbook playbooks/last.yaml -e "local=ip_address" -k -t netbeans
+```
+```
 ansible-playbok --------  Using a playbook file;
 playbooks/last.yaml ----  Playbook file location;
 -e "local=ip_address" --  Especify local variable;
 -k ---------------------  Ask admin user password;
 -t ---------------------  Call a especific tag.
-
+``` 
 
 # License
 
-GPL3 
+gpl-3.0
 
 # Author Information
 
