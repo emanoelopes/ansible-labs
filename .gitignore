@@ -3,5 +3,7 @@ mynodes.ini
 macs.ini
 *.exe
 *.zip
+*.png
+*.jpg
 group_vars/all.yaml
 SMD*
