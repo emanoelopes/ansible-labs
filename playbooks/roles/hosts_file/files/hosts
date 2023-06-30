@@ -29,11 +29,11 @@
 0.0.0.0	http://www.facebook.com.br
 0.0.0.0	www.facebook.com.br
 
-# Google
-0.0.0.0	google.com.br
-0.0.0.0	www.google.com.br
-0.0.0.0	www.google.com
-0.0.0.0	google.com
+## Google
+#0.0.0.0	google.com.br
+#0.0.0.0	www.google.com.br
+#0.0.0.0	www.google.com
+#0.0.0.0	google.com
 
 # WhatsApp
 0.0.0.0 whatsapp.com
