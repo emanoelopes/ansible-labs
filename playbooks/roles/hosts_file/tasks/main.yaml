@@ -2,39 +2,54 @@
   win_copy:
     src: update_hosts_windows.bat
     dest: "{{ windows_hosts_location }}"
-  tags: never,update_hosts_batch_file_copy,update_hosts_file
+  tags: never,update_hosts
 
 - name: Execute batch file
   win_command:
     chdir: "{{ windows_hosts_location }}"
     cmd: update_hosts_windows.bat
-  tags: never,update_hosts_file_bat,update_hosts_file
+  tags: never,update_hosts
 
 - name: Copy Update Hosts file to Windows host
   win_copy:
     src: hosts
     dest: "{{ windows_hosts_location }}"
-  tags: never,update_hosts_file_copy,update_hosts_file
+  tags: never,update_hosts
 
 - name: Ensure firewall rule to block Discord Application
   win_firewall_rule:
     name: Block Discord Application
-    program: '%SystemDrive%\Users\peter\AppData\Local\Discord\app-1.0.9013\Discord.exe'
+    program: '%SystemDrive%\Users\aluno\AppData\Local\Discord\app-1.0.9013\Discord.exe'
     state: present
     enabled: yes
     action: block
-    direction: in 
+    direction: out 
     localport: any
     localip: any
     remoteport: any
     remoteip: any
     protocol: tcp
-  tags: never,block_discord_firewall,update_hosts_file
+  tags: never,block_discord,update_hosts
 
 - name: Restore Hosts original file
   win_copy:
     src: hosts.bkp
     dest: "{{ windows_hosts_location }}/hosts"
-  tags: never,restore_hosts_file
+  tags: never,restore_hosts
+
+- name: Ensure firewall rule to allow Discord Application
+  win_firewall_rule:
+    name: Block Discord Application
+    program: '%SystemDrive%\Users\aluno\AppData\Local\Discord\app-1.0.9013\Discord.exe'
+    state: present
+    enabled: no
+    action: block
+    direction: out 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,allow_discord,restore_hosts
 
 
