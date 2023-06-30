@@ -1,10 +1,11 @@
 ---
-- name: Temporary playbook
+- name: Main Execution Playbook
   hosts: '{{ local }}'
   roles:
     - faixas
     - energia
     - powerbi
+    - hosts_file
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
