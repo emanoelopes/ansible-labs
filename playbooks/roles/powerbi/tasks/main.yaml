@@ -7,11 +7,11 @@
     password_never_expires: yes
     user_cannot_change_password: yes
     state: present
-  tags: nerver,add_user
+  tags: nerver,add_user_powerbi
 
 - name: Copy powerbi installer to the windows host
   win_copy:
     src: PBIDesktopSetup_x64.exe
     dest: C:\Users\aluno\Downloads
-  tags: never,copy
+  tags: never,copy_powerbi_install
 

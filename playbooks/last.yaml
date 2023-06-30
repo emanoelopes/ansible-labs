@@ -4,6 +4,7 @@
   roles:
     - faixas
     - energia
+    - powerbi
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
