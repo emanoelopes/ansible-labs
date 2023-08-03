@@ -44,3 +44,7 @@
     - name: SQLServer
       import_tasks: sqlserver.yaml
       tags: never,sqlserver
+    
+    - name: DaVinci Resolve Install/Update
+      import_tasks: davinci_resolve.yaml
+      tags: never,davinci_resolve
