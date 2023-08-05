@@ -1,7 +1,7 @@
 apache_netbeans_url: 'https://dlcdn.apache.org/netbeans/netbeans-installers/17/Apache-NetBeans-17-bin-windows-x64.exe'
 tomcat_url: 'https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.73/bin/apache-tomcat-9.0.73.zip'
 tomcat_zip_file: 'c:\Windows\Temp\apache-tomcat-9.0.73.zip'
-windows_temp_folder: 'c:\Windows\Temp'
+windows_temp: 'c:\Windows\Temp'
 downloads: 'c:\Users\aluno\Downloads'
 aluno_documents_folder: 'c:\Users\aluno\Documents'  
 aluno_desktop: 'c:\Users\aluno\Desktop'

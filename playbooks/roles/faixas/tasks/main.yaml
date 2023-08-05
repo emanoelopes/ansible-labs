@@ -91,20 +91,20 @@
 
 - name: DaVinci Resolve - copy zip file to the target
   win_copy:
-    src="{{ davinci_zip_file }}"
-    dest=C:/Users/aluno/Downloads
+    src: "{{ davinci_zip_file }}"
+    dest: "{{ windows_temp }}"
   tags: never,copy_davinci
 
 - name: DaVinci Resolve - Unzip Install file
   win_unzip:
-    src: "C:\Users\aluno\Downloads\{{ davinci_zip_file }}"
-    dest: "C:\Users\aluno\Downloads"
+    src: "{{ windows_temp }}/{{ davinci_zip_file }}"
+    dest: "{{ windows_temp }}" 
     delete_archive: yes
   tags: never,unzip_davinci
 
 - name: DaVinci Resolve - Ensure is installed
   win_package:
-    path: "c:\Users\aluno\Downloads\{{ davinci_install_file }}"
+    path: "{{ downloads }}/{{ davinci_install_file }}"
     arguments: /q
   tags: never,install_davinci
 
@@ -132,13 +132,13 @@
 - name: Download Android Studio 2022.1 Eletric Eel
   win_get_url:
     url: "{{ androidstudio_url }}"
-    dest: "{{ downloads }}"
+    dest: "{{ windows_temp }}"
   register: androidstudio_downloaded
   tags: never,faixa1,androidstudio
 
 - name: Install Android Studio
   win_package:
-    path: "{{ downloads }}/{{ androidstudio_exe_file }}"
+    path: "{{ windows_temp }}/{{ androidstudio_exe_file }}"
     #path: "{{ androidstudio_downloaded.dest }}"
     arguments: /S
     state: present
@@ -147,7 +147,7 @@
 - name: Ensure tomcat files are copied already to the hosts
   win_get_url:
     url: "{{ tomcat_url }}"
-    dest: "{{ windows_temp_folder }}"
+    dest: "{{ windows_temp }}"
   tags: never,tomcat
 
 - name: Ensure that tomcat files are unziped at documents folder
