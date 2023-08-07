@@ -93,19 +93,23 @@
   win_copy:
     src: "{{ davinci_zip_file }}"
     dest: "{{ windows_temp }}"
+  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,copy_davinci
+
 
 - name: DaVinci Resolve - Unzip Install file
   win_unzip:
     src: "{{ windows_temp }}/{{ davinci_zip_file }}"
     dest: "{{ windows_temp }}" 
     delete_archive: yes
+  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,unzip_davinci
 
 - name: DaVinci Resolve - Ensure is installed
   win_package:
     path: "{{ downloads }}/{{ davinci_install_file }}"
     arguments: /q
+  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,install_davinci
 
 - name: DaVinci Resolve - create shortcut on the desktop 

@@ -11,7 +11,7 @@ processing_url: 'https://github.com/processing/processing4/releases/download/pro
 processing_zip_file: 'processing-4.1.1-windows-x64.zip'
 processing_exec_file: 'C:\Program Files\processing-4.1.1\processing.exe'
 davinci_zip_file: 'C:\Users\aluno\Downloads\DaVinci_Resolve_18.5_Windows.zip'
-davinci_install_file: 'C:\Users\aluno\Downloads\DaVinci_Resolve_18.5_Windows.exe'
+davinci_install_file: 'DaVinci_Resolve_18.5_Windows.exe'
 davinci_exec_file: 'C:\Arquivos de Programas\Blackmagic Design\DaVinci Resolve\Resolve.exe'
 androidstudio_url: 'https://redirector.gvt1.com/edgedl/android/studio/install/2022.1.1.19/android-studio-2022.1.1.19-windows.exe'
 androidstudio_exe_file: 'android-studio-2022.1.1.19-windows.exe'

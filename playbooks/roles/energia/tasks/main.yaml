@@ -1,14 +1,14 @@
 ---
 - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
   community.windows.win_power_plan:
-    name: equilibrado #381b4222-f694-41f0-9685-ff5bb260df2e
+    name: equilibrado 
   when: 
   - ansible_facts['product_name'] != "DB85PRO"
   tags: never,balanced
 
 - name: Choose High Performance energy power plan for 7010, 780, m3209, 5400AIO
   community.windows.win_power_plan:
-    name: alto desempenho #381b4222-f694-41f0-9685-ff5bb260df2e
+    name: alto desempenho 
   when: 
   - ansible_facts['product_name'] != "DB85PRO"
   tags: never,high_performance
