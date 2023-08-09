@@ -3,13 +3,12 @@
   hosts: "{{ local }}"
   gather_facts: false
   vars:
-    directories: ['C:\Users\aluno\Downloads'] #,'C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
+    directories: ['C:\Users\aluno\Downloads','C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
   tasks:
     - name: Collect directories
       tags: always
       win_find:
         paths: "{{ directories }}"
-        recurse: true
         file_type: directory
       register: collected_directories
 
@@ -24,16 +23,14 @@
       tags: always
       win_find:
         paths: "{{ directories }}"
-        recurse: true
       register: collected_files
 
-    #    - name: Collect links
-    #      tags: always
-    #      win_find:
-    #        paths: "{{ directories }}"
-    #        recurse: true
-    #        patterns: ['*.lnk']
-    #      register: collected_links
+    - name: Collect links
+      tags: always
+      win_find:
+        paths: "{{ directories }}"
+        patterns: ['*.lnk']
+      register: collected_links
 
     - name: Remove files
       tags: never, delete
@@ -41,8 +38,9 @@
         path: "{{ item.path }}"
         state: absent
       with_items: "{{ collected_files.files }}"
+      when: collected_files.files != collected_links.files
 
     # - name: Only extension
     #   debug:
-    #     msg: "{{ item.extension }}"
-    #   loop: collected_files.files
+    #     msg: "{{ collected_files != collected_links }}"
+    #    loop: "{{ collected_links.files }}"
