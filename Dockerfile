@@ -43,7 +43,10 @@ RUN apk --update add --virtual \
         ansible \
  && apk del \
         .build-deps \
- && rm -rf /var/cache/apk/*
+ && rm -rf /var/cache/apk/* \
+ && useradd ansible -s /bin/bash \
+ chown -R ansible:ansible /home/ansible/ \
+ && echo "ansible ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 RUN mkdir -p /etc/ansible \
  && echo 'localhost' > /etc/ansible/hosts \
