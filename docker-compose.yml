@@ -1,0 +1,9 @@
+version: 0.1
+
+services:
+  ansible:
+    build: . 
+    volumes:
+      - ansible-labs:/home/emanoel/ansible-labs
+volumes:
+  myapp:

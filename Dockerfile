@@ -1,4 +1,4 @@
-FROM alpine:3.16.2
+FROM alpine:3.16.6
 
 # Metadata params
 ARG BUILD_DATE
@@ -25,9 +25,9 @@ RUN apk --update --no-cache add \
         py3-pip \
         py3-cryptography \
         sshpass \
-        pywinrm[credssp] \
         openssh-client \
-        rsync 
+        rsync \
+        git 
 
 RUN apk --update add --virtual \
         .build-deps \
@@ -54,6 +54,10 @@ Host *\n\
     UserKnownHostsFile=/dev/null\n\
 """ >> /etc/ssh/ssh_config
 
+ADD . /ansible-labs
+
+VOLUME /home/emanoel/ansible-labs /ansible-labs
+
 #COPY entrypoint /usr/local/bin/
 
 WORKDIR /ansible-labs
@@ -62,4 +66,3 @@ WORKDIR /ansible-labs
 
 # default command: display Ansible version
 CMD [ "ansible-playbook", "--version" ]
-
