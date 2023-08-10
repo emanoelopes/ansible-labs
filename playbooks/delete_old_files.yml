@@ -1,18 +1,17 @@
 ---
 - name: Remove old user files and directories
-  hosts: '{{ local }}' 
+  hosts: "{{ local }}"
   gather_facts: false
   vars:
     directories: ['C:\Users\aluno\Downloads','C:\Users\aluno\Desktop','C:\Users\aluno\Documents','C:\Users\aluno\Videos','C:\Users\aluno\Pictures']
   tasks:
-    - name: Collect directories 
+    - name: Collect directories
       tags: always
       win_find:
         paths: "{{ directories }}"
-        recurse: true 
-        file_type: directory 
+        file_type: directory
       register: collected_directories
-    
+
     - name: Remove directories
       tags: never, delete
       win_file:
@@ -20,12 +19,18 @@
         state: absent
       with_items: "{{ collected_directories.files }}"
 
-    - name: Collect files 
+    - name: Collect files
       tags: always
       win_find:
         paths: "{{ directories }}"
-        recurse: true 
       register: collected_files
+
+    - name: Collect links
+      tags: always
+      win_find:
+        paths: "{{ directories }}"
+        patterns: ['*.lnk']
+      register: collected_links
 
     - name: Remove files
       tags: never, delete
@@ -33,3 +38,9 @@
         path: "{{ item.path }}"
         state: absent
       with_items: "{{ collected_files.files }}"
+      when: collected_files.files != collected_links.files
+
+    # - name: Only extension
+    #   debug:
+    #     msg: "{{ collected_files != collected_links }}"
+    #    loop: "{{ collected_links.files }}"

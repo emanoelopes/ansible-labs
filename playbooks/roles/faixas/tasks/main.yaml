@@ -92,15 +92,14 @@
 - name: DaVinci Resolve - copy zip file to the target
   win_copy:
     src: "{{ davinci_zip_file }}"
-    dest: "{{ windows_temp }}"
+    dest: "{{ downloads}}"
   when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,copy_davinci
 
-
 - name: DaVinci Resolve - Unzip Install file
   win_unzip:
-    src: "{{ windows_temp }}/{{ davinci_zip_file }}"
-    dest: "{{ windows_temp }}" 
+    src: "{{ downloads }}/{{ davinci_zip_file }}"
+    dest: "{{ downloads }}" 
     delete_archive: yes
   when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,unzip_davinci
