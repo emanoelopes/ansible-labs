@@ -209,3 +209,9 @@
     remoteip: any
     protocol: tcp
   tags: never,apache_netbeans
+
+- name: Ensure LibreOffice is installed on Windows hosts
+  win_package:
+    path: "{{ libre_office_url }}"
+    state: present
+  tags: never,libre_office
