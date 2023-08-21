@@ -1,5 +1,5 @@
 control:
-  build: ansiblelab:latest
+  build: ansiblelabs:latest
   hostname: controller
   volumes:
     - ansible-labs:/home/emanoel/ansible-labs

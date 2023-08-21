@@ -57,7 +57,7 @@ Host *\n\
     UserKnownHostsFile=/dev/null\n\
 """ >> /etc/ssh/ssh_config
 
-ADD . /ansible-labs
+# ADD . /ansible-labs
 
 VOLUME /home/emanoel/ansible-labs /ansible-labs
 
