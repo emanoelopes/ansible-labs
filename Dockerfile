@@ -43,10 +43,7 @@ RUN apk --update add --virtual \
         ansible \
  && apk del \
         .build-deps \
- && rm -rf /var/cache/apk/* \
- && useradd ansible -s /bin/bash \
- chown -R ansible:ansible /home/ansible/ \
- && echo "ansible ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+ && rm -rf /var/cache/apk/* 
 
 RUN mkdir -p /etc/ansible \
  && echo 'localhost' > /etc/ansible/hosts \
@@ -57,7 +54,7 @@ Host *\n\
     UserKnownHostsFile=/dev/null\n\
 """ >> /etc/ssh/ssh_config
 
-# ADD . /ansible-labs
+ADD . /ansible-labs
 
 VOLUME /home/emanoel/ansible-labs /ansible-labs
 
