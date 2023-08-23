@@ -44,3 +44,7 @@
     - name: SQLServer
       import_tasks: sqlserver.yaml
       tags: never,sqlserver
+    
+    - name: Copy Adobe Package install file to the mac laboratory
+      import_tasks: sync.yaml
+      tags: never,sync
