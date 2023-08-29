@@ -1,0 +1,6 @@
+---
+  - name: Ensure Unity Hub Setup is on local user directory
+    copy:
+      src: UnityHubSetup.dmg
+      dest: /Users/aluno/Downloads/UnityHubSetup.dmg
+#    when: ansible_facts[''] -- ""
