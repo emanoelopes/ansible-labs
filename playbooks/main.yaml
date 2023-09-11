@@ -6,6 +6,7 @@
     - energia
     - powerbi
     - hosts_file
+    - blender
   tasks:
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
