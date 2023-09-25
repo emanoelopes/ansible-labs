@@ -1,6 +1,6 @@
 ---
 - name: lab3
-  hosts: 10.102.227.103
+  hosts: '{{ local }}'
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
