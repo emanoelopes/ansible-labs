@@ -1,0 +1,15 @@
+---
+  - name: Ensure julia installer is on windows host
+    win_copy: 
+      src: julia-1.9.3-win64.exe
+      dest: c:\Windows\Temp 
+    tags: copy_julia
+  - name: Install Julia 
+    win_package:
+      path: c:\Windows\Temp\julia-1.9.3-win64.exe
+      state: present
+      arguments:
+      - /SP
+      - /SILENT
+      - /CURRENTUSER
+    tags: install_julia
