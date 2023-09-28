@@ -10,13 +10,16 @@
       - blender
       - firefox
       - vlc
+      - unity-hub
+      - wacom-tablet
     homebrew_installed_packages:
       - tmux
       - node
       - mas
+      - fontforge
     homebrew_cask_accept_external_apps: true
     homebrew_cask_appdir: /Applications
-    install_homebrew_if_missing: false
+    install_homebrew_if_missing: true 
     homebrew_upgrade_all_packages: false 
     mas_installed_apps:
       - { id: 421131143, name: "MPlayerX" }   
