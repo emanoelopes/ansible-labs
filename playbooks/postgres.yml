@@ -1,11 +1,11 @@
 ---
-- name: Install PostgreSQL 15.1 on Windows hosts 
+- name: Install PostgreSQL on Windows hosts 
   hosts: '{{ local }}' 
 
   vars:
     temp_dir: c:\Users\aluno\Downloads\
     old_install_dir: c:\Program Files\postgreSQL 
-    install_file: postgresql-15.1-1-windows-x64.exe 
+    install_file: postgresql-16.0-1-windows-x64.exe
 
   pre_tasks: 
     - name: Remove any pre-existent installation directory 
@@ -22,7 +22,7 @@
 
   tasks:
     - name: Install PostgreSQL 15.1 and set postgres password
-      win_shell: 'postgresql-15.1-1-windows-x64.exe --unattendedmodeui none --mode unattended --superpassword ufc123'
+      win_shell: 'postgresql-16.0-1-windows-x64.exe --unattendedmodeui none --mode unattended --superpassword ufc123'
       args:
         chdir: '{{ temp_dir }}'
         executable: cmd
