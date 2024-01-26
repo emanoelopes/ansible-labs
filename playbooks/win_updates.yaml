@@ -39,9 +39,9 @@
     state: installed
     log_path: C:\Windows\Temp\ansible_updates_first_run.txt
 
-#- name: First update run reboot
-#  win_reboot:
-#    reboot_timeout: 3600
+- name: First update run reboot
+  win_reboot:
+    reboot_timeout: 3600
 
 - name: Second update run
   ansible.windows.win_updates:
@@ -54,9 +54,9 @@
     state: installed
     log_path: C:\Windows\Temp\ansible_updates_second_run.txt
 
-#- name: Second update run reboot
-#  win_reboot:
-#    reboot_timeout: 3600
+- name: Second update run reboot
+  win_reboot:
+    reboot_timeout: 3600
 
 - name: Third update run
   ansible.windows.win_updates:
@@ -69,9 +69,9 @@
     state: installed
     log_path: C:\Windows\Temp\ansible_updates_third_run.txt
 
-#- name: Third update run reboot
-#  win_reboot:
-#    reboot_timeout: 3600
+- name: Third update run reboot
+  win_reboot:
+    reboot_timeout: 3600
 
 - name: Post Update Check
   ansible.windows.win_updates:
