@@ -130,14 +130,14 @@
   community.general.npm: 
     name: cypress
     global: true  
-  tags: never,faixa2i,smd0048
+  tags: never,faixa2,smd0048
 
 - name: Download Android Studio 2022.1 Eletric Eel
   win_get_url:
     url: "{{ androidstudio_url }}"
     dest: "{{ windows_temp }}"
   register: androidstudio_downloaded
-  tags: never,faixa1,androidstudio
+  tags: never,androidstudio
 
 - name: Install Android Studio
   win_package:
@@ -145,7 +145,7 @@
     #path: "{{ androidstudio_downloaded.dest }}"
     arguments: /S
     state: present
-  tags: never,faixa1,androidstudio_install
+  tags: never,androidstudio_install
 
 - name: Ensure tomcat files are copied already to the hosts
   win_get_url:
