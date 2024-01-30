@@ -44,10 +44,16 @@
     path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
     state: present
 
+- name: Removing old P5 JS
+  tags: never,p5,faixa1,faixa2
+  win_file:
+    path: "{{ aplicativos }}/p5"
+    state: absent
+
 - name: Download P5 JS
   tags: never,p5,faixa1,faixa2,smd0035,sdm0047
   win_get_url:
-    url: https://github.com/processing/p5.js/releases/download/v1.7.0/p5.zip 
+    url: "{{ p5_url }}" 
     dest: "{{ downloads }}"
 
 - name: Unzip P5 JS
@@ -94,7 +100,7 @@
     src: "{{ davinci_zip_file }}"
     dest: "{{ downloads}}"
   when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
-  tags: never,copy_davinci
+  tags: never,davinci
 
 - name: DaVinci Resolve - Unzip Install file
   win_unzip:
@@ -102,21 +108,21 @@
     dest: "{{ downloads }}" 
     delete_archive: yes
   when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
-  tags: never,unzip_davinci
+  tags: never,davinci
 
 - name: DaVinci Resolve - Ensure is installed
   win_package:
     path: "{{ downloads }}/{{ davinci_install_file }}"
     arguments: /q
   when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
-  tags: never,install_davinci
+  tags: never,davinci
 
 - name: DaVinci Resolve - create shortcut on the desktop 
   community.windows.win_shortcut:
     src: "{{ davinci_exec_file }}"
     dest: "{{ aluno_desktop }}/davinci.lnk"
     icon: "{{ davinci_exec_file }},0"
-  tags: never,dr_shortcut,faixa1,faixa2
+  tags: never,davinci
 
 
 - name: Create a shortcut for inkscape
@@ -132,7 +138,7 @@
     global: true  
   tags: never,faixa2,smd0048
 
-- name: Download Android Studio 2022.1 Eletric Eel
+- name: Download Android Studio 
   win_get_url:
     url: "{{ androidstudio_url }}"
     dest: "{{ windows_temp }}"
@@ -145,7 +151,7 @@
     #path: "{{ androidstudio_downloaded.dest }}"
     arguments: /S
     state: present
-  tags: never,androidstudio_install
+  tags: never,androidstudio
 
 - name: Ensure tomcat files are copied already to the hosts
   win_get_url:

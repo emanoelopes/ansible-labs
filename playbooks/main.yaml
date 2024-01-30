@@ -4,7 +4,6 @@
   roles:
     - faixas
     - energia
-    - powerbi
     - hosts_file
     - blender
   tasks:

@@ -15,7 +15,7 @@ pre_tasks:
     win_copy:
       src: '{{ install_file }}'
       dest: '{{ temp_dir }}'
-    tags: postgresql_copy
+    tags: postgresql
 
 tasks:
   - name: Install PostgreSQL 15.1 and set postgres password
@@ -23,4 +23,4 @@ tasks:
     args:
       chdir: '{{ temp_dir }}'
       executable: cmd
-    tags: postgresql_install
+    tags: postgresql
