@@ -14,7 +14,7 @@
       register: collected_directories
     
     - name: Remove directories
-      tags: never, delete
+      tags: never,delete
       win_file:
         path: "{{ item }}"
         state: absent

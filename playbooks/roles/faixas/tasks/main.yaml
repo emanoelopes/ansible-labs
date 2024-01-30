@@ -15,7 +15,7 @@
       - nodejs
       - postman
       - reaper
-    state: present
+    state: latest 
   tags: never,faixa2
   
   win_chocolatey:
@@ -35,7 +35,7 @@
 - name: Install FontForge
   tags: never,faixa2
   win_package:
-    path: https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe
+    path: "{{ fontforge_url }}" 
     state: present
 
 - name: Glyphr Studio
@@ -138,20 +138,26 @@
     global: true  
   tags: never,faixa2,smd0048
 
+- name: Remove old version of Android Studio
+  win_package:
+    path: c:\Program Files\Android\Android Studio\uninstall.exe
+    state: absent
+  tags: never,androidstudio_remove
+
 - name: Download Android Studio 
   win_get_url:
     url: "{{ androidstudio_url }}"
     dest: "{{ windows_temp }}"
   register: androidstudio_downloaded
-  tags: never,androidstudio
+  tags: never,androidstudio_download
 
 - name: Install Android Studio
   win_package:
     path: "{{ windows_temp }}/{{ androidstudio_exe_file }}"
     #path: "{{ androidstudio_downloaded.dest }}"
-    arguments: /S
+    #arguments: /S
     state: present
-  tags: never,androidstudio
+  tags: never,androidstudio_install
 
 - name: Ensure tomcat files are copied already to the hosts
   win_get_url:
