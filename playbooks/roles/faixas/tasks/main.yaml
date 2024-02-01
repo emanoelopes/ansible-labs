@@ -34,7 +34,7 @@
 #  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,blender
 
-- name: Ensure shortcut is present
+- name: Ensure Blender shortcut is present
   win_shortcut:
     src: C:\Program Files\Blender Foundation\Blender 3.6\blender.exe
     dest: C:\Users\Public\Desktop\Blender.lnk
@@ -113,7 +113,7 @@
 - name: DaVinci Resolve - copy zip file to the target
   win_copy:
     src: "{{ davinci_zip_file }}"
-    dest: "{{ downloads}}"
+    dest: "{{ downloads }}"
   when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   tags: never,davinci
 
@@ -153,31 +153,36 @@
     global: true  
   tags: never,faixa2,smd0048
 
-- name: Remove old version of Android Studio
-  win_package:
-    path: c:\Program Files\Android\Android Studio\uninstall.exe
+#- name: Download Android Studio 
+#  win_get_url:
+#    url: "{{ androidstudio_url }}"
+#    dest: "{{ user_temp_folder }}"
+#  register: androidstudio_downloaded
+#  tags: never,androidstudio_download
+#
+#- name: Install Android Studio
+#  win_package:
+#    path: "{{ user_temp_folder }}/{{ androidstudio_exe_file }}"
+#    arguments: /S
+#    state: present
+#  tags: never,androidstudio_install
+
+- name: Remove Android Studio Folder
+  win_file:
+    path: "{{ androidstudio }}"
     state: absent
   tags: never,androidstudio_remove
 
-- name: Download Android Studio 
-  win_get_url:
-    url: "{{ androidstudio_url }}"
-    dest: "{{ windows_temp }}"
-  register: androidstudio_downloaded
-  tags: never,androidstudio_download
-
-- name: Install Android Studio
-  win_package:
-    path: "{{ windows_temp }}/{{ androidstudio_exe_file }}"
-    #path: "{{ androidstudio_downloaded.dest }}"
-    #arguments: /S
-    state: present
-  tags: never,androidstudio_install
+- name: AndroidStudio 
+  win_chocolatey:
+    name: androidstudio
+    state: latest
+  tags: never,androidstudio
 
 - name: Ensure tomcat files are copied already to the hosts
   win_get_url:
     url: "{{ tomcat_url }}"
-    dest: "{{ windows_temp }}"
+    dest: "{{ user_temp_folder }}"
   tags: never,tomcat
 
 - name: Ensure that tomcat files are unziped at documents folder
