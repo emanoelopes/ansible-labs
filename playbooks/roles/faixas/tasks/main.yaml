@@ -27,6 +27,21 @@
     state: latest 
   tags: never,faixa1
 
+- name: Install Blender
+  win_chocolatey:
+    name: blender
+    state: latest 
+#  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+  tags: never,blender
+
+- name: Ensure shortcut is present
+  win_shortcut:
+    src: C:\Program Files\Blender Foundation\Blender 3.6\blender.exe
+    dest: C:\Users\Public\Desktop\Blender.lnk
+    icon: C:\Program Files\Blender Foundation\Blender 3.6\blender.exe,0
+#  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+  tags: never,blender
+    
 #- name: Install wick editor
 #  win_package:
 #    path: Windows_Wick.Editor.Setup.1.19.0.exe
@@ -227,3 +242,41 @@
     path: "{{ libre_office_url }}"
     state: present
   tags: never,libre_office
+
+- name: Ensure Python and Pycharm are installed
+  win_chocolatey:
+    name:
+      - python
+      - pycharm-community
+    state: latest
+  tags: never,pycharm
+
+- name: Ensure firewall rule for Pycharm is enabled
+  win_firewall_rule:
+    name: PyCharm
+    program: '{{ pycharm_exec_path }}'
+    direction: in
+    action: allow
+    state: present
+    enabled: yes
+  tags: never,pycharm
+
+- name: Ensure that uninstaller is on Windows\Temp folder
+  win_stat:
+    path: c:\Windows\temp\uninstall_flash_player.exe
+  register: result
+  tags: never,plugin_flashplayer
+
+- name: Copy uninstaller to the OptiPlex target
+  ansible.windows.win_copy:
+    src: uninstall_flash_player.exe
+    dest: c:\Windows\temp
+  when: not result.stat.exists 
+  tags: never,plugin_flashplayer
+
+- name: Uninstall the Flash Player Plugin 
+  ansible.windows.win_package:
+    path: c:\Windows\temp\uninstall_flash_player.exe
+    arguments: -uninstall 
+  tags: never,plugin_flashplayer
+ 
