@@ -1,0 +1,7 @@
+- name: Install BGinfo on Windows Hosts
+  win_copy:
+    src: "bginfo.exe"
+    dest: "{{ aplicativos}}/bginfo"
+    state: present
+  win_copy:
+
