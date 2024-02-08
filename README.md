@@ -1,4 +1,4 @@
-# Managing Windows and macOS physicals macinhes hosts with Ansible
+# Managing Windows and macOS physicals machines hosts with Ansible
 
 This repository contains Ansible playbooks, roles and tasks to manage on-premises Windows 10/11, Linux and macOS machines on computer labs. 
 
