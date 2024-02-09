@@ -296,8 +296,8 @@
     name: BGInfo 
     description: Exibir o nome do usuário logado e o IP do computador
     actions:
-      - path: c:\Aplicativos\bginfo\Bginfo64.exe
-        arguments: /timer:0 /silent
+      - path: c:\Aplicativos\bginfo\Bginfo.exe
+        arguments: /accepteula /timer:0 /silent
     triggers:
     - type: logon 
     username: SYSTEM
