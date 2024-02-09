@@ -51,7 +51,3 @@
     - name: Install Julia
       import_tasks: julia.yaml
       tags: never,julia
-
-    - name: Ensure BGInfo is installed and configured on Windows Hosts
-      import_tasks: bginfo.yaml
-      tags: never,bginfo

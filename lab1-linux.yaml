@@ -1,6 +1,6 @@
 ---
-- name: Trainee linux computers update
-  hosts: bolsistas 
+- name: Linux Hosts on Lab1 
+  hosts: avell
   become: yes
   tasks:
   - name: Update all packages 
