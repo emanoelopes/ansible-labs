@@ -284,20 +284,22 @@
     path: c:\Windows\temp\uninstall_flash_player.exe
     arguments: -uninstall 
   tags: never,plugin_flashplayer
-- name: Install BGinfo on Windows Hosts
-  win_copy:
-    src: "bginfo.zip"
-    dest: "{{ windows_temp }}"
-    state: present
-  tags: bginfo_copy
 
-- name: Unzip file 
+- name: Download BGInfo 
+  win_get_url:
+    url: "{{ bginfo_url }}" 
+    dest: "{{ windows_temp }}"
+  tags: bginfo_download
+
+
+- name: BGInfo, Download and unzip file 
   win_unzip:
-    src: "{{ windows_temp }}/bginfo.zip"
+    src: "{{ windows_tempo }}"
     dest: "{{ aplicativos }}/bginfo"
+    delete_archive: yes
   tags: bginfo_unzip
 
-- name: Putting BGInfo to load  
+- name: BGInfo at boot 
   win_copy:
     src: "{{ aplicativos }}/bginfo.bat"
     dest: “%appdata%\Microsoft\Windows\Start Menu\Programs\Startup”
