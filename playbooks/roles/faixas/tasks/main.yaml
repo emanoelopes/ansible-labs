@@ -285,22 +285,23 @@
     arguments: -uninstall 
   tags: never,plugin_flashplayer
 
-- name: Download BGInfo 
-  win_get_url:
-    url: "{{ bginfo_url }}" 
-    dest: "{{ windows_temp }}"
+- name: BGInfo download 
+  win_copy:
+    src: "bginfo/"
+    dest: "{{ aplicativos }}/bginfo/"
   tags: bginfo_download
 
-
-- name: BGInfo, Download and unzip file 
-  win_unzip:
-    src: "{{ windows_tempo }}"
-    dest: "{{ aplicativos }}/bginfo"
-    delete_archive: yes
-  tags: bginfo_unzip
-
 - name: BGInfo at boot 
-  win_copy:
-    src: "{{ aplicativos }}/bginfo.bat"
-    dest: “%appdata%\Microsoft\Windows\Start Menu\Programs\Startup”
-  tags: bginfo_copy
+  community.windows.win_scheduled_task:
+    name: BGInfo 
+    description: Exibir o nome do usuário logado e o IP do computador
+    actions:
+      - path: c:\Aplicativos\bginfo\Bginfo64.exe
+        arguments: /timer:0 /silent
+    triggers:
+    - type: logon 
+    username: SYSTEM
+    run_level: highest
+    wake_to_run: no
+    enabled: yes
+  tags: bginfo_task

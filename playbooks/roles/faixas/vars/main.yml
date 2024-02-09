@@ -1,3 +1,4 @@
+appdata: 'c:\Users\aluno\appdata\Roaming\Microsoft\Windows\Start Menu\Programs\Startup'
 apache_netbeans_url: 'https://dlcdn.apache.org/netbeans/netbeans-installers/20/Apache-NetBeans-20-bin-windows-x64.exe'
 bginfo_url: 'https://download.sysinternals.com/files/BGInfo.zip'
 fontforge_url: 'https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe'
