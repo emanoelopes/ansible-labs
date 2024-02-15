@@ -1,0 +1,10 @@
+---
+- name: Prepare a PC for exam recording
+  hosts: 10.102.227.36
+  tasks:
+    - name: Create admin user
+      ansible.windows.win_user:
+        name: sqlserver 
+        state: present
+        account_disabled: true 
+

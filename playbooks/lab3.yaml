@@ -12,6 +12,7 @@
       - vlc
       - unity-hub
       - wacom-tablet
+      - figma
     homebrew_installed_packages:
       - tmux
       - node
