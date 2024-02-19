@@ -1,5 +1,5 @@
 ---
-- name: Instalação do NodeJS via instalador MSI
+- name: NodeJS install
   ansible.windows.win_package:
     path: https://nodejs.org/dist/v16.15.0/node-v16.15.0-x64.msi 
     product_id: '{366E8C2E-9CE0-4306-ABBB-E32CC4C328A0}'
