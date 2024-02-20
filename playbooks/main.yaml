@@ -60,6 +60,10 @@
       import_tasks: julia.yaml
       tags: never,julia
 
+    - name: Ensure Unity Hub and Unity Editor is the latest version
+      import_tasks: unity.yaml
+      tags: never,unity
+
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
       community.windows.win_power_plan:
