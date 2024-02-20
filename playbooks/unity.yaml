@@ -1,6 +1,7 @@
 ---
-  - name: Ensure Unity Hub Setup is on local user directory
-    copy:
-      src: UnityHubSetup.dmg
-      dest: /Users/aluno/Downloads/UnityHubSetup.dmg
-#    when: ansible_facts[''] -- ""
+  - name: Ensure latest Unity Editor is installed 
+    win_chocolatey:
+      name: unity
+      state: latest
+    #when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+    tags: never,unity
