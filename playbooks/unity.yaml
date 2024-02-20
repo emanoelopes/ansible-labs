@@ -12,15 +12,15 @@
             state: latest
           when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
 
+        - name: Add apt-key 
+          apt_key:
+            url: https://hub.unity3d.com/linux/keys/public
+            keyring: /usr/share/keyrings/Unity_Technologies_ApS.gpg
+          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
+
 #        - name: Add Unity3d repository
 #          apt_repository:
-#            repo: deb https://hub.unity3d.com/linux/repos/deb stable main
-#            state: present
-#          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
-        
-#        - name: Add apt-key 
-#          apt_key:
-#            url: https://hub.unity3d.com/linux/keys/public
+#            repo: "deb [signed-by=/usr/share/keyrings/Unity_Technologies_ApS.gpg] https://hub.unity3d.com/linux/repos/deb stable main"
 #            state: present
 #          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
 
@@ -33,7 +33,7 @@
         - name: Ensure latest Unity is installed 
           apt:
             pkg:
-              #- unityhub
+              - unityhub
               - unity
             state: latest
           when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
