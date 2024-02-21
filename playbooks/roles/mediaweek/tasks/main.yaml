@@ -1,9 +1,0 @@
----
-- name: Installations for MediWeek editions
-  import_tasks: mw2022-lab1.yaml
-
-- name: Installations for MediaWeek editions on lab3 (MacOS)
-  import_tasks: mw2022-lab3.yaml
-
-- name: Installations for MediaWeek editions on lab4 (MacOS)
-  import_tasks: mw2022-lab4.yaml

@@ -1,0 +1,8 @@
+---
+collections:
+  - name: geerlingguy.mac
+  - src: https://github.com/jamesla/ansible-windows-java.git
+    version: master
+    name: ansible-windows-java
+  - name: community.postgresql
+  

@@ -1,0 +1,39 @@
+---
+- name: Ensure Unity Editor and Unity Hub is installed
+  hosts: "{{ local }}"
+  become: true
+  become_method: sudo
+  tasks:
+    - name: Ensure latest Unity Editor is installed 
+      block:
+        - name: Inspiron 5400 AIO only
+          win_chocolatey:
+            name: unity
+            state: latest
+          when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+
+        - name: Add apt-key 
+          apt_key:
+            url: https://hub.unity3d.com/linux/keys/public
+            keyring: /usr/share/keyrings/Unity_Technologies_ApS.gpg
+          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
+
+#        - name: Add Unity3d repository
+#          apt_repository:
+#            repo: "deb [signed-by=/usr/share/keyrings/Unity_Technologies_ApS.gpg] https://hub.unity3d.com/linux/repos/deb stable main"
+#            state: present
+#          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
+
+        - name: Update apt cache 
+          ansible.builtin.apt:
+            update_cache: yes
+            cache_valid_time: 3600
+          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"
+      
+        - name: Ensure latest Unity is installed 
+          apt:
+            pkg:
+              - unityhub
+              - unity
+            state: latest
+          when: ansible_facts['product_name'] == "A65 MUV / G1550 MUV"

@@ -1,9 +1,0 @@
----
-- name: Install apps on lab3 for mw2022
-  hosts: lab3
-  tasks: 
-  - name: Install formula foo with 'brew' from cask
-    community.general.homebrew:
-      update_homebrew: true
-      name: homebrew/cask/glyphs
-      state: present

@@ -1,0 +1,5 @@
+---
+- name: Install Prometheus Windows Exporter on Windows Host
+  win_chocolatey:
+    name: prometheus-windows-exporter.install
+    state: present 

@@ -1,0 +1,23 @@
+---
+- name: Remove old user files and directories
+  hosts: '{{ local }}' 
+  gather_facts: false
+  vars:
+    directories: ['C:\Program Files\processing-3.5.4','C:\processing-3.5.4']
+  tasks:
+    - name: Collect directories 
+      tags: never,collect 
+      win_find:
+        paths: "{{ directories }}"
+        recurse: true 
+        file_type: directory 
+      register: collected_directories
+    
+    - name: Remove directories
+      tags: never,delete
+      win_file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ directories }}"
+
+      

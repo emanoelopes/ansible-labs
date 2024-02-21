@@ -1,0 +1,92 @@
+---
+- name: Main Execution Playbook
+  hosts: '{{ local }}'
+  roles:
+    - faixas
+    - hosts_file
+
+  pre_tasks:
+    - name: Choose High Performance energy power plan for 7010, 780, m3209, 5400AIO
+      community.windows.win_power_plan:
+        name: Alto desempenho 
+      when: 
+      - ansible_facts['product_name'] != "DB85PRO"
+
+    - name: Choose high power plan for HP Compaq 6005
+      community.windows.win_power_plan:
+        name: Alto desempenho 
+      when: ansible_facts['product_name'] == "HP Compaq 6005 Pro SFF PC" 
+
+  tasks:
+    - name: Ensure Epic Launcher is the latest
+      import_tasks: unreal.yaml
+      tags: never, epic
+
+    - name: Install windows Exporter 
+      import_tasks: windows_exporter.yml
+      tags: never, windows_exporter 
+
+    - name: Install node_exporter 
+      import_tasks: node_exporter.yml
+      tags: never, node_exporter 
+  
+    - name: reboot 
+      win_reboot:
+        reboot_timeout: 3600
+        msg: "Restarting to apply updates"
+      tags: never, reboot
+
+    - name: Install Windows Updates
+      import_tasks: win_updates.yaml
+      tags: never, win_updates
+
+    - name: Trash Bin clean
+      win_shell: rd /s /q %systemdrive%\$Recycle.bin
+      args: 
+        executable: cmd
+      tags: never,bin
+    
+    - name: NVDA
+      import_tasks: nvda.yaml
+      tags: never,nvda
+   
+    - name: SQLServer
+      import_tasks: sqlserver.yaml
+      tags: never,sqlserver
+    
+    - name: Install Julia
+      import_tasks: julia.yaml
+      tags: never,julia
+
+    - name: Ensure Unity Hub and Unity Editor is the latest version
+      import_tasks: unity.yaml
+      tags: never,unity
+
+  post_tasks:
+    - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
+      community.windows.win_power_plan:
+        name: equilibrado 
+      when: 
+      - ansible_facts['product_name'] != "DB85PRO"
+
+    - name: Set autologon for user aluno
+      community.windows.win_auto_logon:
+        username: aluno
+        password: aluno
+ 
+    - name: Ensure schedule task 'Shutdown everyday at 23:00' is present
+      community.windows.win_scheduled_task:
+        name: Desligar às 23h
+        description: Desligar todos os dias às 23h
+        actions:
+        - path: shutdown.exe
+          arguments: /s /f
+        triggers:
+        - type: daily
+          start_boundary: '2022-05-06T23:00:00'
+        username: SYSTEM
+        run_level: highest
+        wake_to_run: yes
+        state: present
+        enabled: yes
+

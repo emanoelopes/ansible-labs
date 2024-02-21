@@ -1,0 +1,59 @@
+---
+- name: Install flutter 
+  hosts: "{{ local }}" 
+  tasks:
+    - name: Install apps from chocolatey repo
+      win_chocolatey:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - flutter
+        - vscode
+        - git
+    - name: Create android studio shortcut on the desktop
+      community.windows.win_shortcut:
+        src: C:\Program Files\Android\Android Studio\bin\studio64.exe
+        dest: C:\Users\Public\Desktop\Android Studio.lnk
+        icon: C:\Program Files\Android\Android Studio\bin\studio64.exe,0
+    - name: Add firewall rule to provide access to sdk android platform tools
+      win_firewall_rule:
+        name: adb
+        program: c:\users\aluno\appdata\local\android\sdk\platform-tools\adb.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in 
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+    - name: add flutter install folder to system path
+      win_path:
+        elements: C:\tools\flutter\bin
+    - name: Reboot after changing system path
+      win_reboot: 
+    - name: Add an git exception for c:\tools\flutter directory
+      win_command: "{{ item }}"
+      become: yes
+      become_method: runas
+      become_user: suporte
+      loop: 
+        - git config --global --add safe.directory C:/tools/flutter
+        - flutter doctor --android-licenses
+      tags: commands
+#    - name: Ensure aluno user has not admin privilegies
+#      win_group_membership:
+#        members: aluno
+#        name: Administradores
+#        state: absent
+#      tags: user_aluno_not_admin
+    - name: Ensure user aluno is present
+      win_user:
+        name: aluno
+        password: aluno
+        password_expired: no
+        state: present
+        groups: Usuários
+        account_locked: no
+      tags: create_user_aluno

@@ -1,9 +1,0 @@
----
-- name: Updating OptiPlex 780 BIOS version.
-  import_tasks: 780.yml
-  when: ansible_facts['product_name'] == "OptiPlex 780"
-
-- name: Updating OPtiPlex 7010 BIOS version.
-  import_tasks: 7010.yml
-  when: ansible_facts['product_name'] == "OptiPlex 7010"
-

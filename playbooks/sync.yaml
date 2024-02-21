@@ -1,8 +1,0 @@
----
-  - name: Copy files remote host to another remote host using Method Pull
-    synchronize:
-      src: "{{ item }}"
-      dest: "{{ item }}"
-    delegate_to: 10.102.227.86
-    with_items:
-      - "/Users/aluno/Downloads/smd_lab3.dmg"

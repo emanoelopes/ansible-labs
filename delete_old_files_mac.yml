@@ -1,0 +1,36 @@
+---
+- name: Remove old user files and directories
+  hosts: lab3
+  become: true
+  serial: 2
+  gather_facts: false
+  vars:
+    user: 'aluno'
+    directories: ['/Users/{{ user }}/Desktop','/Users/{{ user }}/Downloads','/Users/{{ user }}/Documents']
+  tasks:
+    - name: Collect directories and files
+      throttle: 1
+      tags: always
+      ignore_errors: true
+      find:
+        paths: "{{ directories }}" 
+        recurse: true 
+        file_type: any 
+        excludes: 
+          - 'Blackmagic Design'
+          - 'Processing'
+      register: collected
+    
+    - name: show files and directories
+      tags: never,show
+      debug:
+        var: collected
+    
+    - name: remove files and directories
+      throttle: 1
+      tags: never, delete
+      ignore_errors: true
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ collected.files }}"
