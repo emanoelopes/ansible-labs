@@ -18,6 +18,10 @@
       when: ansible_facts['product_name'] == "HP Compaq 6005 Pro SFF PC" 
 
   tasks:
+    - name: Ensure Epic Launcher is the latest
+      import_tasks: unreal.yaml
+      tags: never, epic
+
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
       tags: never, windows_exporter 
@@ -36,12 +40,6 @@
       import_tasks: win_updates.yaml
       tags: never, win_updates
 
-    - name: Set autologon for user aluno
-      community.windows.win_auto_logon:
-        username: aluno
-        password: aluno
-      tags: never, aluno_auto_logon
-    
     - name: Trash Bin clean
       win_shell: rd /s /q %systemdrive%\$Recycle.bin
       args: 
@@ -71,6 +69,11 @@
       when: 
       - ansible_facts['product_name'] != "DB85PRO"
 
+    - name: Set autologon for user aluno
+      community.windows.win_auto_logon:
+        username: aluno
+        password: aluno
+ 
     - name: Ensure schedule task 'Shutdown everyday at 23:00' is present
       community.windows.win_scheduled_task:
         name: Desligar às 23h
