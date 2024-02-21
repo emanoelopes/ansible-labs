@@ -2,7 +2,7 @@
 - name: Main Execution Playbook
   hosts: '{{ local }}'
   roles:
-    - faixas
+    - smd 
     - hosts_file
 
   pre_tasks:
@@ -57,10 +57,6 @@
     - name: Install Julia
       import_tasks: julia.yaml
       tags: never,julia
-
-    - name: Ensure Unity Hub and Unity Editor is the latest version
-      import_tasks: unity.yaml
-      tags: never,unity
 
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
