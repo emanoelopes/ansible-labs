@@ -246,6 +246,12 @@
     state: present
   tags: never,libre_office
 
+- name: Delete version 2022.3 
+  win_package:
+    path: "{{ pycharm_uninstall_path }}"
+    arguments: /S
+  tags: never,pycharm_uninstall
+
 - name: Ensure Python and Pycharm are installed
   win_chocolatey:
     name:
