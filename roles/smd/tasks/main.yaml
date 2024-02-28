@@ -185,7 +185,7 @@
 
 - name: Ensure that tomcat files are unziped at documents folder
   win_unzip:
-    src: "{{ tomcat_zip_file }}"
+    src: "{{ user_temp_folder }}/{{ tomcat_zip_file }}"
     dest: "{{ aluno_documents_folder }}"
   tags: never,tomcat,smd0033
 
