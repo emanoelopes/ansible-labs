@@ -26,19 +26,21 @@
     state: latest 
   tags: never,faixa1
 
-- name: Install Blender
+- name: Install Blender 3.3.1 on old computers
   win_chocolatey:
     name: blender
-    state: latest 
-#  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+    state: downgrade 
+    pinned: true
+    version: 3.3.1
+  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
   tags: never,blender
 
-- name: Ensure Blender shortcut is present
+- name: Ensure Blender 3.3.1 shortcut is present
   win_shortcut:
-    src: C:\Program Files\Blender Foundation\Blender 3.6\blender.exe
+    src: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe
     dest: C:\Users\Public\Desktop\Blender.lnk
-    icon: C:\Program Files\Blender Foundation\Blender 3.6\blender.exe,0
-#  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+    icon: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe,0
+  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
   tags: never,blender
     
 #- name: Install wick editor
