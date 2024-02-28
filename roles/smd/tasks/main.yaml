@@ -212,8 +212,8 @@
 
 - name: Add firewall rule to provide access to OpenJDK Platform
   win_firewall_rule:
-    name: OpenJDK 18 Platform
-    program: c:\program files\openjdk\jdk-18.0.2\bin\java.exe
+    name: OpenJDK 21 Platform
+    program: c:\program files\openjdk\jdk-21.0.2\bin\java.exe
     state: present
     enabled: yes
     action: allow
