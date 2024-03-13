@@ -13,11 +13,11 @@ Created to support mantaining daily techinical routines like:
 Example:
 
 ```shell
-$ ansible-playbook playbooks/last.yaml -e "local=ip_address" -k -t netbeans
+$ ansible-playbook site.yaml -e "local=ip_address" -k -t netbeans
 ```
 ```
 ansible-playbok --------  Using a playbook file;
-playbooks/last.yaml ----  Playbook file location;
+site.yaml --------------  Playbook file;
 -e "local=ip_address" --  Especify local variable;
 -k ---------------------  Ask admin user password;
 -t ---------------------  Call a especific tag.
