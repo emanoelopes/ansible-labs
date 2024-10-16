@@ -80,7 +80,7 @@
       tags: never,collect_hardware
 
     - name: Installed Softwares List
-      import_tasks: installed_software.yaml
+      import_tasks: collect_software.yaml
       tags: never,collect_software
     
     - name: Copy PowerBI installer to Downloads path

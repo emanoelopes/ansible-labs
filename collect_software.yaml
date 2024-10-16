@@ -1,4 +1,4 @@
-- name: installed software
+- name: Collect installed software informations
   win_shell: |
     $items=New-Object System.Collections.ArrayList
 
