@@ -75,9 +75,17 @@
       import_tasks: julia.yaml
       tags: never,julia
 
+    - name: Collect Hardware Info
+      import_tasks: collect_hardware.yaml
+      tags: never,collect_hardware
+
     - name: Installed Softwares List
       import_tasks: installed_software.yaml
-      tags: never,installed_softwares
+      tags: never,collect_software
+    
+    - name: Copy PowerBI installer to Downloads path
+      import_tasks: powerbi.yaml
+      tags: never,powerbi
 
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
