@@ -33,7 +33,7 @@
     pinned: true
     version: 3.3.1
   when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
-  tags: never,blender
+  tags: never,blender3
 
 - name: Ensure Blender 3.3.1 shortcut is present
   win_shortcut:
@@ -41,7 +41,7 @@
     dest: C:\Users\Public\Desktop\Blender.lnk
     icon: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe,0
   when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
-  tags: never,blender
+  tags: never,blender3
     
 #- name: Install wick editor
 #  win_package:
