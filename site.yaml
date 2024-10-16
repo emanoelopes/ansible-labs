@@ -5,7 +5,6 @@
     - smd 
     - hosts_file
   gather_facts: no
-  run_once: true
 
   pre_tasks:
     - name: Choose High Performance energy power plan for 7010, 780, m3209, 5400AIO
@@ -75,6 +74,10 @@
     - name: Install Julia
       import_tasks: julia.yaml
       tags: never,julia
+
+    - name: Installed Softwares List
+      import_tasks: installed_software.yaml
+      tags: never,installed_softwares
 
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
