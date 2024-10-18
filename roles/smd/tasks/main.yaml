@@ -272,7 +272,7 @@
     enabled: yes
   tags: never,pycharm
 
-- name: Ensure that uninstaller is on Windows\Temp folder
+- name: Ensure that flash player uninstaller is on Windows\Temp folder
   win_stat:
     path: c:\Windows\temp\uninstall_flash_player.exe
   register: result
@@ -319,3 +319,20 @@
     - --install-silent
     - -m
   tags: never,nvda
+
+- name: Verify CloudFlare Warp Uninstall is present 
+  win_stat: 
+    path: "{{ cloudflare_warp_uninstall_path }}"
+  register: cloudflare_uninstall_path
+  tags: never,cloudflare_uninstall
+
+- name: Ensure CloudFlare is not installed 
+  win_package: 
+    path: "{{ cloudflare_warp_uninstall_path }}"
+  #args: 
+    #executable: cmd
+    #argument: /uninstall 
+    state: absent
+  when: cloudflare_uninstall_path.stat.exists
+  tags: never,cloudflare_uninstall
+ 
