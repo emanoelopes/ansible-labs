@@ -26,21 +26,25 @@
     state: latest 
   tags: never,faixa1
 
-- name: Install Blender 3.3.1 on old computers
-  win_chocolatey:
-    name: blender
-    state: downgrade 
-    pinned: true
-    version: 3.3.1
-  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
-  tags: never,blender3
-
-- name: Ensure Blender 3.3.1 shortcut is present
-  win_shortcut:
-    src: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe
-    dest: C:\Users\Public\Desktop\Blender.lnk
-    icon: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe,0
-  when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+- name: Install Blender 3.3.1 on old computers and create shortcut
+  block:
+    - name: Install Blender
+      win_chocolatey:
+        name: blender
+        state: downgrade 
+        pinned: true
+        version: 3.3.1
+      when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+    - name: Create shortcut
+      win_shortcut:
+        src: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe
+        dest: C:\Users\Public\Desktop\Blender.lnk
+        icon: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe,0
+      when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+  rescue:
+    - name: Print when errors
+      debug:
+        msg: 'An error ocurred Blender trying to install by a block on the SMD role.'
   tags: never,blender3
     
 #- name: Install wick editor
@@ -60,23 +64,26 @@
     path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
     state: present
 
-- name: Removing old P5 JS
+- name: Download P5 JS, Unzip to Aplicativos folder and remove the previous version
+  block:
+    - name: Removing old P5 JS
+      win_file:
+        path: "{{ aplicativos }}/p5"
+        state: absent
+    - name: Download P5 JS
+      win_get_url:
+        url: "{{ p5_url }}" 
+        dest: "{{ downloads }}"
+    - name: Unzip P5 JS
+      win_unzip: 
+        src: "{{ downloads }}/p5.zip"
+        dest: "{{ aplicativos }}/p5"
+        delete_archive: yes
+  rescue:
+    - name: Print when error
+      ansible.builtin.debug:
+        msg: 'A error ocurred on P5 JS task on smd role'
   tags: never,p5,faixa1,faixa2
-  win_file:
-    path: "{{ aplicativos }}/p5"
-    state: absent
-
-- name: Download P5 JS
-  tags: never,p5,faixa1,faixa2,smd0035,sdm0047
-  win_get_url:
-    url: "{{ p5_url }}" 
-    dest: "{{ downloads }}"
-- name: Unzip P5 JS
-  tags: never,p5,faixa1,faixa2
-  win_unzip: 
-    src: "{{ downloads }}/p5.zip"
-    dest: "{{ aplicativos }}/p5"
-    delete_archive: yes
 
 #- name: MediBang Paint Pro
 #  win_package:
@@ -90,24 +97,28 @@
 #    path: https://github.com/KiCad/kicad-source-mirror/releases/download/6.0.6/kicad-6.0.6_1-x86_64.exe
 #    state: present
 
-- name: Downloading Processing 
-  win_get_url: 
-    url: "{{ processing_url }}" 
-    dest: "{{ downloads }}"
-  tags: never,faixa1,faixa2,processing,smd0095,smd0096,smd0106
+- name: Processing 
+  block:
+    - name: Downloading Processing 
+      win_get_url: 
+        url: "{{ processing_url }}" 
+        dest: "{{ downloads }}"
 
-- name: Unzip Processing 
-  win_unzip: 
-    src: "{{ downloads }}/{{ processing_zip_file }}"
-    dest: c:\Program Files
-    delete_archive: yes
-  tags: never,faixa1,faixa2,processing
+    - name: Unzip Processing 
+      win_unzip: 
+        src: "{{ downloads }}/{{ processing_zip_file }}"
+        dest: c:\Program Files
+        delete_archive: yes
 
-- name: Create Processing shortcut on the desktop 
-  community.windows.win_shortcut:
-    src: "{{ processing_exec_file }}"
-    dest: "{{ aluno_desktop }}/processing.lnk"
-    icon: "{{ processing_exec_file }},0"
+    - name: Create Processing shortcut on the desktop 
+      community.windows.win_shortcut:
+        src: "{{ processing_exec_file }}"
+        dest: "{{ aluno_desktop }}/processing.lnk"
+        icon: "{{ processing_exec_file }},0"
+  rescue:
+    - name: Print when error
+      debug:
+        msg: 'An error on installing processing block'
   tags: never,processing,faixa1,faixa2
 
 - name: DaVinci Resolve - copy zip file to the target
@@ -326,7 +337,7 @@
   register: cloudflare_uninstall_path
   tags: never,cloudflare_uninstall
 
-- name: Ensure CloudFlare is not installed 
+- name: Uninstall CloudFlare Warp 
   win_package: 
     path: "{{ cloudflare_warp_uninstall_path }}"
   #args: 
