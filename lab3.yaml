@@ -1,6 +1,6 @@
 ---
 - name: lab3
-  hosts: '{{ local }}'
+  hosts: lab3 
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
@@ -57,6 +57,6 @@
       homebrew:
         upgrade_all: "{{ upgrade_homebrew_packages }}"
       register: result
-    #- name: Update macOS
-    #  command: softwareupdate -i 
-    #  when: macos_update_check
+    - name: Update macOS
+      command: softwareupdate -i 
+      when: macos_update_check
