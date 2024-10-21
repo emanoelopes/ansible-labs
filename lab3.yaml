@@ -1,6 +1,6 @@
 ---
 - name: lab3
-  hosts: lab3 
+  hosts: "{{ local }}" 
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
@@ -24,6 +24,7 @@
     homebrew_upgrade_all_packages: false 
     mas_installed_apps:
       - { id: 421131143, name: "MPlayerX" }   
+      - { id: 571213070, name: "DaVinci Resolve" }
     mas_upgrade_all_apps: true
   pre_tasks:
     #- name: Ensuring macOS is the latest version
