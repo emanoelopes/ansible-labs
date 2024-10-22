@@ -349,7 +349,7 @@
 
 - name: Unity and Unity Hub 
   block:
-    - name: Ensure Unity and Unity Hus are installed
+    - name: Ensure Unity and Unity Hub are installed
       win_chocolatey:
         name:
           - unity
