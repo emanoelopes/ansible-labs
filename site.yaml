@@ -1,6 +1,7 @@
 ---
 - name: Main Execution Playbook
   hosts: '{{ local }}'
+  serial: '25%'  
   roles:
     - smd 
     - hosts_file

@@ -346,4 +346,28 @@
     state: absent
   when: cloudflare_uninstall_path.stat.exists
   tags: never,cloudflare_uninstall
- 
+
+- name: Unity and Unity Hub 
+  block:
+    - name: Ensure Unity and Unity Hus are installed
+      win_chocolatey:
+        name:
+          - unity
+          - unity-hub
+        state: present
+    - name: Add firewall rule to provide access to Unity
+      win_firewall_rule:
+        name: unity
+        program: c:\program files\
+        state: present
+        enabled: yes
+        action: allow
+        direction: in 
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+  tags: never,unity
+
+
