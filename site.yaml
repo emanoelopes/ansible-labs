@@ -62,6 +62,8 @@
       win_shell: rd /s /q %systemdrive%\$Recycle.bin
       args: 
         executable: cmd
+      ignore_errors: true
+      ignore_unreachable: true
       tags: never,bin
     
     - name: NVDA
