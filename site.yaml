@@ -36,10 +36,6 @@
         enabled: yes
 
   tasks:
-    - name: Ensure Epic Launcher is the latest
-      import_tasks: unreal.yaml
-      tags: never, epic
-
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
       tags: never, windows_exporter 
@@ -53,10 +49,6 @@
         reboot_timeout: 3600
         msg: "Restarting to apply updates"
       tags: never, reboot
-
-    - name: Install Windows Updates
-      import_tasks: win_updates.yaml
-      tags: never, win_updates
 
     - name: Trash Bin clean
       win_shell: rd /s /q %systemdrive%\$Recycle.bin
@@ -74,10 +66,6 @@
       import_tasks: sqlserver.yaml
       tags: never,sqlserver
     
-    - name: Install Julia
-      import_tasks: julia.yaml
-      tags: never,julia
-
     - name: Collect Hardware Info
       import_tasks: collect_hardware.yaml
       tags: never,collect_hardware
