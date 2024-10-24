@@ -2,6 +2,7 @@
 - name: Main Execution Playbook
   hosts: '{{ local }}'
   serial: '25%'  
+  ignore_unreachable: true
   roles:
     - smd 
     - hosts_file
@@ -61,6 +62,10 @@
     - name: NVDA
       import_tasks: nvda.yaml
       tags: never,nvda
+
+    - name: iProjection
+      import_tasks: iprojection.yaml
+      tags: never,iprojection
    
     - name: SQLServer
       import_tasks: sqlserver.yaml

@@ -1,6 +1,7 @@
 ---
 - name: lab3
   hosts: "{{ local }}" 
+  ignore_unreachable: true
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
@@ -13,6 +14,7 @@
       - unity-hub
       - wacom-tablet
       - figma
+      - arduino-ide
     homebrew_installed_packages:
       - tmux
       - node

@@ -1,0 +1,7 @@
+---
+- name: Ensure EPSON iProjection is installed
+   ansible.windows.win_package:
+    path: https://ftp.epson.com/drivers/iProj_3.34.exe 
+    arguments:
+    - --install-silent
+    - -m 
