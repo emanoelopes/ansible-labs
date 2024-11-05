@@ -2,7 +2,6 @@
 - name: lab3
   hosts: "{{ local }}" 
   ignore_unreachable: true
-  serial: 1
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
