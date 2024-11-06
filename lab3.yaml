@@ -8,19 +8,13 @@
   become: false
   vars:
     homebrew_cask_apps:
-      - blender
-      - firefox
-      - vlc
-      - unity-hub
-      - wacom-tablet
-      - figma
-      - arduino-ide
       - processing
+      - arduino-ide
     homebrew_installed_packages:
       - tmux
-      - node
+      #- node
       - mas
-      - fontforge
+      #- fontforge
     homebrew_cask_accept_external_apps: true
     homebrew_cask_appdir: /Applications
     install_homebrew_if_missing: true 
@@ -28,7 +22,7 @@
     mas_installed_apps:
       - { id: 421131143, name: "MPlayerX" }   
       - { id: 571213070, name: "DaVinci Resolve" }
-    mas_upgrade_all_apps: true
+    mas_upgrade_all_apps: false 
   pre_tasks:
     #- name: Ensuring macOS is the latest version
     #  command: softwareupdate -l
@@ -54,7 +48,7 @@
   tasks:
     - name: Updating Homebrew
       homebrew:
-        update_homebrew: true
+        update_homebrew: false
       when: homebrew_check.stat.exists
   
     - name: Upgrading Homebrew Packages
