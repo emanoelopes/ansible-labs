@@ -83,6 +83,10 @@
       import_tasks: powerbi.yaml
       tags: never,powerbi
 
+    - name: Unzip SEER files to Desktop to hosts
+      import_tasks: seer.yaml
+      tags: never,seer
+
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
       community.windows.win_power_plan:

@@ -1,5 +1,9 @@
-control:
-  build: ansiblelabs:latest
-  hostname: controller
-  volumes:
-    - ansible-labs:/home/emanoel/ansible-labs
+name: Ansiblelabs
+
+version: '3'
+
+services:
+  controller: 
+    image:ansiblelabs:latest
+    volumes:
+      - ansible-labs:/home/emanoel/ansible-labs
