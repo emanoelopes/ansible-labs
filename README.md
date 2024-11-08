@@ -30,3 +30,16 @@ gpl-3.0
 # Author Information
 
 Created in 2022 by [Emanoel Lopes](http://emanoel.pro.br).
+
+# Cite As
+
+```BibTex
+@misc{lopes2024ansiblelabs,
+    title = {{Managing Windows and macOS physicals machines hosts with Ansible}},
+    author = {Lopes, Emanoel Carvalho},
+    howpublished = {GitHub Repo},
+    url = {https://github.com/emanoelopes/ansible-labs},
+    year = {2024}
+}
+```
+
