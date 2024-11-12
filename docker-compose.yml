@@ -1,9 +1,8 @@
-name: Ansiblelabs
-
-version: '3'
-
+---
 services:
-  controller: 
-    image:ansiblelabs:latest
+  ansiblelabs:
+    image: ansiblelabs:latest
+    container_name: ansiblelabs
     volumes:
       - ansible-labs:/home/emanoel/ansible-labs
+    restart: unless-stopped
