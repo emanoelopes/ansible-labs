@@ -37,6 +37,10 @@
         enabled: yes
 
   tasks:
+    - name: Win Updates
+      import_tasks: win_updates.yaml
+      tags: never, win_updates
+
     - name: Install windows Exporter 
       import_tasks: windows_exporter.yml
       tags: never, windows_exporter 

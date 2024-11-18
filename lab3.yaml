@@ -5,7 +5,7 @@
   roles: 
     - geerlingguy.mac.homebrew
     - geerlingguy.mac.mas
-  become: false
+  become: true 
   vars:
     homebrew_cask_apps:
       - processing
@@ -58,3 +58,6 @@
     - name: Update macOS
       command: softwareupdate -i 
       when: macos_update_check
+    - name: shutdown hosts
+      community.general.shutdown:
+      tags: never,shutdown
