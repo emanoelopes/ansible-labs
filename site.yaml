@@ -91,6 +91,10 @@
       import_tasks: seer.yaml
       tags: never,seer
 
+    - name: Prepare Windows Hosts for Ansible Basic Method Authentication
+      import_tasks: prepare_win_hosts.yaml
+      tags: never,prepare_win_host
+
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
       community.windows.win_power_plan:
