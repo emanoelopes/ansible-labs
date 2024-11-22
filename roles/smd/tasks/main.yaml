@@ -15,17 +15,10 @@
       - nodejs
       - postman
       - reaper
+      - python
     state: latest 
   tags: never,faixa2
   
-  win_chocolatey:
-    name: 
-      - python
-      - wireshark #smd0037
-      - eclipse-cpp #smd0035,smd0047,smd0079,smd0080
-    state: latest 
-  tags: never,faixa1
-
 - name: Install Blender 3.3.1 on old computers and create shortcut
   block:
     - name: Install Blender
