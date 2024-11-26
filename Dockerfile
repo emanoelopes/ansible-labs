@@ -64,5 +64,8 @@ WORKDIR /ansible-labs
 
 #ENTRYPOINT ["entrypoint"]
 
+# Install Geerling Guy's Ansible Galalxy Collection for macOS hosts
+CMD ["ansible-galaxy collection install geerlingguy.mac"]
 # default command: display Ansible version
 CMD [ "ansible-playbook", "--version" ]
+
