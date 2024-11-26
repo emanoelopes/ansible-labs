@@ -6,6 +6,7 @@ macs.ini
 *.png
 *.jpg
 *.json
+*.rar
 group_vars/all.yaml
 SMD*
 ansible-navigator.log
