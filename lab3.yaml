@@ -9,7 +9,8 @@
   vars:
     homebrew_cask_apps:
       - processing
-      - arduino-ide
+      - blender
+      - krita
     homebrew_installed_packages:
       - tmux
       #- node
