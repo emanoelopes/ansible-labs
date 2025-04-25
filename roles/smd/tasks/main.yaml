@@ -475,4 +475,26 @@
         - /SILENT
         - /CURRENTUSER
   tags: never,julia 
-
+- name: Ensure wallpaper is set correctly
+  block:
+    - name: Select the smd wallpaper file
+      win_regedit:
+        path: HKEY_CURRENT_USER\Control Panel\Desktop
+        name: Wallpaper
+        data: "{{ wallpaper_path }}"
+        type: string
+    - name: Select the style
+      win_regedit:
+        path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
+        name: WallpaperStyle
+        data: 2
+        type: string
+    - name: Update wallpaper configurations to apply the changes
+      win_shell:
+        commands:
+          - RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+  rescue:
+    - name: Print when errors
+      debug:
+        msg: 'An error ocurred trying to define the wallpaper on SMD role.'
+  tags: never,wallpaper
