@@ -498,3 +498,20 @@
       debug:
         msg: 'An error ocurred trying to define the wallpaper on SMD role.'
   tags: never,wallpaper
+
+- name: Internet On/Off change state
+  block:
+    - name: Copiar script PowerShell para a máquina remota
+      win_copy:
+        src: disable_internet.ps1  # Nome do arquivo do script PowerShell
+        dest: C:\Temp\disable_internet.ps1
+
+    - name: Executar script PowerShell para desabilitar a internet
+      win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "disable"
+      when: internet_action == "disable"
+
+    - name: Executar script PowerShell para habilitar a internet
+      win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "enable"
+
+      when: internet_action == "enable" 
+  tags: never,exam
