@@ -12,6 +12,7 @@
       - processing
       - blender
       - krita
+      - firefox
     homebrew_installed_packages:
       - tmux
       #- node
@@ -72,6 +73,7 @@
       community.general.homebrew:
         upgrade_all: "{{ homebrew_upgrade_all_packages }}"
       register: result
+
     - name: Fail early if not logged into Mac App Store and MAS apps requested
       ansible.builtin.fail:
         msg: "Não há login válido no Mac App Store (mas). Faça login ou remova mas_installed_apps."
@@ -96,6 +98,66 @@
     - name: Remove 'professor' from admin group if present
       command: dseditgroup -o edit -d professor -t user admin
       when: professor_admin_check.rc == 0
+
+    - name: Verificar versão atual do Firefox
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --version
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Exibir versão atual do Firefox
+      debug:
+        msg: "{{ firefox_current_version.stdout }}"
+
+    - name: Atualizar Firefox via Homebrew Cask
+      homebrew_cask:
+        name: firefox
+        state: latest
+      register: firefox_update_result
+      when: homebrew_check.rc == 0
+
+    - name: Verificar versão do Firefox após atualização
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --version
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_updated_version
+      changed_when: false
+      failed_when: false
+      when: homebrew_check.rc == 0
+
+    - name: Exibir versão atualizada do Firefox
+      debug:
+        msg: "{{ firefox_updated_version.stdout }}"
+      when: 
+        - homebrew_check.rc == 0
+        - firefox_updated_version is defined
+
+    - name: Verificar se o Firefox está funcionando
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --help | head -1
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_help
+      changed_when: false
+      failed_when: false
+      when: homebrew_check.rc == 0
+
+    - name: Exibir status do Firefox
+      debug:
+        msg: "{{ firefox_help.stdout }}"
+      when: 
+        - homebrew_check.rc == 0
+        - firefox_help is defined
     - name: shutdown hosts
       community.general.shutdown:
       tags: never,shutdown
