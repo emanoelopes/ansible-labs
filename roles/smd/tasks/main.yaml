@@ -195,16 +195,22 @@
     dest: "{{ aluno_documents_folder }}"
   tags: never,tomcat,smd0033
 
-- name: Ensure apache netbeans is installed
+- name: Ensure Apache Netbeans is installed
   win_package:
     path: "{{ apache_netbeans_url }}"
     arguments: --silent
   tags: never,apache_netbeans
 
-- name: Add firewall rule to provide access to netbeans
+- name: Ensure Apache Netbeans + JDK are installed
+  win_package:
+    path: "{{ apache_netbeans_jdk_url }}"
+    arguments: --silent
+  tags: never,apache_netbeans_jdk
+
+- name: Add firewall rule to provide access to Netbeans
   win_firewall_rule:
     name: netbeans
-    program: c:\program files\netbeans-17\netbeans\bin\netbeans64.exe
+    program: c:\program files\netbeans-27\netbeans\bin\netbeans64.exe
     state: present
     enabled: yes
     action: allow
