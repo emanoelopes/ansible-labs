@@ -95,6 +95,10 @@
       import_tasks: prepare_win_hosts.yaml
       tags: never,prepare_win_host
 
+    - name: SSD Health Status
+      import_tasks: ssd_health_status_windows.yml
+      tags: never,ssd_health_status_windows
+
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
       community.windows.win_power_plan:
