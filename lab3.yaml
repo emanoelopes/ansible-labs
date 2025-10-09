@@ -1,6 +1,7 @@
 ---
 - name: lab3
   hosts: "{{ local }}" 
+  gather_facts: true
   ignore_unreachable: true
   roles: 
     - geerlingguy.mac.homebrew
@@ -9,7 +10,9 @@
   vars:
     homebrew_cask_apps:
       - processing
-      - arduino-ide
+      - blender
+      - krita
+      - firefox
     homebrew_installed_packages:
       - tmux
       #- node
@@ -24,40 +27,137 @@
       - { id: 571213070, name: "DaVinci Resolve" }
     mas_upgrade_all_apps: false 
   pre_tasks:
+    - name: Check if user is logged into Mac App Store (mas)
+      ansible.builtin.command: mas account
+      register: mas_account
+      changed_when: false
+      failed_when: false
+      environment:
+        PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    - name: Assert target is macOS Monterey (12.x)
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Darwin'
+          - ansible_facts['distribution_major_version'] | string == '12'
+        fail_msg: "Este playbook é suportado apenas no macOS Monterey (12.x)."
+        success_msg: "macOS Monterey detectado. Prosseguindo."
     #- name: Ensuring macOS is the latest version
     #  command: softwareupdate -l
     #  register: macos_update_check
     - name: Ensuring Homebrew is Installed
-      stat:
-        path: /usr/local/bin/brew
+      ansible.builtin.command: /usr/bin/which brew
       register: homebrew_check
+      changed_when: false
+      failed_when: false
 
     - name: Fail if Homebrew is not installed and install_homebrew_if_missing is false
-      fail:
+      ansible.builtin.fail:
         msg: Homebrew is missing...Install from http://brew.sh
       when:
-        - not homebrew_check.stat.exists
+        - homebrew_check.rc != 0
         - not install_homebrew_if_missing
 
     - name: Installing Homebrew
-      shell: /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+      ansible.builtin.shell: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       when: 
-        - not homebrew_check.stat.exists
+        - homebrew_check.rc != 0
         - install_homebrew_if_missing
   
   tasks:
     - name: Updating Homebrew
-      homebrew:
-        update_homebrew: false
-      when: homebrew_check.stat.exists
+      community.general.homebrew:
+        update_homebrew: true
+      when: homebrew_check.rc == 0
   
     - name: Upgrading Homebrew Packages
-      homebrew:
-        upgrade_all: "{{ upgrade_homebrew_packages }}"
+      community.general.homebrew:
+        upgrade_all: "{{ homebrew_upgrade_all_packages }}"
       register: result
-    - name: Update macOS
-      command: softwareupdate -i 
-      when: macos_update_check
+
+    - name: Fail early if not logged into Mac App Store and MAS apps requested
+      ansible.builtin.fail:
+        msg: "Não há login válido no Mac App Store (mas). Faça login ou remova mas_installed_apps."
+      when:
+        - mas_installed_apps | length > 0
+        - mas_account.rc != 0
+    - name: Check available macOS updates
+      ansible.builtin.command: /usr/sbin/softwareupdate -l
+      register: macos_update_check
+      changed_when: false
+      failed_when: false
+      tags: never,macos_update
+    - name: Update macOS (install all available updates)
+      ansible.builtin.command: /usr/sbin/softwareupdate -ia
+      when: macos_update_check.stdout is not search("No new software available.")
+      tags: never,macos_update
+    - name: Check if 'professor' is member of admin group
+      command: dseditgroup -o checkmember -m professor admin
+      register: professor_admin_check
+      changed_when: false
+      failed_when: false
+    - name: Remove 'professor' from admin group if present
+      command: dseditgroup -o edit -d professor -t user admin
+      when: professor_admin_check.rc == 0
+
+    - name: Verificar versão atual do Firefox
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --version
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Exibir versão atual do Firefox
+      debug:
+        msg: "{{ firefox_current_version.stdout }}"
+
+    - name: Atualizar Firefox via Homebrew Cask
+      homebrew_cask:
+        name: firefox
+        state: latest
+      register: firefox_update_result
+      when: homebrew_check.rc == 0
+
+    - name: Verificar versão do Firefox após atualização
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --version
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_updated_version
+      changed_when: false
+      failed_when: false
+      when: homebrew_check.rc == 0
+
+    - name: Exibir versão atualizada do Firefox
+      debug:
+        msg: "{{ firefox_updated_version.stdout }}"
+      when: 
+        - homebrew_check.rc == 0
+        - firefox_updated_version is defined
+
+    - name: Verificar se o Firefox está funcionando
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --help | head -1
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_help
+      changed_when: false
+      failed_when: false
+      when: homebrew_check.rc == 0
+
+    - name: Exibir status do Firefox
+      debug:
+        msg: "{{ firefox_help.stdout }}"
+      when: 
+        - homebrew_check.rc == 0
+        - firefox_help is defined
     - name: shutdown hosts
       community.general.shutdown:
       tags: never,shutdown

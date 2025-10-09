@@ -195,16 +195,22 @@
     dest: "{{ aluno_documents_folder }}"
   tags: never,tomcat,smd0033
 
-- name: Ensure apache netbeans is installed
+- name: Ensure Apache Netbeans is installed
   win_package:
     path: "{{ apache_netbeans_url }}"
     arguments: --silent
   tags: never,apache_netbeans
 
-- name: Add firewall rule to provide access to netbeans
+- name: Ensure Apache Netbeans + JDK are installed
+  win_package:
+    path: "{{ apache_netbeans_jdk_url }}"
+    arguments: --silent
+  tags: never,apache_netbeans_jdk
+
+- name: Add firewall rule to provide access to Netbeans
   win_firewall_rule:
     name: netbeans
-    program: c:\program files\netbeans-17\netbeans\bin\netbeans64.exe
+    program: c:\program files\netbeans-27\netbeans\bin\netbeans64.exe
     state: present
     enabled: yes
     action: allow
@@ -475,4 +481,43 @@
         - /SILENT
         - /CURRENTUSER
   tags: never,julia 
+- name: Ensure wallpaper is set correctly
+  block:
+    - name: Select the smd wallpaper file
+      win_regedit:
+        path: HKEY_CURRENT_USER\Control Panel\Desktop
+        name: Wallpaper
+        data: "{{ wallpaper_path }}"
+        type: string
+    - name: Select the style
+      win_regedit:
+        path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
+        name: WallpaperStyle
+        data: 2
+        type: string
+    - name: Update wallpaper configurations to apply the changes
+      win_shell:
+        commands:
+          - RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+  rescue:
+    - name: Print when errors
+      debug:
+        msg: 'An error ocurred trying to define the wallpaper on SMD role.'
+  tags: never,wallpaper
 
+- name: Internet On/Off change state
+  block:
+    - name: Copiar script PowerShell para a máquina remota
+      win_copy:
+        src: disable_internet.ps1  # Nome do arquivo do script PowerShell
+        dest: C:\Temp\disable_internet.ps1
+
+    - name: Executar script PowerShell para desabilitar a internet
+      win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "disable"
+      when: internet_action == "disable"
+
+    - name: Executar script PowerShell para habilitar a internet
+      win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "enable"
+
+      when: internet_action == "enable" 
+  tags: never,exam

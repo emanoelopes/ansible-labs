@@ -1,0 +1,26 @@
+- name: Select a style to wallpaper
+  ansible.windows.win_regedit:
+    path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
+    name: WallpaperStyle
+    data: 2
+    type: string
+
+# try this: https://github.com/crombeen/ansible/blob/master/desktop.yml
+# - path: HKCU:\Control Panel\Desktop
+#       name: WallpaperStyle
+#       data: 10
+#       type: string
+
+
+- name: Garantir que o caminho do papel de parede esteja correto
+  win_reg:
+    path: HKEY_CURRENT_USER\Control Panel\Desktop
+    name: Wallpaper
+    data: "{{ wallpaper_path }}"
+    type: string
+  vars:
+    wallpaper_path: "C:\\Caminho\\Para\\Sua\\Imagem.jpg" # Substitua pelo caminho real da imagem
+- name: Atualizar as configurações do papel de parede para aplicar a mudança
+  win_shell:
+    commands:
+      - RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
