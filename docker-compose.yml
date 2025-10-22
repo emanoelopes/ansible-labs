@@ -5,4 +5,4 @@ services:
     container_name: ansiblelabs
     volumes:
       - ansible-labs:/home/emanoel/ansible-labs
-    restart: unless-stopped
+    restart: always 

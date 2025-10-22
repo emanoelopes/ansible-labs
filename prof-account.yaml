@@ -1,0 +1,34 @@
+---
+- name: Demote 'professor' from Administrators on Windows
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Ensure 'professor' is not in local Administrators
+      ansible.windows.win_group_membership:
+        name: Administradores
+        members:
+          - professor
+        state: absent
+      when: ansible_facts['os_family'] == 'Windows'
+      tags: demote_professor
+
+- name: Demote 'professor' from admin on macOS
+  hosts: lab3
+  gather_facts: true
+  tasks:
+    - name: Check if 'professor' is member of admin group
+      become: true
+      ansible.builtin.command: dseditgroup -o checkmember -m professor admin
+      register: professor_admin_check
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['os_family'] == 'Darwin'
+      tags: demote_professor
+
+    - name: Remove 'professor' from admin group if present
+      become: true
+      ansible.builtin.command: dseditgroup -o edit -d professor -t user admin
+      when:
+        - ansible_facts['os_family'] == 'Darwin'
+        - professor_admin_check.rc == 0
+      tags: demote_professor

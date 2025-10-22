@@ -1,0 +1,90 @@
+---
+- name: Atualizar Firefox no macOS
+  hosts: "{{ target_hosts | default('lab3') }}"
+  gather_facts: yes
+  become: true
+  vars:
+    firefox_cask_name: "firefox"
+  
+  tasks:
+    - name: Verificar se o Homebrew está instalado
+      stat:
+        path: /usr/local/bin/brew
+      register: homebrew_check
+
+    - name: Instalar Homebrew se não estiver instalado
+      shell: /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+      when: not homebrew_check.stat.exists
+
+    - name: Atualizar Homebrew
+      homebrew:
+        update_homebrew: yes
+      when: homebrew_check.stat.exists
+
+    - name: Verificar versão atual do Firefox
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --version
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Exibir versão atual do Firefox
+      debug:
+        msg: "{{ firefox_current_version.stdout }}"
+
+    - name: Instalar/Atualizar Firefox via Homebrew Cask
+      homebrew_cask:
+        name: "{{ firefox_cask_name }}"
+        state: latest
+      register: firefox_update_result
+      when: homebrew_check.stat.exists
+
+    - name: Verificar versão do Firefox após atualização
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --version
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_updated_version
+      changed_when: false
+      failed_when: false
+      when: homebrew_check.stat.exists
+
+    - name: Exibir versão atualizada do Firefox
+      debug:
+        msg: "{{ firefox_updated_version.stdout }}"
+      when: 
+        - homebrew_check.stat.exists
+        - firefox_updated_version is defined
+
+    - name: Verificar se o Firefox está funcionando
+      shell: |
+        if [ -d "/Applications/Firefox.app" ]; then
+          /Applications/Firefox.app/Contents/MacOS/firefox --help | head -1
+        else
+          echo "Firefox não está instalado"
+        fi
+      register: firefox_help
+      changed_when: false
+      failed_when: false
+      when: homebrew_check.stat.exists
+
+    - name: Exibir status do Firefox
+      debug:
+        msg: "{{ firefox_help.stdout }}"
+      when: 
+        - homebrew_check.stat.exists
+        - firefox_help is defined
+
+    - name: Verificar se o Firefox foi atualizado com sucesso
+      debug:
+        msg: "Firefox foi atualizado com sucesso!"
+      when: 
+        - homebrew_check.stat.exists
+        - firefox_update_result is defined
+        - firefox_update_result.changed
