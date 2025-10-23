@@ -35,7 +35,7 @@
       win_reboot: 
     - name: Add an git exception for c:\tools\flutter directory
       win_command: "{{ item }}"
-      become: yes
+      become: True
       become_method: runas
       become_user: suporte
       loop: 
@@ -52,7 +52,7 @@
       win_user:
         name: aluno
         password: aluno
-        password_expired: no
+        password_expired: false
         state: present
         groups: Usuários
         account_locked: no

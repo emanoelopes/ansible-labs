@@ -114,34 +114,28 @@
         msg: 'An error on installing processing block'
   tags: never,processing,faixa1,faixa2
 
-- name: DaVinci Resolve - copy zip file to the target
-  win_copy:
-    src: "{{ davinci_zip_file }}"
-    dest: "{{ downloads }}"
-  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
-  tags: never,davinci
+- name: DaVinci Resolve
+  # when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+  block:
+    - name: DaVinci Resolve - copy file to the target
+      win_copy:
+        src: "{{ davinci_zip_file }}"
+        dest: "{{ downloads }}"
+      tags: never,davinci
 
-- name: DaVinci Resolve - Unzip Install file
-  win_unzip:
-    src: "{{ downloads }}/{{ davinci_zip_file }}"
-    dest: "{{ downloads }}" 
-    delete_archive: yes
-  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
-  tags: never,davinci
+    - name: DaVinci Resolve - Ensure is installed
+      win_package:
+        path: "{{ downloads }}/{{ davinci_install_file }}"
+        arguments: /i /q
+      ignore_errors: True
+      tags: never,davinci
 
-- name: DaVinci Resolve - Ensure is installed
-  win_package:
-    path: "{{ downloads }}/{{ davinci_install_file }}"
-    arguments: /q
-  when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
-  tags: never,davinci
-
-- name: DaVinci Resolve - create shortcut on the desktop 
-  community.windows.win_shortcut:
-    src: "{{ davinci_exec_file }}"
-    dest: "{{ aluno_desktop }}/davinci.lnk"
-    icon: "{{ davinci_exec_file }},0"
-  tags: never,davinci
+    - name: DaVinci Resolve - Remove installer file
+      win_file:
+        path: "{{ downloads }}/{{ davinci_install_file }}"
+        state: absent
+      ignore_errors: true
+      tags: never,davinci
 
 
 - name: Create a shortcut for inkscape
