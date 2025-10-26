@@ -9,6 +9,7 @@ macs.ini
 *.rar
 group_vars/all.yaml
 SMD*
+.vscode/
 ansible-navigator.log
 execution-environment.yml
 get-docker.sh
