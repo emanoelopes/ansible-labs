@@ -1,0 +1,85 @@
+---
+- name: Atualizar Firefox no Windows
+  hosts: "{{ target_hosts | default('windows') }}"
+  gather_facts: yes
+  vars:
+    firefox_chocolatey_package: "firefox"
+  
+  tasks:
+    - name: Verificar se o Chocolatey está instalado
+      win_stat:
+        path: "C:\\ProgramData\\chocolatey\\choco.exe"
+      register: chocolatey_check
+
+    - name: Instalar Chocolatey se não estiver instalado
+      win_shell: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+      when: not chocolatey_check.stat.exists
+
+    - name: Verificar versão atual do Firefox
+      win_shell: |
+        try {
+          $firefox = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object {$_.DisplayName -like "*Firefox*"}
+          if ($firefox) {
+            Write-Output "Firefox versão: $($firefox.DisplayVersion)"
+          } else {
+            Write-Output "Firefox não encontrado no registro"
+          }
+        } catch {
+          Write-Output "Erro ao verificar versão do Firefox"
+        }
+      register: firefox_current_version
+      changed_when: false
+
+    - name: Exibir versão atual do Firefox
+      debug:
+        msg: "{{ firefox_current_version.stdout }}"
+
+    - name: Atualizar Firefox usando Chocolatey
+      win_chocolatey:
+        name: "{{ firefox_chocolatey_package }}"
+        state: latest
+      register: firefox_update_result
+
+    - name: Verificar versão do Firefox após atualização
+      win_shell: |
+        try {
+          $firefox = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object {$_.DisplayName -like "*Firefox*"}
+          if ($firefox) {
+            Write-Output "Firefox versão atualizada: $($firefox.DisplayVersion)"
+          } else {
+            Write-Output "Firefox não encontrado no registro"
+          }
+        } catch {
+          Write-Output "Erro ao verificar versão do Firefox"
+        }
+      register: firefox_updated_version
+      changed_when: false
+
+    - name: Exibir versão atualizada do Firefox
+      debug:
+        msg: "{{ firefox_updated_version.stdout }}"
+
+    - name: Verificar se o Firefox está funcionando
+      win_shell: |
+        try {
+          $firefoxPath = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object {$_.DisplayName -like "*Firefox*"} | Select-Object -First 1
+          if ($firefoxPath) {
+            $firefoxExe = Join-Path $firefoxPath.InstallLocation "firefox.exe"
+            if (Test-Path $firefoxExe) {
+              Write-Output "Firefox executável encontrado em: $firefoxExe"
+            } else {
+              Write-Output "Firefox executável não encontrado"
+            }
+          } else {
+            Write-Output "Firefox não encontrado no registro"
+          }
+        } catch {
+          Write-Output "Erro ao verificar executável do Firefox"
+        }
+      register: firefox_executable_check
+      changed_when: false
+
+    - name: Exibir status do Firefox
+      debug:
+        msg: "{{ firefox_executable_check.stdout }}"

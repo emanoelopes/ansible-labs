@@ -1,0 +1,10 @@
+---
+- name: Linux Hosts on Lab1 
+  hosts: avell
+  become: yes
+  tasks:
+  - name: Update all packages 
+    apt: 
+      update_cache: yes
+      upgrade: 'yes'
+

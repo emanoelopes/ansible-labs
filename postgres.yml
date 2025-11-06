@@ -1,0 +1,26 @@
+---
+vars:
+  temp_dir: c:\Users\aluno\Downloads\
+  old_install_dir: c:\Program Files\postgreSQL 
+  install_file: postgresql-16.0-1-windows-x64.exe
+
+pre_tasks: 
+  - name: Remove any pre-existent installation directory 
+    win_file: 
+      path: '{{ old_install_dir }}'
+      state: absent
+      
+#From Ansible controller directory '/home/ansible_labs/playbooks/postgresql-15.1-1-windows-x64.exe'
+  - name: Copy PostgreSQL install file to hosts
+    win_copy:
+      src: '{{ install_file }}'
+      dest: '{{ temp_dir }}'
+    tags: postgresql
+
+tasks:
+  - name: Install PostgreSQL 15.1 and set postgres password
+    win_shell: "{{ install_file }} --unattendedmodeui none --mode unattended --superpassword ufc123"
+    args:
+      chdir: '{{ temp_dir }}'
+      executable: cmd
+    tags: postgresql

@@ -1,0 +1,118 @@
+---
+- name: Main Execution Playbook
+  hosts: '{{ local }}'
+  serial: '25%'  
+  ignore_unreachable: true
+  roles:
+    - smd 
+    - hosts_file
+  gather_facts: no
+
+  pre_tasks:
+    - name: Choose High Performance energy power plan for 7010, 780, m3209, 5400AIO
+      community.windows.win_power_plan:
+        name: Alto desempenho 
+      when: 
+      - ansible_facts['product_name'] != "DB85PRO"
+
+    - name: Choose high power plan for HP Compaq 6005
+      community.windows.win_power_plan:
+        name: Alto desempenho 
+      when: ansible_facts['product_name'] == "HP Compaq 6005 Pro SFF PC" 
+
+    - name: Ensure schedule task 'Shutdown everyday at 23:00' is present
+      community.windows.win_scheduled_task:
+        name: Desligar às 23h
+        description: Desligar todos os dias às 23h
+        actions:
+        - path: shutdown.exe
+          arguments: /s /f
+        triggers:
+        - type: daily
+          start_boundary: '2022-05-06T23:00:00'
+        username: SYSTEM
+        run_level: highest
+        wake_to_run: yes
+        state: present
+        enabled: yes
+
+  tasks:
+    - name: Win Updates
+      import_tasks: win_updates.yaml
+      tags: never, win_updates
+
+    - name: Install windows Exporter 
+      import_tasks: windows_exporter.yml
+      tags: never, windows_exporter 
+
+    - name: Install node_exporter 
+      import_tasks: node_exporter.yml
+      tags: never, node_exporter 
+  
+    - name: reboot 
+      win_reboot:
+        reboot_timeout: 3600
+        msg: "Restarting to apply updates"
+      tags: never, reboot
+
+    - name: Trash Bin clean
+      win_shell: rd /s /q %systemdrive%\$Recycle.bin
+      args: 
+        executable: cmd
+      ignore_errors: true
+      ignore_unreachable: true
+      tags: never,bin
+    
+    - name: NVDA
+      import_tasks: nvda.yaml
+      tags: never,nvda
+
+    - name: iProjection
+      import_tasks: iprojection.yaml
+      tags: never,iprojection
+   
+    - name: SQLServer
+      import_tasks: sqlserver.yaml
+      tags: never,sqlserver
+    
+    - name: Collect Hardware Info
+      import_tasks: collect_hardware.yaml
+      tags: never,collect_hardware
+
+    - name: Installed Softwares List
+      import_tasks: collect_software.yaml
+      tags: never,collect_software
+    
+    - name: Copy PowerBI installer to Downloads path
+      import_tasks: powerbi.yaml
+      tags: never,powerbi
+
+    - name: Unzip SEER files to Desktop to hosts
+      import_tasks: seer.yaml
+      tags: never,seer
+
+    - name: Prepare Windows Hosts for Ansible Basic Method Authentication
+      import_tasks: prepare_win_hosts.yaml
+      tags: never,prepare_win_host
+
+    - name: SSD Health Status
+      import_tasks: ssd_health_status_windows.yml
+      tags: never,ssd_health_status_windows
+
+    - name: Remove Opera GX
+      import_tasks: opera_gx_removal.yaml
+      tags: never,opera_gx_removal
+
+  post_tasks:
+    - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
+      community.windows.win_power_plan:
+        name: equilibrado 
+      when: 
+      - ansible_facts['product_name'] != "DB85PRO"
+
+    - name: Set autologon for user aluno
+      community.windows.win_auto_logon:
+        username: aluno
+        password: aluno
+ 
+

@@ -1,0 +1,17 @@
+---
+- name: Mounting SMB Share
+  hosts: localhost
+  
+  vars:
+    ad_domain: ufcvirtual.local
+    ad_username: emanoel
+
+  tasks:
+    - name: Mount ephemeral SMB volume
+      ansible.posix.mount:
+        src: //10.44.24.130/smd
+        path: /home/demo/smb_share 
+        opts: "rw,vers=3,file_mode=0600,dir_mode=0700,dom={{ ad_domain }},username={{ ad_username }},password={{ ad_password }}"
+        fstype: cifs
+        state: ephemeral
+      become: true

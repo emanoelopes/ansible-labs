@@ -1,0 +1,34 @@
+---
+# Passo 1: Obter informacoes de todos os discos fisicos em formato JSON
+- name: Coletar informacoes dos discos fisicos via PowerShell
+  ansible.windows.win_shell: Get-PhysicalDisk | Select-Object DeviceID, FriendlyName, HealthStatus, MediaType | ConvertTo-Json
+  register: disk_info_raw # Salva a saida do comando (que sera uma string JSON)
+  changed_when: false # Este comando nao altera nada no sistema
+
+# Variavel auxiliar para facilitar o uso dos dados coletados
+# O filtro 'from_json' converte a string JSON do passo anterior em uma estrutura de dados Ansible
+- name: Definir fatos com a lista de discos
+  ansible.builtin.set_fact:
+    disks: "{{ disk_info_raw.stdout | from_json }}"
+
+# Passo 2: Iterar sobre cada disco e exibir seu status de saude
+- name: Exibir o status de saude de cada disco
+  ansible.builtin.debug:
+    msg: "Disco: '{{ item.FriendlyName }}' (DeviceID {{ item.DeviceID }}) | Tipo: {{ item.MediaType }} | Status: {{ item.HealthStatus }}"
+  loop: "{{ disks }}" # Itera sobre a lista de discos que criamos no passo anterior
+  # O loop pode retornar um unico objeto se houver apenas um disco, ou uma lista de objetos se houver varios.
+  # A linha abaixo garante que o loop funcione nos dois cenarios.
+  loop_control:
+    label: "{{ item.FriendlyName }}" # Melhora a visualizacao da saida do Ansible
+
+# Passo 3 (Recomendado): Falhar o playbook se algum disco nao estiver saudavel
+- name: Falhar a execucao se algum disco nao estiver 'Healthy'
+  ansible.builtin.fail:
+    msg: |
+      ALERTA DE FALHA DE DISCO!
+      O disco '{{ item.FriendlyName }}' (DeviceID {{ item.DeviceID }}) no host {{ inventory_hostname }}
+      reportou um status de saude preocupante: '{{ item.HealthStatus }}'.
+  loop: "{{ disks }}"
+  when: item.HealthStatus != 'Healthy' # A condicao de falha
+  loop_control:
+    label: "{{ item.FriendlyName }}"

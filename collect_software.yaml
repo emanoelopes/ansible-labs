@@ -1,0 +1,24 @@
+- name: Collect installed software informations
+  win_shell: |
+    $items=New-Object System.Collections.ArrayList
+
+    Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |
+      Select-Object DisplayName, DisplayVersion, Publisher, InstallLocation,
+                    @{Name='Arch' ; Expression={'x64'}} | ForEach-Object {
+        $items.Add($_) | Out-Null
+      }
+
+    Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+      Select-Object DisplayName, DisplayVersion, Publisher, InstallLocation,
+                    @{Name='Arch' ; Expression={'x86'}} | ForEach-Object {
+        $items.Add($_) | Out-Null
+      }
+
+    $items | Select-Object DisplayName, DisplayVersion, Publisher,
+                          Arch, InstallLocation | ConvertTo-JSON
+  args:
+    no_profile: yes
+  register: installed_software
+- name: display installed software
+  debug:
+    var: installed_software.stdout

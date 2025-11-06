@@ -1,0 +1,30 @@
+---
+  - name: Ensure admin user 'localwp' is present 
+    win_user:
+      name: localwp
+      password: wordpress
+      state: present
+      groups:
+        - Administradores  
+    tags: create_user
+  - name: Ensure localwp user is absent
+    win_user:
+      name: localwp
+      state: absent
+    tags: remove_user
+  - name: Ensure localwp installer is on windows host
+    win_copy: 
+      src: local-6.4.2-windows.exe
+      dest: c:\Users\localwp\Downloads 
+    tags: copy
+  - name: Install localwp
+    win_package:
+      path: c:\Users\localwp\downloads\local-6.4.2-windows.exe
+      state: present
+    tags: install
+  - name: Uninstall localwp
+    win_package:
+      path: c:\Users\localwp\downloads\local-6.4.2-windows.exe
+      product_id: '{FCC74B77-EC3E-4DD8-A80B-008A702075A9}'
+      state: absent
+    tags: uninstall 

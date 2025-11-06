@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: ansible-runner
+Version: 2.4.2
+Summary: "Consistent Ansible Python API and CLI with container and process isolation runtime capabilities"
+Home-page: https://ansible-runner.readthedocs.io
+Author: Ansible, Inc.
+Author-email: info@ansible.com
+License: Apache Software License, Version 2.0
+Project-URL: Source, https://github.com/ansible/ansible-runner
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: pexpect>=4.5
+Requires-Dist: packaging
+Requires-Dist: python-daemon
+Requires-Dist: pyyaml
+Requires-Dist: importlib-metadata<6.3,>=4.6; python_version < "3.10"
+
+Ansible Runner
+==============
+
+[![PyPi](https://img.shields.io/pypi/v/ansible-runner.svg?logo=Python)](https://pypi.org/project/ansible-runner/)
+[![Documentation](https://readthedocs.org/projects/ansible-runner/badge/?version=stable)](https://ansible-runner.readthedocs.io/en/latest/)
+[![Code of Conduct](https://img.shields.io/badge/Code%20of%20Conduct-Ansible-silver.svg)](https://docs.ansible.com/ansible/latest/community/code_of_conduct.html)
+[![codecov](https://codecov.io/gh/ansible/ansible-runner/branch/devel/graph/badge.svg?token=CmCcjBz0pQ)](https://codecov.io/gh/ansible/ansible-runner)
+
+Ansible Runner is a tool and Python library that helps when interfacing with Ansible directly or as part of another system. Ansible Runner works as a standalone tool, a container image interface, or a Python module that can be imported. The goal is to provide a stable and consistent interface abstraction to Ansible.
+
+See the [latest documentation] for usage details.
+
+Get Involved
+------------
+
+* [GitHub issues] to track bug report and feature ideas
+* [GitHub Milestones] to track what's for the next release
+* Want to contribute? Please check out our [contributing guide]
+* Visit the [Community] section of the docs.
+* See the [Ansible communication guide] for complete information about getting in touch.
+
+[GitHub issues]: https://github.com/ansible/ansible-runner/issues
+[GitHub Milestones]: https://github.com/ansible/ansible-runner/milestones
+[contributing guide]: https://github.com/ansible/ansible-runner/blob/devel/CONTRIBUTING.md
+[Community]: https://ansible.readthedocs.io/projects/runner/en/latest/community/
+[Ansible communication guide]: https://docs.ansible.com/ansible/devel/community/communication.html
+[latest documentation]: https://ansible.readthedocs.io/projects/runner/en/latest/

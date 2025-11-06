@@ -1,0 +1,14 @@
+# Group variables for macOS hosts
+# Encrypt the companion file group_vars/macos_vault.yml with Ansible Vault.
+
+ansible_user: "seu_usuario"
+
+# Use the same secret for SSH and sudo to avoid -k and -K prompts
+ansible_password: "{{ vault_macos_password }}"
+ansible_become_password: "{{ vault_macos_password }}"
+
+# Connection settings (optional; adjust as needed)
+ansible_become: true
+ansible_become_method: sudo
+ansible_connection: ssh
+

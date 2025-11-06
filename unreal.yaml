@@ -1,0 +1,7 @@
+---
+  - name: Ensure Epic Games Launcher is the latest version
+    win_chocolatey:
+      name: epicgameslauncher 
+      state: latest
+
+

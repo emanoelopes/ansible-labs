@@ -1,0 +1,28 @@
+---
+- name: assert
+  hosts: all
+  tasks:
+#  - name: Classify hosts depending on the model
+#    group_by:
+#      key: model_{{ ansible_product_name }}
+#
+#- hosts: model_3209*
+#  tasks:
+  - name: check if memory is between 7000 and 9000 MB
+    assert:
+      that:
+        - ansible_memtotal_mb | int >= 7000
+        - ansible_memtotal_mb | int <= 9000
+      fail_msg: "Memory is {{ ansible_memtotal_mb }}MB"
+    register: result
+    changed_when:
+      - result.evaluated_to is defined
+      - result.evaluated_to == False
+    failed_when: False
+    when: (ansible_product_name == "32091M5") or 
+          (ansible_product_name == "3209-1M5") or
+          (ansible_product_name == "32091M3") or
+          (ansible_product_name == "3209C4P") or
+          (ansible_product_name == "3209Q4P") or
+          (ansible_product_name == "32091M4")
+

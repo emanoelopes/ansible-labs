@@ -1,0 +1,11 @@
+---
+#- name: copy zip file
+#  win_copy:
+#    src: seer/arquivoslab410301200_.zip
+#    dest: "{{ user_temp_folder }}"
+
+- name: unzip files to Desktop
+  win_unzip:
+    src: seer/arquivoslab410301200_.zip
+    dest: "{{ aluno_desktop }}/SEER"
+  tags: never,seer 

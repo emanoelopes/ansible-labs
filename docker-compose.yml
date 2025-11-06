@@ -1,0 +1,8 @@
+---
+services:
+  ansiblelabs:
+    image: ansiblelabs:latest
+    container_name: ansiblelabs
+    volumes:
+      - ansible-labs:/home/emanoel/ansible-labs
+    restart: always 

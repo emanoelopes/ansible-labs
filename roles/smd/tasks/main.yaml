@@ -1,0 +1,517 @@
+- name: Install chocolatey packages
+  win_chocolatey:
+    name: 
+      - asio4all #sound driver for reaper
+      - gimp #smd0056,smd0057,smd0088,smd0089,smd0098,smd0105,smd0110 
+      - inkscape #smd0088,smd0105,smd0110
+      - krita #smd0057,smd0089,smd0098
+      - anaconda3
+      - audacity #smd0047
+      - arduino #smd0112
+      - vscode
+      - openjdk
+      - octave #smd0047
+      - selenium
+      - nodejs
+      - postman
+      - reaper
+      - python
+    state: latest 
+  tags: never,faixa2
+  
+- name: Install Blender 3.3.1 on old computers and create shortcut
+  block:
+    - name: Install Blender
+      win_chocolatey:
+        name: blender
+        state: downgrade 
+        pinned: true
+        version: 3.3.1
+      when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+    - name: Create shortcut
+      win_shortcut:
+        src: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe
+        dest: C:\Users\Public\Desktop\Blender.lnk
+        icon: C:\Program Files\Blender Foundation\Blender 3.3\blender.exe,0
+      when: ansible_facts['os_name'] == "Microsoft Windows 10 Pro"
+  rescue:
+    - name: Print when errors
+      debug:
+        msg: 'An error ocurred Blender trying to install by a block on the SMD role.'
+  tags: never,blender3
+    
+#- name: Install wick editor
+#  win_package:
+#    path: Windows_Wick.Editor.Setup.1.19.0.exe
+#    state: present
+
+- name: Install FontForge
+  tags: never,faixa2
+  win_package:
+    path: "{{ fontforge_url }}" 
+    state: present
+
+- name: Glyphr Studio
+  tags: never,faixa2
+  win_package:
+    path: https://github.com/glyphr-studio/Glyphr-Studio-Desktop/releases/download/v0.5.6/Glyphr.Studio.Setup.0.5.6.exe
+    state: present
+
+- name: Download P5 JS, Unzip to Aplicativos folder and remove the previous version
+  block:
+    - name: Removing old P5 JS
+      win_file:
+        path: "{{ aplicativos }}/p5"
+        state: absent
+    - name: Download P5 JS
+      win_get_url:
+        url: "{{ p5_url }}" 
+        dest: "{{ downloads }}"
+    - name: Unzip P5 JS
+      win_unzip: 
+        src: "{{ downloads }}/p5.zip"
+        dest: "{{ aplicativos }}/p5"
+        delete_archive: yes
+  rescue:
+    - name: Print when error
+      ansible.builtin.debug:
+        msg: 'A error ocurred on P5 JS task on smd role'
+  tags: never,p5,faixa1,faixa2
+
+#- name: MediBang Paint Pro
+#  win_package:
+#    path: https://medibangpaint.com/static/installer/MediBangPaintPro/MediBangPaintProSetup-28.1-64bit.exe
+#    state: present
+#    arguments:
+#    - /silent
+#
+#- name: Kicad
+#  win_package:
+#    path: https://github.com/KiCad/kicad-source-mirror/releases/download/6.0.6/kicad-6.0.6_1-x86_64.exe
+#    state: present
+
+- name: Processing 
+  block:
+    - name: Downloading Processing 
+      win_get_url: 
+        url: "{{ processing_url }}" 
+        dest: "{{ downloads }}"
+
+    - name: Unzip Processing 
+      win_unzip: 
+        src: "{{ downloads }}/{{ processing_zip_file }}"
+        dest: c:\Program Files
+        delete_archive: yes
+
+    - name: Create Processing shortcut on the desktop 
+      community.windows.win_shortcut:
+        src: "{{ processing_exec_file }}"
+        dest: "{{ aluno_desktop }}/processing.lnk"
+        icon: "{{ processing_exec_file }},0"
+  rescue:
+    - name: Print when error
+      debug:
+        msg: 'An error on installing processing block'
+  tags: never,processing,faixa1,faixa2
+
+- name: DaVinci Resolve
+  # when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
+  block:
+    - name: DaVinci Resolve - copy file to the target
+      win_copy:
+        src: "{{ davinci_zip_file }}"
+        dest: "{{ downloads }}"
+      tags: never,davinci
+
+    - name: DaVinci Resolve - Ensure is installed
+      win_package:
+        path: "{{ downloads }}/{{ davinci_install_file }}"
+        arguments: /i /q
+      ignore_errors: True
+      tags: never,davinci
+
+    - name: DaVinci Resolve - Remove installer file
+      win_file:
+        path: "{{ downloads }}/{{ davinci_install_file }}"
+        state: absent
+      ignore_errors: true
+      tags: never,davinci
+
+
+- name: Create a shortcut for inkscape
+  win_shortcut:
+    src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
+    dest: c:\Users\aluno\Desktop\inkscape.lnk
+    icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
+  tags: never,faixa2,inkscape
+
+- name: Install Cypress for Applied Test classes #SMD0048
+  community.general.npm: 
+    name: cypress
+    global: true  
+  tags: never,faixa2,smd0048
+
+#- name: Download Android Studio 
+#  win_get_url:
+#    url: "{{ androidstudio_url }}"
+#    dest: "{{ user_temp_folder }}"
+#  register: androidstudio_downloaded
+#  tags: never,androidstudio_download
+#
+#- name: Install Android Studio
+#  win_package:
+#    path: "{{ user_temp_folder }}/{{ androidstudio_exe_file }}"
+#    arguments: /S
+#    state: present
+#  tags: never,androidstudio_install
+
+- name: Remove Android Studio Folder
+  win_file:
+    path: "{{ androidstudio }}"
+    state: absent
+  tags: never,androidstudio_remove
+
+- name: AndroidStudio 
+  win_chocolatey:
+    name: androidstudio
+    state: latest
+  tags: never,androidstudio
+
+- name: Ensure tomcat files are copied already to the hosts
+  win_get_url:
+    url: "{{ tomcat_url }}"
+    dest: "{{ user_temp_folder }}"
+  tags: never,tomcat
+
+- name: Ensure that tomcat files are unziped at documents folder
+  win_unzip:
+    src: "{{ user_temp_folder }}/{{ tomcat_zip_file }}"
+    dest: "{{ aluno_documents_folder }}"
+  tags: never,tomcat,smd0033
+
+- name: Ensure Apache Netbeans is installed
+  win_package:
+    path: "{{ apache_netbeans_url }}"
+    arguments: --silent
+  tags: never,apache_netbeans
+
+- name: Ensure Apache Netbeans + JDK are installed
+  win_package:
+    path: "{{ apache_netbeans_jdk_url }}"
+    arguments: --silent
+  tags: never,apache_netbeans_jdk
+
+- name: Add firewall rule to provide access to Netbeans
+  win_firewall_rule:
+    name: netbeans
+    program: c:\program files\netbeans-27\netbeans\bin\netbeans64.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to OpenJDK Platform
+  win_firewall_rule:
+    name: OpenJDK 21 Platform
+    program: c:\program files\openjdk\jdk-21.0.2\bin\java.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Add firewall rule to provide access to OracleJDK Platform
+  win_firewall_rule:
+    name: OracleJDK 17 Platform
+    program: c:\program files\java\jdk-17.0.2\bin\java.exe
+    state: present
+    enabled: yes
+    action: allow
+    direction: in 
+    localport: any
+    localip: any
+    remoteport: any
+    remoteip: any
+    protocol: tcp
+  tags: never,apache_netbeans
+
+- name: Ensure LibreOffice is installed on Windows hosts
+  win_package:
+    path: "{{ libre_office_url }}"
+    state: present
+  tags: never,libre_office
+
+- name: Delete version 2022.3 
+  win_shell: "{{ pycharm_uninstall_path }} /S"
+  args: 
+    executable: cmd
+  tags: never,pycharm_uninstall
+
+- name: Ensure Python and Pycharm are installed
+  win_chocolatey:
+    name:
+      - python
+      - pycharm-community
+    state: latest
+  tags: never,pycharm
+
+- name: Ensure firewall rule for Pycharm is enabled
+  win_firewall_rule:
+    name: PyCharm
+    program: '{{ pycharm_exec_path }}'
+    direction: in
+    action: allow
+    state: present
+    enabled: yes
+  tags: never,pycharm
+
+- name: Ensure that flash player uninstaller is on Windows\Temp folder
+  win_stat:
+    path: c:\Windows\temp\uninstall_flash_player.exe
+  register: result
+  tags: never,plugin_flashplayer
+
+- name: Copy uninstaller to the OptiPlex target
+  ansible.windows.win_copy:
+    src: uninstall_flash_player.exe
+    dest: c:\Windows\temp
+  when: not result.stat.exists 
+  tags: never,plugin_flashplayer
+
+- name: Uninstall the Flash Player Plugin 
+  ansible.windows.win_package:
+    path: c:\Windows\temp\uninstall_flash_player.exe
+    arguments: -uninstall 
+  tags: never,plugin_flashplayer
+
+- name: BGInfo download 
+  win_copy:
+    src: "bginfo/"
+    dest: "{{ aplicativos }}/bginfo/"
+  tags: never,bginfo_download
+
+- name: BGInfo at boot 
+  community.windows.win_scheduled_task:
+    name: BGInfo 
+    description: Exibir o nome do usuário logado e o IP do computador
+    actions:
+      - path: c:\Aplicativos\bginfo\Bginfo.exe
+        arguments: /accepteula /timer:0 /silent
+    triggers:
+    - type: logon 
+    username: SYSTEM
+    run_level: highest
+    wake_to_run: no
+    enabled: yes
+  tags: never,bginfo_task
+
+- name: Install NVDA
+  ansible.windows.win_package:
+    path: https://www.nvaccess.org/download/nvda/releases/2022.2/nvda_2022.2.exe
+    arguments:
+    - --install-silent
+    - -m
+  tags: never,nvda
+
+- name: Verify CloudFlare Warp Uninstall is present 
+  win_stat: 
+    path: "{{ cloudflare_warp_uninstall_path }}"
+  register: cloudflare_uninstall_path
+  tags: never,cloudflare_uninstall
+
+- name: Uninstall CloudFlare Warp 
+  win_package: 
+    path: "{{ cloudflare_warp_uninstall_path }}"
+  #args: 
+    #executable: cmd
+    #argument: /uninstall 
+    state: absent
+  when: cloudflare_uninstall_path.stat.exists
+  tags: never,cloudflare_uninstall
+
+- name: Unity and Unity Hub 
+  block:
+    - name: Ensure Unity and Unity Hub are installed
+      win_chocolatey:
+        name:
+          - unity
+          - unity-hub
+        state: present
+    - name: Add firewall rule to provide access to Unity
+      win_firewall_rule:
+        name: unity
+        program: c:\program files\
+        state: present
+        enabled: yes
+        action: allow
+        direction: in 
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+  tags: never,unity
+
+- name: Ensure Epic Games Launcher is the latest version
+  win_chocolatey:
+    name: epicgameslauncher 
+    state: latest
+  tags: never,epic,unreal
+
+- name: Windows Updates
+  block:
+    - name: Configure WinRM for updates
+      ansible.windows.win_service:
+        name: WinRM
+        start_mode: delayed
+    - name: Pre Updates Check
+      ansible.windows.win_updates:
+        category_names:
+          - Application
+          - Connectors
+          - SecurityUpdates
+          - CriticalUpdates
+          - QualityUpdates
+          - UpdateRollups
+          - FeaturePacks
+          - ServicePacks
+          - Drivers
+          - DeveloperKits
+          - DefinitionUpdates
+          - Updates
+          - Windows 11
+          - Microsoft Defender Antivirus
+          - Windows 10 LTSB
+          - Windows 10, version 1903 and later
+          - Guidance
+          - Tools
+        state: searched
+        log_path: C:\Windows\Temp\Pre-AllUpdatesFound.txt
+    - name: First update run
+      ansible.windows.win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+          - UpdateRollups
+          - Updates
+        reboot: yes 
+        state: installed
+        log_path: C:\Windows\Temp\ansible_updates_first_run.txt
+    - name: First update run reboot
+      win_reboot:
+        reboot_timeout: 3600
+    - name: Second update run
+      ansible.windows.win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+          - UpdateRollups
+          - Updates
+        reboot: yes
+        state: installed
+        log_path: C:\Windows\Temp\ansible_updates_second_run.txt
+    - name: Second update run reboot
+      win_reboot:
+        reboot_timeout: 3600
+    - name: Third update run
+      ansible.windows.win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+          - UpdateRollups
+          - Updates
+        reboot: yes
+        state: installed
+        log_path: C:\Windows\Temp\ansible_updates_third_run.txt
+    - name: Third update run reboot
+      win_reboot:
+        reboot_timeout: 3600
+    - name: Post Update Check
+      ansible.windows.win_updates:
+        category_names:
+          - Application
+          - Connectors
+          - CriticalUpdates
+          - DefinitionUpdates
+          - DeveloperKits
+          - FeaturePacks
+          - Guidance
+          - SecurityUpdates
+          - ServicePacks
+          - Tools
+          - UpdateRollups
+          - Updates
+        state: searched
+        log_path: C:\Windows\Temp\Post-AllUpdatesFound.txt
+    - name: Set WinRM back to standard settings
+      ansible.windows.win_service:
+        name: WinRM
+        start_mode: auto
+  tags: never,win_updates
+
+- name: Ensure julia installer is on windows host
+  block:
+    - name: Copy installer to Windows Temp Folder 
+      win_copy: 
+        src: "{{ julia_install_file }}" 
+        dest: "{{ user_temp_folder }}" 
+    - name: Install Julia 
+      win_package:
+        path: "{{ user_temp_folder }}/{{ julia_install_file }}"
+        state: present
+        arguments:
+        - /SP
+        - /SILENT
+        - /CURRENTUSER
+  tags: never,julia 
+- name: Ensure wallpaper is set correctly
+  block:
+    - name: Select the smd wallpaper file
+      win_regedit:
+        path: HKEY_CURRENT_USER\Control Panel\Desktop
+        name: Wallpaper
+        data: "{{ wallpaper_path }}"
+        type: string
+    - name: Select the style
+      win_regedit:
+        path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
+        name: WallpaperStyle
+        data: 2
+        type: string
+    - name: Update wallpaper configurations to apply the changes
+      win_shell:
+        commands:
+          - RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+  rescue:
+    - name: Print when errors
+      debug:
+        msg: 'An error ocurred trying to define the wallpaper on SMD role.'
+  tags: never,wallpaper
+
+- name: Internet On/Off change state
+  block:
+    - name: Copiar script PowerShell para a máquina remota
+      win_copy:
+        src: disable_internet.ps1  # Nome do arquivo do script PowerShell
+        dest: C:\Temp\disable_internet.ps1
+
+    - name: Executar script PowerShell para desabilitar a internet
+      win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "disable"
+      when: internet_action == "disable"
+
+    - name: Executar script PowerShell para habilitar a internet
+      win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "enable"
+
+      when: internet_action == "enable" 
+  tags: never,exam
