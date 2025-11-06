@@ -23,7 +23,7 @@
 
 # Passo 3 (Recomendado): Falhar o playbook se algum disco nao estiver saudavel
 - name: Falhar a execucao se algum disco nao estiver 'Healthy'
-  ansible.windows.win_fail:
+  ansible.builtin.fail:
     msg: |
       ALERTA DE FALHA DE DISCO!
       O disco '{{ item.FriendlyName }}' (DeviceID {{ item.DeviceID }}) no host {{ inventory_hostname }}

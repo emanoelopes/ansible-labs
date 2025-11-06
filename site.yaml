@@ -99,6 +99,10 @@
       import_tasks: ssd_health_status_windows.yml
       tags: never,ssd_health_status_windows
 
+    - name: Remove Opera GX
+      import_tasks: opera_gx_removal.yaml
+      tags: never,opera_gx_removal
+
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO
       community.windows.win_power_plan:
