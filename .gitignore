@@ -1,15 +1,92 @@
+# Secrets and sensitive files
 open_vault.txt
 mynodes.ini
 macs.ini
-*.exe
-*.zip
-*.png
-*.jpg
-*.json
-*.rar
 group_vars/all.yaml
 SMD*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
 ansible-navigator.log
+interface/logs/
+*.log.*
+
+# Artifacts and temporary files
+*-artifact-*.json
+*.artifact
+*.tmp
+*.bak
+*.backup
+
+# Ansible
 execution-environment.yml
 get-docker.sh
+
+# Binary files
+*.exe
+*.zip
+*.rar
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+
+# JSON files (ignore all, then allow specific config files)
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!mkdocs.yml
+!**/config*.json
+!**/dashboard*.json
+
+# OS files
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+
+# Project specific
+uv.lock
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Docker
+docker-compose.override.yml
