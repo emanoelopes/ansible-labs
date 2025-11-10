@@ -11,17 +11,33 @@ aluno_documents_folder: 'c:\Users\aluno\Documents'
 aluno_desktop: 'c:\Users\aluno\Desktop'
 p5_url: 'https://github.com/processing/p5.js/releases/latest/download/p5.zip'
 aplicativos: 'c:\Aplicativos'
-processing_url: 'https://github.com/processing/processing4/releases/download/processing-1293-4.3/processing-4.3-windows-x64.zip'
-processing_zip_file: 'processing-4.3-windows-x64.zip'  
+
+# PostgreSQL
+postgres_file_install: 'postgresql-17.4-1-windows-x64.exe'
+postgresql_url: 'https://sbp.enterprisedb.com/getfile.jsp?fileid=1259622'
+
+# Processing
+processing_url: 'https://github.com/processing/processing4/releases/download/processing-1304-4.4.4/processing-4.4.4-windows-x64-portable.zip'
+processing_zip_file: 'processing-4.3-windows-x64.zip'
+
+# Pycharm
 processing_exec_file: 'C:\Program Files\processing-4.3\processing.exe'
 pycharm_uninstall_path: 'C:\Program Files\JetBrains\PyCharm Community Edition 2022.3.3\bin\Uninstall.exe'
 cloudflare_warp_uninstall_path: 'C:\Windows\Installer\2a2ad4ef.msi'
 pycharm_exec_path: 'C:\program files\jetbrains\pycharm community edition 2022.3.3\bin\pycharm64.exe'
+
+# Davinci Resolve
 davinci_install_file: 'DaVinci_Resolve_20.2.2_Windows.exe'
 davinci_exec_file: 'C:\Arquivos de Programas\Blackmagic Design\DaVinci Resolve\Resolve.exe'
+
+# Android Studio
 androidstudio_url: 'https://redirector.gvt1.com/edgedl/android/studio/install/2023.1.1.28/android-studio-2023.1.1.28-windows.exe'
 androidstudio_exe_file: 'android-studio-2023.1.1.28-windows.exe'
 androidstudio: 'C:\Arquivos de Programas\Android\Android Studio'
+
+# Arduino
+arduino_file_zip: 'arduino-ide_2.3.6_Windows_64bit.zip'
+arduino_url_address: 'https://downloads.arduino.cc/arduino-ide/arduino-ide_2.3.6_Windows_64bit.zip'
 libre_office_install_file: 'LibreOffice_7.5.9_Win_x86-64.msi'
 libre_office_url: 'https://pt-br.libreoffice.org/donate/dl/win-x86_64/7.5.9/pt-BR/LibreOffice_7.5.9_Win_x86-64.msi' 
 julia_install_file: 'julia-1.9.3-win64.exe'

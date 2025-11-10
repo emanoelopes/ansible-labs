@@ -16,8 +16,100 @@
       - postman
       - reaper
       - python
+      - firefox
+      - foxitreader
+      - git
+      - openjdk
+      - bitvise-ssh-client
+      - pycharm-community
+      - winrar
+      - libreoffice-fresh
+      - tightvnc
+      - inkscape
+      - wacom-drivers
+      - krita
+      - fontforge
+      - wwireshark
+      - pgadmin4
+    ignore_errors: True
     state: latest 
   tags: never,faixa2
+
+- name: Arduino Install and preparation
+  block:
+    - name: Copy zip file to the target
+      ansible.windows.win_get_url:
+        url: "{{ arduino_url_address }}"
+        dest: "{{ aplicativos_dir }}"
+      ignore_errors: True
+    - name: nzip Install file
+      community.windows.win_unzip:
+        src: '{{ aplicativos_dir }}\{{ arduino_file_zip }}'
+        dest: '{{ aplicativos_dir }}\Arduino'
+        delete_archive: yes
+      ignore_errors: True
+    - name: Create shortcut on the desktop
+      community.windows.win_shortcut:
+        src: C:\Aplicativos\Arduino\Arduino Ide.exe
+        dest: c:\users\aluno\desktop\Arduino.lnk
+      ignore_errors: True
+    - name: Add firewall rule for mdns-discovery on private network TCP
+      win_firewall_rule:
+        name: mdns-discovery TCP
+        program: C:\users\aluno\appdata\local\arduino15\packages\bultin\tools\mdns-discovery\1.0.9\mdns-discovery.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+        profiles: private
+    - name: Add firewall rule for mdns-discovery on private network UDP
+      win_firewall_rule:
+        name: mdns-discovery UDP
+        program: C:\users\aluno\appdata\local\arduino15\packages\bultin\tools\mdns-discovery\1.0.9\mdns-discovery.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: udp
+        profiles: private
+    - name: Add firewall rule to provide access to arduino ide
+      win_firewall_rule:
+        name: Arduino IDE TCP
+        program: C:\Aplicativos\Arduino\Arduino Ide.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in 
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+        profiles: private
+    - name: Add firewall rule for Arduino IDE on private network UDP
+      win_firewall_rule:
+        name: Arduino IDE UDP
+        program: C:\Aplicativos\Arduino\Arduino Ide.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: udp
+        profiles: private
+
   
 - name: Install Blender 3.3.1 on old computers and create shortcut
   block:
@@ -151,31 +243,47 @@
     global: true  
   tags: never,faixa2,smd0048
 
-#- name: Download Android Studio 
-#  win_get_url:
-#    url: "{{ androidstudio_url }}"
-#    dest: "{{ user_temp_folder }}"
-#  register: androidstudio_downloaded
-#  tags: never,androidstudio_download
-#
-#- name: Install Android Studio
-#  win_package:
-#    path: "{{ user_temp_folder }}/{{ androidstudio_exe_file }}"
-#    arguments: /S
-#    state: present
-#  tags: never,androidstudio_install
-
-- name: Remove Android Studio Folder
-  win_file:
-    path: "{{ androidstudio }}"
-    state: absent
-  tags: never,androidstudio_remove
-
-- name: AndroidStudio 
-  win_chocolatey:
-    name: androidstudio
-    state: latest
-  tags: never,androidstudio
+- name: Ensure Android Studio is installed
+  block:
+    - name: Remove Android Studio Folder
+      win_file:
+        path: "{{ androidstudio }}"
+        state: absent
+      tags: never,androidstudio_remove
+    - name: AndroidStudio 
+      win_chocolatey:
+        name: androidstudio
+        state: latest
+      tags: never,androidstudio
+    - name: Add firewall rule for androidstudio
+      win_firewall_rule:
+        name: adb.exe TCP
+        program: C:\users\aluno\appdata\local\Android\Sdk\platform-tools\adb.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: tcp
+        profiles: private
+    - name: Add firewall rule for mdns-discovery on private network UDP
+      win_firewall_rule:
+        name: adb.exe UDP
+        program: C:\users\aluno\appdata\local\Android\Sdk\platform-tools\adb.exe
+        state: present
+        enabled: yes
+        action: allow
+        direction: in
+        localport: any
+        localip: any
+        remoteport: any
+        remoteip: any
+        protocol: udp
+        profiles: private
+      
 
 - name: Ensure tomcat files are copied already to the hosts
   win_get_url:
@@ -515,3 +623,110 @@
 
       when: internet_action == "enable" 
   tags: never,exam
+
+- name: Ensure Google Chrome is installed from install file
+  block:
+    - name: Copy Google file to hosts
+      ansible.windows.win_copy:
+        src: '{{ google_folder_file_install }}'
+        dest: '{{ temp_dir }}'
+      ignore_errors: True
+    - name: Install Google Chrome silent mode
+      ansible.windows.win_command:
+        cmd: '{{ temp_dir }}\{{ google_file_name_install }} /silent /install'
+        chdir: '{{ temp_dir }}'   
+      ignore_errors: True    
+    - name: Remove a file {{ google_file_name_install }}
+      ansible.windows.win_file:
+        path: '{{ temp_dir }}\{{ google_file_name_install }}'
+        state: absent
+      ignore_errors: True
+  tags: never,googlechrome
+
+- name: Safe Exam Browser (SEB)
+  block:
+    - name: Create a directory c:\temp
+      ansible.windows.win_file:
+        path: C:\Temp\
+        state: directory
+      ignore_errors: True
+    - name: Baixar SEB
+      ansible.windows.win_get_url:
+        url: https://github.com/SafeExamBrowser/seb-win-refactoring/releases/download/v3.9.0/SEB_3.9.0.787_SetupBundle.exe
+        dest: C:\Temp\SEB.msi
+    - name: Instalar SEB silenciosamente
+      ansible.windows.win_package:
+        path: C:\Temp\SEB.msi
+        state: present
+        arguments: /quiet /norestart
+    - name: Apagar arquivo de instalacao SEB
+      ansible.windows.win_file:
+        path: C:\Temp\SEB.msi
+        state: absent
+      ignore_errors: True
+    - name: Create a directory C:\Users\aluno\AppData\Roaming\SafeExamBrowser\
+      ansible.windows.win_file:
+        path: C:\Users\aluno\AppData\Roaming\SafeExamBrowser\
+        state: directory
+      ignore_errors: True
+    - name: Copiar arquivo de prova SEB para diretório de instalação
+      ansible.windows.win_copy:
+        src: /home/peterson/ansible-labs/files/SEB/SebClientSettings-HenriquePequeno.seb
+        dest: C:\Users\aluno\AppData\Roaming\SafeExamBrowser\SebClientSettings.seb
+      ignore_errors: True
+  tags: never,seb
+
+- name: Instalação do Veyon
+  block:
+    - name: Remove a file, if present
+      ansible.windows.win_file:
+        path: '{{ dir_veyon }}'
+        state: absent
+      ignore_errors: yes
+    - name: Create a directory {{ dir_veyon }}
+      ansible.windows.win_file:
+        path: '{{ dir_veyon }}'
+        state: directory
+      ignore_errors: no
+    - name: Copy veyon install file to host
+      win_copy: 
+        src: '{{ install_file_veyon }}'
+        dest: '{{ dir_veyon }}'
+    - name: Copy veyon config.json
+      win_copy:
+        src: "{{ config_json_file }}"
+        dest: "{{ dir_veyon }}"
+    - name: Copy veyon public keys to host
+      win_copy:
+        src: '{{ public_key_veyon_file }}'
+        dest: '{{ dir_veyon }}'
+    - name: Install Veyon windows.win_command
+      ansible.windows.win_command:
+        cmd: '{{ file_name_veyon }} /S /NoMaster /ApplyConfig={{ dir_veyon }}/{{ config_json_file }}'
+        chdir: c:\Program Files\Veyon\
+    - name: Remove keys if they exist #add ignore fail 
+      ansible.windows.win_command:
+        cmd: 'veyon-cli.exe authkeys delete {{ public_key_name_cli }}'
+        chdir: '{{ dir_veyon }}'
+      ignore_errors: yes
+    - name: Import public Key 
+      ansible.windows.win_command: 
+        cmd: 'veyon-cli.exe authkeys import LaboratoriosSMD/public {{ public_key_name_veyon }}'
+        chdir: '{{ dir_veyon }}'
+      ignore_errors: no
+    - name: Import config.json again just in case 
+      ansible.windows.win_command: 
+        cmd: 'veyon-cli.exe config import {{ config_json_name }}'
+        chdir: '{{ dir_veyon }}'
+      ignore_errors: no
+    - name: Restart veyon service 
+      ansible.windows.win_command:
+        cmd:  'veyon-cli.exe service restart'
+        chdir: '{{ dir_veyon }}'
+      ignore_errors: yes
+    - name: Remove a file
+      ansible.windows.win_file:
+        path: '{{ dir_veyon }}\{{ file_name_veyon }}'
+        state: absent
+      ignore_errors: True
+  tags: never,veyon
