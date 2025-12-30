@@ -6,7 +6,8 @@
   roles:
     - smd 
     - hosts_file
-  gather_facts: no
+    - maintenance
+  gather_facts: yes
 
   pre_tasks:
     - name: Choose High Performance energy power plan for 7010, 780, m3209, 5400AIO
@@ -37,71 +38,9 @@
         enabled: yes
 
   tasks:
-    - name: Win Updates
-      import_tasks: win_updates.yaml
-      tags: never, win_updates
-
-    - name: Install windows Exporter 
-      import_tasks: windows_exporter.yml
-      tags: never, windows_exporter 
-
-    - name: Install node_exporter 
-      import_tasks: node_exporter.yml
-      tags: never, node_exporter 
-  
-    - name: reboot 
-      win_reboot:
-        reboot_timeout: 3600
-        msg: "Restarting to apply updates"
-      tags: never, reboot
-
-    - name: Trash Bin clean
-      win_shell: rd /s /q %systemdrive%\$Recycle.bin
-      args: 
-        executable: cmd
-      ignore_errors: true
-      ignore_unreachable: true
-      tags: never,bin
-    
-    - name: NVDA
-      import_tasks: nvda.yaml
-      tags: never,nvda
-
-    - name: iProjection
-      import_tasks: iprojection.yaml
-      tags: never,iprojection
-   
-    - name: SQLServer
-      import_tasks: sqlserver.yaml
-      tags: never,sqlserver
-    
-    - name: Collect Hardware Info
-      import_tasks: collect_hardware.yaml
-      tags: never,collect_hardware
-
-    - name: Installed Softwares List
-      import_tasks: collect_software.yaml
-      tags: never,collect_software
-    
-    - name: Copy PowerBI installer to Downloads path
-      import_tasks: powerbi.yaml
-      tags: never,powerbi
-
-    - name: Unzip SEER files to Desktop to hosts
-      import_tasks: seer.yaml
-      tags: never,seer
-
-    - name: Prepare Windows Hosts for Ansible Basic Method Authentication
-      import_tasks: prepare_win_hosts.yaml
-      tags: never,prepare_win_host
-
-    - name: SSD Health Status
-      import_tasks: ssd_health_status_windows.yml
-      tags: never,ssd_health_status_windows
-
-    - name: Remove Opera GX
-      import_tasks: opera_gx_removal.yaml
-      tags: never,opera_gx_removal
+    - name: Run maintenance tasks
+      include_role: 
+        name: maintenance
 
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO

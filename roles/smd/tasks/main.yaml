@@ -483,45 +483,7 @@
     state: latest
   tags: never,epic,unreal
 
-- name: Windows Updates
-  block:
-    - name: Configure WinRM for updates
-      ansible.windows.win_service:
-        name: WinRM
-        start_mode: delayed
 
-    - name: Install Windows Updates (Run 1 & 2)
-      ansible.windows.win_updates:
-        category_names:
-          - Application
-          - Connectors
-          - SecurityUpdates
-          - CriticalUpdates
-          - QualityUpdates
-          - UpdateRollups
-          - FeaturePacks
-          - ServicePacks
-          - Drivers
-          - DeveloperKits
-          - DefinitionUpdates
-          - Updates
-          - Windows 11
-          - Microsoft Defender Antivirus
-          - Windows 10 LTSB
-          - Windows 10, version 1903 and later
-          - Guidance
-          - Tools
-        reboot: yes
-        reboot_timeout: 3600
-        state: installed
-        log_path: "C:\\Windows\\Temp\\ansible_updates_run_{{ item }}.txt"
-      loop: [1, 2]
-
-    - name: Set WinRM back to standard settings
-      ansible.windows.win_service:
-        name: WinRM
-        start_mode: auto
-  tags: never,win_updates
 
 - name: Ensure julia installer is on windows host
   block:
