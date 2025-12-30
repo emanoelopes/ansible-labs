@@ -35,6 +35,12 @@
     state: latest 
   tags: never,faixa2
 
+- name: Upgrade all Chocolatey packages
+  win_chocolatey:
+    name: all
+    state: latest
+  tags: never,choco_upgrade_all
+
 - name: Arduino Install and preparation
   block:
     - name: Copy zip file to the target
@@ -232,9 +238,9 @@
 
 - name: Create a shortcut for inkscape
   win_shortcut:
-    src: c:\Arquivos de programas\inkscape\bin\inkscape.exe
+    src: C:\Program Files\inkscape\bin\inkscape.exe
     dest: c:\Users\aluno\Desktop\inkscape.lnk
-    icon: c:\Arquivos de programas\inkscape\bin\inkscape.exe,0
+    icon: C:\Program Files\inkscape\bin\inkscape.exe,0
   tags: never,faixa2,inkscape
 
 - name: Install Cypress for Applied Test classes #SMD0048
@@ -455,7 +461,7 @@
         name:
           - unity
           - unity-hub
-        state: present
+        state: latest
     - name: Add firewall rule to provide access to Unity
       win_firewall_rule:
         name: unity
@@ -483,7 +489,8 @@
       ansible.windows.win_service:
         name: WinRM
         start_mode: delayed
-    - name: Pre Updates Check
+
+    - name: Install Windows Updates (Run 1 & 2)
       ansible.windows.win_updates:
         category_names:
           - Application
@@ -504,64 +511,12 @@
           - Windows 10, version 1903 and later
           - Guidance
           - Tools
-        state: searched
-        log_path: C:\Windows\Temp\Pre-AllUpdatesFound.txt
-    - name: First update run
-      ansible.windows.win_updates:
-        category_names:
-          - SecurityUpdates
-          - CriticalUpdates
-          - UpdateRollups
-          - Updates
-        reboot: yes 
-        state: installed
-        log_path: C:\Windows\Temp\ansible_updates_first_run.txt
-    - name: First update run reboot
-      win_reboot:
-        reboot_timeout: 3600
-    - name: Second update run
-      ansible.windows.win_updates:
-        category_names:
-          - SecurityUpdates
-          - CriticalUpdates
-          - UpdateRollups
-          - Updates
         reboot: yes
-        state: installed
-        log_path: C:\Windows\Temp\ansible_updates_second_run.txt
-    - name: Second update run reboot
-      win_reboot:
         reboot_timeout: 3600
-    - name: Third update run
-      ansible.windows.win_updates:
-        category_names:
-          - SecurityUpdates
-          - CriticalUpdates
-          - UpdateRollups
-          - Updates
-        reboot: yes
         state: installed
-        log_path: C:\Windows\Temp\ansible_updates_third_run.txt
-    - name: Third update run reboot
-      win_reboot:
-        reboot_timeout: 3600
-    - name: Post Update Check
-      ansible.windows.win_updates:
-        category_names:
-          - Application
-          - Connectors
-          - CriticalUpdates
-          - DefinitionUpdates
-          - DeveloperKits
-          - FeaturePacks
-          - Guidance
-          - SecurityUpdates
-          - ServicePacks
-          - Tools
-          - UpdateRollups
-          - Updates
-        state: searched
-        log_path: C:\Windows\Temp\Post-AllUpdatesFound.txt
+        log_path: "C:\\Windows\\Temp\\ansible_updates_run_{{ item }}.txt"
+      loop: [1, 2]
+
     - name: Set WinRM back to standard settings
       ansible.windows.win_service:
         name: WinRM

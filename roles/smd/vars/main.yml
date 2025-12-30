@@ -1,10 +1,10 @@
 appdata: 'c:\Users\aluno\appdata\Roaming\Microsoft\Windows\Start Menu\Programs\Startup'
-apache_netbeans_url: 'https://dlcdn.apache.org/netbeans/netbeans-installers/20/Apache-NetBeans-20-bin-windows-x64.exe'
-apache_netbeans_jdk_url: 'https://github.com/Friends-of-Apache-NetBeans/netbeans-installers/releases/download/v27-build1/Apache-NetBeans-27.exe'
+apache_netbeans_url: 'https://downloads.apache.org/netbeans/netbeans-installers/28/Apache-NetBeans-28-bin-windows-x64.exe'
+apache_netbeans_jdk_url: 'https://github.com/Friends-of-Apache-NetBeans/netbeans-installers/releases/download/v27-build1/Apache-NetBeans-27.exe' # Keeping as fallback or check if v28 exists, but main URL updated
 bginfo_url: 'https://download.sysinternals.com/files/BGInfo.zip'
 fontforge_url: 'https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe'
-tomcat_url: 'https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.39/bin/apache-tomcat-10.1.39.zip'
-tomcat_zip_file: 'apache-tomcat-10.1.39.zip'
+tomcat_url: 'https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.50/bin/apache-tomcat-10.1.50.zip'
+tomcat_zip_file: 'apache-tomcat-10.1.50.zip'
 user_temp_folder: 'C:\Users\aluno\AppData\Local\Temp'
 downloads: 'c:\Users\aluno\Downloads'
 aluno_documents_folder: 'c:\Users\aluno\Documents'  
@@ -13,32 +13,37 @@ p5_url: 'https://github.com/processing/p5.js/releases/latest/download/p5.zip'
 aplicativos: 'c:\Aplicativos'
 
 # PostgreSQL
-postgres_file_install: 'postgresql-17.4-1-windows-x64.exe'
-postgresql_url: 'https://sbp.enterprisedb.com/getfile.jsp?fileid=1259622'
+# PostgreSQL
+postgres_file_install: 'postgresql-18.1-1-windows-x64.exe'
+postgresql_url: 'https://get.enterprisedb.com/postgresql/postgresql-18.1-1-windows-x64.exe'
 
 # Processing
-processing_url: 'https://github.com/processing/processing4/releases/download/processing-1304-4.4.4/processing-4.4.4-windows-x64-portable.zip'
-processing_zip_file: 'processing-4.3-windows-x64.zip'
+# Processing
+processing_url: 'https://github.com/processing/processing4/releases/download/processing-1304-4.4.10/processing-4.4.10-windows-x64-portable.zip'
+processing_zip_file: 'processing-4.4.10-windows-x64.zip'
 
+# Pycharm
 # Pycharm
 processing_exec_file: 'C:\Program Files\processing-4.3\processing.exe'
 pycharm_uninstall_path: 'C:\Program Files\JetBrains\PyCharm Community Edition 2022.3.3\bin\Uninstall.exe'
 cloudflare_warp_uninstall_path: 'C:\Windows\Installer\2a2ad4ef.msi'
-pycharm_exec_path: 'C:\program files\jetbrains\pycharm community edition 2022.3.3\bin\pycharm64.exe'
+pycharm_exec_path: 'C:\Program Files\JetBrains\PyCharm Community Edition 2022.3.3\bin\pycharm64.exe'
 
 # Davinci Resolve
-davinci_install_file: 'DaVinci_Resolve_20.2.2_Windows.exe'
-davinci_exec_file: 'C:\Arquivos de Programas\Blackmagic Design\DaVinci Resolve\Resolve.exe'
+# Davinci Resolve
+davinci_install_file: 'DaVinci_Resolve_20.3.1_Windows.exe'
+davinci_exec_file: 'C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe'
 
 # Android Studio
-androidstudio_url: 'https://redirector.gvt1.com/edgedl/android/studio/install/2023.1.1.28/android-studio-2023.1.1.28-windows.exe'
-androidstudio_exe_file: 'android-studio-2023.1.1.28-windows.exe'
-androidstudio: 'C:\Arquivos de Programas\Android\Android Studio'
+# Android Studio
+androidstudio_url: 'https://redirector.gvt1.com/edgedl/android/studio/install/2025.2.2.8/android-studio-2025.2.2.8-windows.exe'
+androidstudio_exe_file: 'android-studio-2025.2.2.8-windows.exe'
+androidstudio: 'C:\Program Files\Android\Android Studio'
 
 # Arduino
 arduino_file_zip: 'arduino-ide_2.3.6_Windows_64bit.zip'
 arduino_url_address: 'https://downloads.arduino.cc/arduino-ide/arduino-ide_2.3.6_Windows_64bit.zip'
-libre_office_install_file: 'LibreOffice_7.5.9_Win_x86-64.msi'
-libre_office_url: 'https://pt-br.libreoffice.org/donate/dl/win-x86_64/7.5.9/pt-BR/LibreOffice_7.5.9_Win_x86-64.msi' 
-julia_install_file: 'julia-1.9.3-win64.exe'
+libre_office_install_file: 'LibreOffice_25.8.4_Win_x86-64.msi'
+libre_office_url: 'https://download.documentfoundation.org/libreoffice/stable/25.8.4/win/x86_64/LibreOffice_25.8.4_Win_x86-64.msi' 
+julia_install_file: 'julia-1.12.3-win64.exe'
 wallpaper_path: 'C:\Windows\Web\Wallpaper\Windows\wallpapersmd.jpg'
