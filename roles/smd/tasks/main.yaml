@@ -521,7 +521,7 @@
       win_chocolatey:
         name: mysql
         state: present
-        version: "8.0.44"
+        version: "{{ mysql_version }}"
         package_params: "/Password:ufc123" 
       register: mysql_result
    
@@ -536,16 +536,25 @@
       when: >
         (mysql_install.reboot_required | default(false)) or 
         (workbench_install.reboot_required | default(false))
-  
+
+    - name: Configure 3306 Windows Firewall port
+      win_firewall_rule:
+        name: MySQL_Standard_Port
+        localport: 3306
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present  
+
     - name: Verify MySQL is running
       win_service:
-        name: mysql  # O nome pode variar (ex: mysql), verifique no services.msc
+        name: mysql 
         state: started
       register: mysql_status
 
     - name: Show MySQL Service Status
       debug:
-        var: mysql_status
+        var: "MySQL version {{ mysql_version }} installed. Status: {{ mysql_status }}"
 
     - name: Show error details if service not running
       debug:
