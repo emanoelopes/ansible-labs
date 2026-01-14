@@ -512,17 +512,16 @@
 
     - name: Executar script PowerShell para habilitar a internet
       win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "enable"
-
-<<<<<<< HEAD
       when: internet_action == "enable" 
   tags: never,exam
-=======
+
 - name: MySQL Install
   block:
     - name: Ensure MySQL is installed 
       win_chocolatey:
         name: mysql
         state: present
+        version: "8.0.44"
         package_params: "/Password:ufc123" 
       register: mysql_result
 
@@ -545,4 +544,3 @@
         msg: "Atenção! O serviço está no estado: {{ mysql_status.state }}"
       when: mysql_status.state != "started"
   tags: never,mysql
->>>>>>> 919ed00 (mysql istall task)
