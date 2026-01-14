@@ -515,7 +515,7 @@
       when: internet_action == "enable" 
   tags: never,exam
 
-- name: MySQL Install
+- name: MySQL & Workbench setup
   block:
     - name: Ensure MySQL is installed 
       win_chocolatey:
@@ -524,11 +524,19 @@
         version: "8.0.44"
         package_params: "/Password:ufc123" 
       register: mysql_result
-
+   
+    - name: Ensure MySQL Workbench is installed
+      win_chocolatey:
+        name: mysql-workbench
+        state: present
+      register: workbench_install
+        
     - name: Reboot if necessary
       win_reboot:
-      when: mysql_result.reboot_required | default(false)
-
+      when: >
+        (mysql_install.reboot_required | default(false)) or 
+        (workbench_install.reboot_required | default(false))
+  
     - name: Verify MySQL is running
       win_service:
         name: mysql  # O nome pode variar (ex: mysql), verifique no services.msc
