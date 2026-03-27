@@ -4,4 +4,4 @@ downloads: 'c:\Users\aluno\Downloads'
 aluno_documents_folder: 'c:\Users\aluno\Documents'  
 aluno_desktop: 'c:\Users\aluno\Desktop'
 aplicativos: 'c:\Aplicativos'
-
+iso_url: http://localhost:8081/pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso
