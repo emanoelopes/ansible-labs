@@ -1,0 +1,54 @@
+# Copiar a ISO pode demorar dependendo da rede. 
+# Crie o diretório temporário se ele não existir.
+- name: Install SQL Server from ISO file 
+  block:
+    - name: Garantir que o diretório temporário exista
+      ansible.windows.win_file:
+        path: "{{ user_temp_folder }}"
+        state: directory
+
+    - name: Despejar a ISO do SQL Server 2014 para a máquina alvo
+      ansible.windows.win_copy:
+        src: /home/emanoel/Downloads/pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso # Caminho no Control Node do Ansible
+        dest: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+
+    - name: Montar a imagem ISO do SQL Server
+      community.windows.win_disk_image:
+        image_path: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        state: present
+      register: iso_mount
+
+    - name: Instalar o SQL Server 2014 Enterprise silenciosamente
+      ansible.windows.win_command: >
+        "{{ iso_mount.mount_paths[0] }}setup.exe"
+        /Q
+        /ACTION=Install
+        /IACCEPTSQLSERVERLICENSETERMS
+        /FEATURES=SQLEngine,SSMS
+        /INSTANCENAME=MSSQLSERVER
+        /SQLSVCACCOUNT="NT AUTHORITY\Network Service"
+        /SQLSYSADMINACCOUNTS="BUILTIN\Administrators"
+        /TCPENABLED=1
+        /NPENABLED=1
+        /UPDATEENABLED=0
+      register: sql_install
+      # O instalador do SQL Server retorna 0 (sucesso) ou 3010 (sucesso, mas exige reboot).
+      failed_when: sql_install.rc not in [0, 3010]
+      # Aumente o timeout se as máquinas forem mais lentas
+      async: 3600
+      poll: 30
+
+    - name: Desmontar a imagem ISO
+      community.windows.win_disk_image:
+        image_path: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        state: absent
+
+    - name: Limpar a ISO do disco local para liberar espaço
+      ansible.windows.win_file:
+        path: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        state: absent
+
+    - name: Reiniciar a máquina se o SQL Server solicitar
+      ansible.windows.win_reboot:
+      when: sql_install.rc == 3010
+  tags: never,sql_server_2014
