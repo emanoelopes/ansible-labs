@@ -1,51 +1,65 @@
-# Copiar a ISO pode demorar dependendo da rede. 
-# Crie o diretório temporário se ele não existir.
 - name: Install SQL Server from ISO file 
   block:
-    - name: Garantir que o diretório temporário exista
+    - name: Garantir que o diretório temporário neutro exista
       ansible.windows.win_file:
-        path: "{{ user_temp_folder }}"
+        path: 'C:\Temp_SQL'
         state: directory
 
     - name: Despejar a ISO do SQL Server 2014 para a máquina alvo
       ansible.windows.win_get_url:
-        url: "{{ iso_url }}" # Caminho no Control Node do Ansible
-        dest: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        url: "{{ iso_url }}"
+        dest: 'C:\Temp_SQL\sql2014.iso'
+        force: yes # Garante que vai baixar novamente se o arquivo anterior estiver corrompido
 
     - name: Montar a imagem ISO do SQL Server
       community.windows.win_disk_image:
-        image_path: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        image_path: 'C:\Temp_SQL\sql2014.iso'
         state: present
       register: iso_mount
 
+    - name: Debug - O que exatamente a montagem retornou?
+      debug:
+        var: iso_mount
+
+    - name: Garantir que o .NET Framework 3.5 esta instalado (Windows 10)
+      ansible.windows.win_optional_feature:
+        name: NetFx3
+        state: present
+      register: dot_net_install
+
+    - name: Reiniciar se a instalacao do .NET 3.5 exigir
+      ansible.windows.win_reboot:
+      when: dot_net_install.reboot_required | default(false)
+
     - name: Instalar o SQL Server 2014 Enterprise silenciosamente
       ansible.windows.win_command: >
-        "{{ iso_mount.mount_paths[0] }}setup.exe"
+        "{{ iso_mount.mount_paths[0] | default(iso_mount.mount_path) }}setup.exe"
         /Q
         /ACTION=Install
         /IACCEPTSQLSERVERLICENSETERMS
         /FEATURES=SQLEngine,SSMS
         /INSTANCENAME=MSSQLSERVER
         /SQLSVCACCOUNT="NT AUTHORITY\Network Service"
-        /SQLSYSADMINACCOUNTS="BUILTIN\Administrators"
+        /AGTSVCACCOUNT="NT AUTHORITY\Network Service" 
+        /SQLSYSADMINACCOUNTS="BUILTIN\Administradores"
+        /SECURITYMODE=SQL
+        /SAPWD="ufc123"
         /TCPENABLED=1
         /NPENABLED=1
         /UPDATEENABLED=0
       register: sql_install
-      # O instalador do SQL Server retorna 0 (sucesso) ou 3010 (sucesso, mas exige reboot).
       failed_when: sql_install.rc not in [0, 3010]
-      # Aumente o timeout se as máquinas forem mais lentas
       async: 3600
       poll: 30
 
     - name: Desmontar a imagem ISO
       community.windows.win_disk_image:
-        image_path: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        image_path: 'C:\Temp_SQL\sql2014.iso'
         state: absent
 
     - name: Limpar a ISO do disco local para liberar espaço
       ansible.windows.win_file:
-        path: '{{ user_temp_folder }}\pt_sql_server_2014_enterprise_edition_x64_dvd_3932966.iso'
+        path: 'C:\Temp_SQL\sql2014.iso'
         state: absent
 
     - name: Reiniciar a máquina se o SQL Server solicitar
