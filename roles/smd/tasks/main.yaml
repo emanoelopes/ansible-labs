@@ -593,7 +593,7 @@
       ignore_errors: True
   tags: never,seb
 
-- name: Instalação do Veyon
+- name: Veyon Install
   block:
     - name: Remove a file, if present
       ansible.windows.win_file:
@@ -647,3 +647,34 @@
         state: absent
       ignore_errors: True
   tags: never,veyon
+
+- name: Zbrush Core Mini Install
+  block:
+    - name: Ensure Temp directory exists
+      ansible.windows.win_file:
+        path: "{{ user_temp_folder }}"
+        state: directory
+
+    - name: Verificar se a ISO do SQL Server ja existe no destino
+      ansible.windows.win_stat:
+        path: "{{ user_temp_folder }}\{{ zbrush_install_file }}"
+      register: zbrush_install_file
+
+    - name: Copy install file to hosts
+      win_copy:
+        src: '{{ zbrush_install_file }}'
+        dest: '{{ user_temp_folder }}'
+      when: not zbrush_install_file.exists
+
+    - name: Install
+      ansible.windows.win_command:
+        cmd: '{{ user_temp_folder }}\Maxon_ZBrushCoreMini_2021.6.5_Installer.exe --unattendedmodeui none --mode unattended'
+        chdir: '{{ zbrush_install_file }}'
+        # ignore_errors: True
+
+    - name: Remove a file.
+      ansible.windows.win_file:
+        path: '{{ user_temp_folder }}\Maxon_ZBrushCoreMini_2021.6.5_Installer.exe'
+        state: absent
+      ignore_errors: True
+  tags: never,zbrush_core_mini
