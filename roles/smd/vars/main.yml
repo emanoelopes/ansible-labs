@@ -50,3 +50,4 @@ wallpaper_path: 'C:\Windows\Web\Wallpaper\Windows\wallpapersmd.jpg'
 
 # Zbrush Core Mini
 zbrush_install_file: 'Maxon_ZBrushCoreMini_2021.6.5_Installer.exe'
+zbrush_url: "http://10.102.227.245:8081/Maxon_ZBrushCoreMini_2021.6.5_Installer.exe"

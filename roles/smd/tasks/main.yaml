@@ -599,12 +599,12 @@
       ansible.windows.win_file:
         path: '{{ dir_veyon }}'
         state: absent
-      ignore_errors: yes
+      ignore_errors: true
     - name: Create a directory {{ dir_veyon }}
       ansible.windows.win_file:
         path: '{{ dir_veyon }}'
         state: directory
-      ignore_errors: no
+      ignore_errors: false
     - name: Copy veyon install file to host
       win_copy: 
         src: '{{ install_file_veyon }}'
@@ -625,22 +625,22 @@
       ansible.windows.win_command:
         cmd: 'veyon-cli.exe authkeys delete {{ public_key_name_cli }}'
         chdir: '{{ dir_veyon }}'
-      ignore_errors: yes
+      ignore_errors: true
     - name: Import public Key 
       ansible.windows.win_command: 
         cmd: 'veyon-cli.exe authkeys import LaboratoriosSMD/public {{ public_key_name_veyon }}'
         chdir: '{{ dir_veyon }}'
-      ignore_errors: no
+      ignore_errors: false
     - name: Import config.json again just in case 
       ansible.windows.win_command: 
         cmd: 'veyon-cli.exe config import {{ config_json_name }}'
         chdir: '{{ dir_veyon }}'
-      ignore_errors: no
+      ignore_errors: false
     - name: Restart veyon service 
       ansible.windows.win_command:
         cmd:  'veyon-cli.exe service restart'
         chdir: '{{ dir_veyon }}'
-      ignore_errors: yes
+      ignore_errors: true
     - name: Remove a file
       ansible.windows.win_file:
         path: '{{ dir_veyon }}\{{ file_name_veyon }}'
@@ -655,26 +655,30 @@
         path: "{{ user_temp_folder }}"
         state: directory
 
-    - name: Verificar se a ISO do SQL Server ja existe no destino
+    - name: Verify ZBrush Install File
       ansible.windows.win_stat:
-        path: "{{ user_temp_folder }}\{{ zbrush_install_file }}"
-      register: zbrush_install_file
+        path: '{ user_temp_folder }}\{{ zbrush_install_file }}'
+      register: zbrush_verify
 
     - name: Copy install file to hosts
-      win_copy:
-        src: '{{ zbrush_install_file }}'
-        dest: '{{ user_temp_folder }}'
-      when: not zbrush_install_file.exists
+      ansible.windows.win_get_url: 
+        url: "{{ zbrush_url }}"
+        dest: "{{ user_temp_folder }}"
+        force: yes
+      ignore_errors: true
+      when: not zbrush_verify.stat.exists
 
     - name: Install
       ansible.windows.win_command:
-        cmd: '{{ user_temp_folder }}\Maxon_ZBrushCoreMini_2021.6.5_Installer.exe --unattendedmodeui none --mode unattended'
-        chdir: '{{ zbrush_install_file }}'
+        cmd: '{{ user_temp_folder }}\{{ zbrush_install_file }} --unattendedmodeui none --mode unattended'
+        chdir: '{{ user_temp_folder }}'
+      register: zbrush_install
         # ignore_errors: True
 
     - name: Remove a file.
       ansible.windows.win_file:
-        path: '{{ user_temp_folder }}\Maxon_ZBrushCoreMini_2021.6.5_Installer.exe'
+        path: '{{ user_temp_folder }}\{{ zbrush_install_file }}'
         state: absent
       ignore_errors: True
+      when: zbrush_install is succeeded
   tags: never,zbrush_core_mini
