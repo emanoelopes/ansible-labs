@@ -1,0 +1,67 @@
+---
+- name: Garantir que o Chocolatey está instalado para gerenciar pacotes
+  win_shell: |
+    if (-not (Test-Path "$env:ProgramData\chocolatey\bin\choco.exe")) {
+      Set-ExecutionPolicy Bypass -Scope Process -Force
+      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+      iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    }
+  register: choco_install
+  changed_when: choco_install.stdout.find("Chocolatey is now ready") != -1
+
+- name: Instalar o navegador Google Chrome
+  chocolatey.chocolatey.win_choco:
+    name: googlechrome
+    state: present
+
+- name: Criar usuário local 'Suporte' (com privilégios administrativos)
+  ansible.windows.win_user:
+    name: Suporte
+    password: "{{ senha_suporte }}"
+    state: present
+    groups: Administradores
+    password_never_expires: yes
+
+- name: Criar usuário local 'Bolsista' (sem privilégios administrativos)
+  ansible.windows.win_user:
+    name: Bolsista
+    password: "{{ senha_bolsista }}"
+    state: present
+    groups: Usuários
+    password_never_expires: yes
+
+- name: Criar usuário local 'Aluno' (sem senha e sem privilégios)
+  ansible.windows.win_user:
+    name: Aluno
+    state: present
+    groups: Usuários
+    password_never_expires: yes
+
+- name: Criar diretório local temporário para imagens base
+  ansible.windows.win_file:
+    path: C:\Tecnodocencia\Imagens
+    state: directory
+
+- name: Copiar papel de parede e imagens de perfil para as máquinas
+  ansible.windows.win_copy:
+    src: "{{ item }}"
+    dest: C:\Tecnodocencia\Imagens
+  loop:
+    - wallpaper.jpg
+    - perfil_suporte.png
+    - perfil_bolsista.png
+    - perfil_aluno.png
+
+- name: Definir o Papel de Parede padrão para todos os usuários (via Registry)
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: Wallpaper
+    data: C:\Tecnodocencia\Imagens\wallpaper.jpg
+    type: string
+
+- name: Definir o estilo do Papel de Parede como 'Preencher'
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: WallpaperStyle
+    data: "2"
+    type: string

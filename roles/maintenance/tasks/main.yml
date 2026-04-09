@@ -1,0 +1,65 @@
+---
+# Update tasks
+- import_tasks: win_updates.yaml
+  tags: win_updates
+  when: "'win_updates' in ansible_run_tags"
+
+# Exporters
+- import_tasks: windows_exporter.yml
+  tags: windows_exporter
+  when: "'windows_exporter' in ansible_run_tags"
+
+- import_tasks: node_exporter.yml
+  tags: node_exporter
+  when: "'node_exporter' in ansible_run_tags"
+
+# Cleanup
+- name: Trash Bin clean
+  win_shell: rd /s /q %systemdrive%\$Recycle.bin
+  args: 
+    executable: cmd
+  ignore_errors: true
+  ignore_unreachable: true
+  tags: bin
+  when: "'bin' in ansible_run_tags"
+
+# Utilities & Softwares
+- import_tasks: nvda.yaml
+  tags: nvda
+  when: "'nvda' in ansible_run_tags"
+
+- import_tasks: iprojection.yaml
+  tags: iprojection
+  when: "'iprojection' in ansible_run_tags"
+
+- import_tasks: sqlserver.yaml
+  tags: sqlserver
+  when: "'sqlserver' in ansible_run_tags"
+
+- import_tasks: collect_hardware.yaml
+  tags: collect_hardware
+  when: "'collect_hardware' in ansible_run_tags"
+
+- import_tasks: collect_software.yaml
+  tags: collect_software
+  when: "'collect_software' in ansible_run_tags"
+
+- import_tasks: powerbi.yaml
+  tags: powerbi
+  when: "'powerbi' in ansible_run_tags"
+
+- import_tasks: seer.yaml
+  tags: seer
+  when: "'seer' in ansible_run_tags"
+
+- import_tasks: prepare_win_hosts.yaml
+  tags: prepare_win_host
+  when: "'prepare_win_host' in ansible_run_tags"
+
+- import_tasks: ssd_health_status_windows.yml
+  tags: ssd_health_status_windows
+  when: "'ssd_health_status_windows' in ansible_run_tags"
+
+- import_tasks: opera_gx_removal.yaml
+  tags: opera_gx_removal
+  when: "'opera_gx_removal' in ansible_run_tags"

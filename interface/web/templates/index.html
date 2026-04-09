@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible Labs - Web Interface</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Ansible Labs</h1>
+            <p class="subtitle">Gerenciamento de Laboratórios</p>
+        </header>
+
+        <main>
+            <div class="card">
+                <h2>Selecionar Hosts</h2>
+                <div class="form-group">
+                    <label>Grupos:</label>
+                    <div id="groups-container" class="checkbox-group"></div>
+                </div>
+                <div class="form-group">
+                    <label>Hosts Individuais:</label>
+                    <div id="hosts-container" class="checkbox-group"></div>
+                </div>
+                <div class="selected-info">
+                    <strong>Selecionados:</strong> <span id="selected-count">0</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Selecionar Playbook</h2>
+                <div class="form-group">
+                    <label for="playbook-select">Playbook:</label>
+                    <select id="playbook-select" class="form-control">
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tags (opcional):</label>
+                    <div id="tags-container" class="checkbox-group"></div>
+                </div>
+                <div class="selected-info">
+                    <strong>Tags Selecionadas:</strong> <span id="selected-tags">nenhuma</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Executar</h2>
+                <button id="execute-btn" class="btn btn-primary" disabled>
+                    Executar Playbook
+                </button>
+                <button id="cancel-btn" class="btn btn-secondary" style="display: none;">
+                    Cancelar Execução
+                </button>
+            </div>
+
+            <div class="card" id="execution-card" style="display: none;">
+                <h2>Execução</h2>
+                <div class="execution-info">
+                    <div><strong>Status:</strong> <span id="execution-status">-</span></div>
+                    <div><strong>ID:</strong> <span id="execution-id">-</span></div>
+                </div>
+                <div class="log-container">
+                    <pre id="execution-log"></pre>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Ansible Labs Interface v1.0</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+
+

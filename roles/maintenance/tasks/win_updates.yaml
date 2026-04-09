@@ -1,0 +1,30 @@
+---
+
+
+- name: Install Windows Updates
+  ansible.windows.win_updates:
+    category_names:
+      - Application
+      - Connectors
+      - SecurityUpdates
+      - CriticalUpdates
+      - QualityUpdates
+      - UpdateRollups
+      - FeaturePacks
+      - ServicePacks
+      - Drivers
+      - DeveloperKits
+      - DefinitionUpdates
+      - Updates
+      - Windows 11
+      - Microsoft Defender Antivirus
+      - Windows 10 LTSB
+      - Windows 10, version 1903 and later
+      - Guidance
+      - Tools
+    reboot: yes
+    reboot_timeout: 3600
+    state: installed
+    log_path: "C:\\Windows\\Temp\\ansible_updates_run.txt"
+
+  tags: never,win_updates

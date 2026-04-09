@@ -1,0 +1,32 @@
+---
+- name: Corrigir Autenticacao do SQL Server 2014 para Modo Misto
+  hosts: all # Use o --limit na hora de rodar para atingir apenas a máquina alvo
+  gather_facts: no
+  vars:
+    # Defina aqui a senha que os alunos vao usar no laboratorio
+    nova_senha_sa: "ufc123"
+
+  tasks:
+    - name: 1. Alterar chave de registro para Modo Misto (SQL e Windows)
+      # MSSQL12.MSSQLSERVER refere-se ao SQL 2014 (12) e a instância padrão (MSSQLSERVER)
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL12.MSSQLSERVER\MSSQLServer
+        name: LoginMode
+        data: 2 # 1 = Apenas Windows, 2 = Modo Misto
+        type: dword
+        state: present
+
+    - name: 2. Reiniciar o servico do SQL Server para aplicar o registro
+      ansible.windows.win_service:
+        name: MSSQLSERVER
+        state: restarted
+
+    - name: 3. Definir senha e habilitar o usuario 'sa' via sqlcmd
+      # O parâmetro -E usa a conexão de confiança (WinRM/Admin) para rodar a query
+      ansible.windows.win_shell: >
+        sqlcmd -S localhost -E -Q "ALTER LOGIN [sa] WITH PASSWORD=N'{{ nova_senha_sa }}', CHECK_POLICY=OFF; ALTER LOGIN [sa] ENABLE;"
+      register: sqlcmd_result
+
+    - name: Debug - Resultado da ativacao do SA
+      debug:
+        var: sqlcmd_result.stdout_lines

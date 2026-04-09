@@ -1,0 +1,169 @@
+---
+- name: Check if Opera GX is installed
+  win_shell: |
+    $operaGX = $null
+    # Check 64-bit registry
+    $operaGX = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | 
+      Where-Object { $_.DisplayName -like "*Opera GX*" } | Select-Object -First 1
+    
+    # Check 32-bit registry if not found
+    if (-not $operaGX) {
+      $operaGX = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | 
+        Where-Object { $_.DisplayName -like "*Opera GX*" } | Select-Object -First 1
+    }
+    
+    if ($operaGX) {
+      $result = @{
+        Installed = $true
+        DisplayName = $operaGX.DisplayName
+        UninstallString = $operaGX.UninstallString
+        QuietUninstallString = $operaGX.QuietUninstallString
+      }
+    } else {
+      $result = @{
+        Installed = $false
+      }
+    }
+    $result | ConvertTo-Json
+  args:
+    executable: powershell
+    no_profile: yes
+  register: opera_gx_check
+  changed_when: false
+
+- name: Remove Opera GX if installed (immediate removal)
+  block:
+    - name: Extract UninstallString from check result
+      set_fact:
+        opera_gx_uninstall_string: "{{ (opera_gx_check.stdout | from_json).UninstallString }}"
+        opera_gx_quiet_uninstall: "{{ (opera_gx_check.stdout | from_json).QuietUninstallString }}"
+      when: (opera_gx_check.stdout | from_json).Installed | default(false)
+
+    - name: Remove Opera GX using QuietUninstallString
+      win_shell: |
+        $uninstallString = "{{ opera_gx_quiet_uninstall | default(opera_gx_uninstall_string) }}"
+        if ($uninstallString) {
+          # Extract the executable path and arguments
+          if ($uninstallString -match '^"([^"]+)"(.*)$') {
+            $exe = $matches[1]
+            $args = $matches[2].Trim()
+            # Add silent flags if not present
+            if ($args -notmatch '/S|/SILENT|/VERYSILENT') {
+              $args = "$args /S"
+            }
+            Start-Process -FilePath $exe -ArgumentList $args -Wait -NoNewWindow
+          } else {
+            # If no quotes, try to execute directly with silent flag
+            $uninstallString = "$uninstallString /S"
+            Invoke-Expression $uninstallString
+          }
+        }
+      args:
+        executable: powershell
+        no_profile: yes
+      when: 
+        - (opera_gx_check.stdout | from_json).Installed | default(false)
+        - opera_gx_quiet_uninstall is defined or opera_gx_uninstall_string is defined
+      ignore_errors: true
+
+    - name: Remove Opera GX using UninstallString (fallback)
+      win_shell: |
+        $uninstallString = "{{ opera_gx_uninstall_string }}"
+        if ($uninstallString) {
+          if ($uninstallString -match '^"([^"]+)"(.*)$') {
+            $exe = $matches[1]
+            $args = "$($matches[2].Trim()) /S"
+            Start-Process -FilePath $exe -ArgumentList $args -Wait -NoNewWindow
+          } else {
+            Invoke-Expression "$uninstallString /S"
+          }
+        }
+      args:
+        executable: powershell
+        no_profile: yes
+      when: 
+        - (opera_gx_check.stdout | from_json).Installed | default(false)
+        - opera_gx_quiet_uninstall is not defined
+        - opera_gx_uninstall_string is defined
+      ignore_errors: true
+  when: (opera_gx_check.stdout | from_json).Installed | default(false)
+
+- name: Create PowerShell script to remove Opera GX
+  ansible.windows.win_copy:
+    content: |
+      # Script para remover Opera GX automaticamente
+      # Verifica se o Opera GX está instalado e remove silenciosamente
+      
+      $operaGX = $null
+      $logFile = "C:\Windows\Temp\remove_opera_gx.log"
+      $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+      
+      function Write-Log {
+        param($Message)
+        "$timestamp - $Message" | Out-File -FilePath $logFile -Append -Encoding UTF8
+      }
+      
+      Write-Log "Iniciando verificação do Opera GX"
+      
+      # Verificar no registro 64-bit
+      $operaGX = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | 
+        Where-Object { $_.DisplayName -like "*Opera GX*" } | Select-Object -First 1
+      
+      # Verificar no registro 32-bit se não encontrado
+      if (-not $operaGX) {
+        $operaGX = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | 
+          Where-Object { $_.DisplayName -like "*Opera GX*" } | Select-Object -First 1
+      }
+      
+      if ($operaGX) {
+        Write-Log "Opera GX encontrado: $($operaGX.DisplayName)"
+        
+        $uninstallString = $operaGX.QuietUninstallString
+        if (-not $uninstallString) {
+          $uninstallString = $operaGX.UninstallString
+        }
+        
+        if ($uninstallString) {
+          Write-Log "Iniciando desinstalação usando: $uninstallString"
+          
+          try {
+            if ($uninstallString -match '^"([^"]+)"(.*)$') {
+              $exe = $matches[1]
+              $args = $matches[2].Trim()
+              # Adicionar flag silenciosa se não estiver presente
+              if ($args -notmatch '/S|/SILENT|/VERYSILENT') {
+                $args = "$args /S"
+              }
+              $process = Start-Process -FilePath $exe -ArgumentList $args -Wait -NoNewWindow -PassThru
+              Write-Log "Desinstalação concluída com código de saída: $($process.ExitCode)"
+            } else {
+              # Sem aspas, tentar executar diretamente
+              $uninstallString = "$uninstallString /S"
+              Invoke-Expression $uninstallString
+              Write-Log "Desinstalação executada"
+            }
+          } catch {
+            Write-Log "Erro durante desinstalação: $($_.Exception.Message)"
+          }
+        } else {
+          Write-Log "UninstallString não encontrado no registro"
+        }
+      } else {
+        Write-Log "Opera GX não está instalado"
+      }
+    dest: C:\Windows\Temp\remove_opera_gx.ps1
+
+- name: Ensure scheduled task 'Remover Opera GX' is present
+  community.windows.win_scheduled_task:
+    name: Remover Opera GX
+    description: Verifica e remove o Opera GX automaticamente a cada inicialização do Windows
+    actions:
+    - path: powershell.exe
+      arguments: -ExecutionPolicy Bypass -NoProfile -File "C:\Windows\Temp\remove_opera_gx.ps1"
+    triggers:
+    - type: boot
+    username: SYSTEM
+    run_level: highest
+    state: present
+    enabled: yes
+

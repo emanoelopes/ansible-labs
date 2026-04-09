@@ -1,0 +1,85 @@
+- name: Install SQL Server from ISO file 
+  block:
+    - name: Garantir que o diretório temporário exista
+      ansible.windows.win_file:
+        path: 'C:\Temp_SQL'
+        state: directory
+
+    - name: Verificar se a ISO do SQL Server ja existe no destino
+      ansible.windows.win_stat:
+        path: C:\Temp_SQL\sql2014.iso 
+      register: iso_check
+
+    - name: Despejar a ISO do SQL Server 2014 para a máquina alvo
+      ansible.windows.win_get_url:
+        url: "{{ iso_url }}"
+        dest: 'C:\Temp_SQL\sql2014.iso'
+        force: yes 
+      when: not iso_check.stat.exists
+
+    - name: Montar a imagem ISO do SQL Server
+      community.windows.win_disk_image:
+        image_path: 'C:\Temp_SQL\sql2014.iso'
+        state: present
+      register: iso_mount
+
+    - name: Garantir que o .NET Framework 3.5 esta instalado (Windows 10)
+      ansible.windows.win_optional_feature:
+        name: NetFx3
+        state: present
+      register: dot_net_install
+
+    - name: Reiniciar se a instalacao do .NET 3.5 exigir
+      ansible.windows.win_reboot:
+      when: dot_net_install.reboot_required | default(false)
+
+    - name: Instalar o SQL Server 2014 Enterprise silenciosamente
+      ansible.windows.win_command: '"{{ iso_mount.mount_paths[0] | default(iso_mount.mount_path) }}setup.exe" /Q /ACTION=Install /IACCEPTSQLSERVERLICENSETERMS /FEATURES=SQLEngine,SSMS /INSTANCENAME=MSSQLSERVER /SQLSVCACCOUNT="NT Service\MSSQLSERVER" /AGTSVCACCOUNT="NT Service\SQLSERVERAGENT" /SQLSYSADMINACCOUNTS="{{ ansible_hostname | default(inventory_hostname) }}\suporte" /SECURITYMODE=SQL /SAPWD="Sql@smd2026" /TCPENABLED=1 /NPENABLED=1 /UPDATEENABLED=0'
+      become: yes
+      become_method: runas
+      become_user: SYSTEM
+      register: sql_install
+      failed_when: sql_install.rc not in [0, 3010]
+      async: 3600
+      poll: 30
+    
+    - name: Conceder acesso total (Sysadmin) ao usuario 'aluno' do Windows
+      ansible.windows.win_shell: >
+        sqlcmd -S localhost -U sa -P "Sql@smd2026" -Q "IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = N'{{ ansible_hostname }}\aluno') BEGIN CREATE LOGIN [{{ ansible_hostname }}\aluno] FROM WINDOWS; END; EXEC sp_addsrvrolemember N'{{ ansible_hostname }}\aluno', N'sysadmin';"
+      ignore_errors: yes
+
+    - name: Desmontar a imagem ISO
+      community.windows.win_disk_image:
+        image_path: 'C:\Temp_SQL\sql2014.iso'
+        state: absent
+      ignore_errors: yes
+
+    - name: Limpar a ISO do disco local para liberar espaço
+      ansible.windows.win_file:
+        path: 'C:\Temp_SQL\sql2014.iso'
+        state: absent
+      when: sql_install is succeeded
+
+    - name: Reiniciar a máquina se o SQL Server solicitar
+      ansible.windows.win_reboot:
+      when: sql_install.rc == 3010
+  tags: never,sql_server_2014
+
+- name: Uninstall SQL Server 2014
+  block:
+  - name: Verificar se o SQL Server 2014 esta instalado (Setup Bootstrap)
+    ansible.windows.win_stat:
+      path: C:\Program Files\Microsoft SQL Server\120\Setup Bootstrap\SQLServer2014\setup.exe
+    register: sql_bootstrap_check
+
+  - name: Verificar se o SQL Server 2014 esta instalado (Setup Bootstrap)  
+    ansible.windows.win_command: '"C:\Program Files\Microsoft SQL Server\120\Setup Bootstrap\SQLServer2014\setup.exe" /Q /ACTION=Uninstall /INSTANCENAME=MSSQLSERVER /FEATURES=SQLEngine,SSMS'
+    become: yes
+    become_method: runas
+    become_user: SYSTEM
+    when: sql_bootstrap_check.stat.exists
+    register: sql_uninstall
+    failed_when: sql_uninstall.rc not in [0, 3010]
+    async: 3600
+    poll: 30
+  tags: never,server_2014_uninstall

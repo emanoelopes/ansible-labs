@@ -1,0 +1,15 @@
+---
+- name: Preparar o Windows para acesso SSH
+  tasks:
+  - name: Ensure Chocolatey installed from internal repo
+    win_chocolatey:
+      name: chocolatey
+      state: present
+      source: http://internal/odata/repo/ChocolateyInstall.ps1
+   - name: install the Win32-OpenSSH service
+    win_chocolatey:
+      name: openssh
+      package_params: /SSHServerFeature
+      state: present
+    
+    
