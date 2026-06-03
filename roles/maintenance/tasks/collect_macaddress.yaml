@@ -1,0 +1,16 @@
+- name: Collec Mac Address e Hostnames do Windows
+  ansible.builtin.copy:
+    dest: "./lista_mac_hostnames.yml"
+    content: |
+      # Arquivo gerado automaticamente em {{ ansible_date_time.date }}
+      mac_to_hostname:
+      {% for host in ansible_play_batch %}
+      {% if hostvars[host]['ansible_default_ipv4']['macaddress'] is defined %}
+        "{{ hostvars[host]['ansible_default_ipv4']['macaddress'] | lower }}": "{{ hostvars[host]['ansible_hostname'] | lower }}"
+      {% else %}
+        # {{ host }}: Nao foi possivel coletar o MAC Address da interface principal
+      {% endif %}
+      {% endfor %}
+  delegate_to: localhost
+  run_once: true
+  tags: never, collect_macaddress

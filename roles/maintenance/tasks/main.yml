@@ -63,3 +63,7 @@
 - import_tasks: opera_gx_removal.yaml
   tags: opera_gx_removal
   when: "'opera_gx_removal' in ansible_run_tags"
+
+- import_tasks: collect_macaddress.yaml
+  tags: collect_macaddress
+  #when: "'collect_macaddress' in ansible_run"
