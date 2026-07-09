@@ -1,0 +1,97 @@
+---
+- name: Atualizar Microsoft Defender nos laboratorios Windows
+  hosts: "{{ target_hosts | default('lab2') }}"
+  gather_facts: false
+  ignore_unreachable: true
+  serial: "{{ defender_serial | default('25%') }}"
+  vars:
+    defender_max_signature_age_days: "{{ max_signature_age_days | default(1) }}"
+    defender_update_source: "{{ update_source | default('MicrosoftUpdateServer') }}"
+
+  tasks:
+    - name: Coletar status inicial do Microsoft Defender
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'Stop'
+
+        if (-not (Get-Command Get-MpComputerStatus -ErrorAction SilentlyContinue)) {
+          throw "Os cmdlets do Microsoft Defender nao estao disponiveis neste host."
+        }
+
+        $status = Get-MpComputerStatus
+        [PSCustomObject]@{
+          AntivirusEnabled = [bool]$status.AntivirusEnabled
+          RealTimeProtectionEnabled = [bool]$status.RealTimeProtectionEnabled
+          AntispywareEnabled = [bool]$status.AntispywareEnabled
+          AMServiceEnabled = [bool]$status.AMServiceEnabled
+          AntivirusSignatureLastUpdated = $status.AntivirusSignatureLastUpdated.ToString("o")
+          AntivirusSignatureVersion = $status.AntivirusSignatureVersion
+        } | ConvertTo-Json -Compress
+      register: defender_status_before_raw
+      changed_when: false
+
+    - name: Interpretar status inicial do Microsoft Defender
+      ansible.builtin.set_fact:
+        defender_status_before: "{{ defender_status_before_raw.stdout | trim | from_json }}"
+
+    - name: Atualizar assinaturas do Microsoft Defender
+      block:
+        - name: Atualizar assinaturas pelo cmdlet do Microsoft Defender
+          ansible.windows.win_shell: |
+            $ErrorActionPreference = 'Stop'
+            Update-MpSignature -UpdateSource "{{ defender_update_source }}"
+          register: defender_signature_update
+          changed_when: true
+      rescue:
+        - name: Atualizar assinaturas pelo Windows Update
+          ansible.windows.win_updates:
+            category_names:
+              - DefinitionUpdates
+            state: installed
+            reboot: false
+            log_path: "C:\\Windows\\Temp\\ansible_defender_updates.txt"
+          register: defender_windows_update
+
+    - name: Coletar status final do Microsoft Defender
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'Stop'
+
+        $status = Get-MpComputerStatus
+        $lastUpdated = $status.AntivirusSignatureLastUpdated
+        $maxAgeDays = [int]"{{ defender_max_signature_age_days }}"
+
+        [PSCustomObject]@{
+          AntivirusEnabled = [bool]$status.AntivirusEnabled
+          RealTimeProtectionEnabled = [bool]$status.RealTimeProtectionEnabled
+          AntispywareEnabled = [bool]$status.AntispywareEnabled
+          AMServiceEnabled = [bool]$status.AMServiceEnabled
+          AntivirusSignatureLastUpdated = $lastUpdated.ToString("o")
+          AntivirusSignatureVersion = $status.AntivirusSignatureVersion
+          SignatureAgeDays = [math]::Round(((Get-Date) - $lastUpdated).TotalDays, 2)
+          SignatureCurrent = (((Get-Date) - $lastUpdated).TotalDays -le $maxAgeDays)
+        } | ConvertTo-Json -Compress
+      register: defender_status_after_raw
+      changed_when: false
+
+    - name: Interpretar status final do Microsoft Defender
+      ansible.builtin.set_fact:
+        defender_status_after: "{{ defender_status_after_raw.stdout | trim | from_json }}"
+
+    - name: Exibir versao final das assinaturas
+      ansible.builtin.debug:
+        msg: >-
+          Defender atualizado em {{ inventory_hostname }}:
+          assinatura {{ defender_status_after.AntivirusSignatureVersion }},
+          ultima atualizacao {{ defender_status_after.AntivirusSignatureLastUpdated }},
+          idade {{ defender_status_after.SignatureAgeDays }} dia(s).
+
+    - name: Validar Microsoft Defender ativo e atualizado
+      ansible.builtin.assert:
+        that:
+          - defender_status_after.AMServiceEnabled
+          - defender_status_after.AntivirusEnabled
+          - defender_status_after.RealTimeProtectionEnabled
+          - defender_status_after.SignatureCurrent
+        fail_msg: >-
+          Microsoft Defender nao esta em conformidade em {{ inventory_hostname }}.
+          Status: {{ defender_status_after }}
+        success_msg: "Microsoft Defender ativo e atualizado em {{ inventory_hostname }}."
