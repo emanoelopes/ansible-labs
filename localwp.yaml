@@ -5,7 +5,8 @@
       password: "{{ vault_senha_localwp }}"
       state: present
       groups:
-        - Administradores  
+        - Administradores
+    no_log: true
     tags: create_user
   - name: Ensure localwp user is absent
     win_user:

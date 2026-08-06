@@ -7,7 +7,8 @@
     password_never_expires: yes
     user_cannot_change_password: yes
     state: present
-  tags: nerver,create_powerbi_user
+  no_log: true
+  tags: never,create_powerbi_user
 
 - name: Copy powerbi installer to the windows host
   win_copy:

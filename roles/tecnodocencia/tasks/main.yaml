@@ -21,6 +21,7 @@
     state: present
     groups: Administradores
     password_never_expires: yes
+  no_log: true
 
 - name: Criar usuário local 'Bolsista' (sem privilégios administrativos)
   ansible.windows.win_user:
@@ -29,6 +30,7 @@
     state: present
     groups: Usuários
     password_never_expires: yes
+  no_log: true
 
 - name: Criar usuário local 'Aluno' (sem senha e sem privilégios)
   ansible.windows.win_user:

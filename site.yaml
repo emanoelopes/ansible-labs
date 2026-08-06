@@ -52,6 +52,7 @@
     - name: Set autologon for user aluno
       community.windows.win_auto_logon:
         username: aluno
-        password: aluno
+        password: "{{ vault_senha_aluno }}"
+      no_log: true
  
 

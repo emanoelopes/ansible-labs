@@ -56,4 +56,5 @@
         state: present
         groups: Usuários
         account_locked: no
+      no_log: true
       tags: create_user_aluno

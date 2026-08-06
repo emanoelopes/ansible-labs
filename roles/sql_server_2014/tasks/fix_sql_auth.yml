@@ -26,6 +26,7 @@
       ansible.windows.win_shell: >
         sqlcmd -S localhost -E -Q "ALTER LOGIN [sa] WITH PASSWORD=N'{{ nova_senha_sa }}', CHECK_POLICY=OFF; ALTER LOGIN [sa] ENABLE;"
       register: sqlcmd_result
+      no_log: true
 
     - name: Debug - Resultado da ativacao do SA
       debug:
