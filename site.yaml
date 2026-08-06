@@ -6,7 +6,6 @@
   roles:
     - smd 
     - hosts_file
-    - maintenance
     - sql_server_2014
   gather_facts: yes
 

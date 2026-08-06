@@ -1,0 +1,34 @@
+---
+# MODELO — copie para group_vars/all/vault.yml, preencha e cifre:
+#
+#   cp group_vars/all/vault.yml.example group_vars/all/vault.yml
+#   $EDITOR group_vars/all/vault.yml
+#   ansible-vault encrypt group_vars/all/vault.yml
+#
+# Depois execute os playbooks com --ask-vault-pass (ou configure
+# vault_password_file no ansible.cfg).
+#
+# group_vars/all/vault.yml está no .gitignore e NUNCA deve ser commitado
+# em texto claro.
+
+# Conta de serviço do SQL Server (roles/maintenance/tasks/sqlserver.yaml)
+vault_senha_sqlserver: "TROCAR"
+
+# Login 'sa' do SQL Server 2014 (roles/sql_server_2014/tasks/fix_sql_auth.yml)
+vault_senha_sa: "TROCAR"
+
+# Conta de estudo do Power BI (roles/maintenance/tasks/powerbi.yaml)
+vault_senha_powerbi: "TROCAR"
+
+# root do MySQL instalado via Chocolatey (roles/smd/tasks/main.yaml)
+vault_senha_mysql_root: "TROCAR"
+
+# Conta 'aluno' das estações (roles/mediaweek/tasks/mw2022-lab4.yaml)
+vault_senha_aluno: "TROCAR"
+
+# Conta 'localwp' (localwp.yaml)
+vault_senha_localwp: "TROCAR"
+
+# Contas da Tecnodocência (roles/tecnodocencia/vars/main.yaml)
+vault_senha_suporte: "TROCAR"
+vault_senha_bolsista: "TROCAR"

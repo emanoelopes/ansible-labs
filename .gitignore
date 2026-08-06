@@ -5,6 +5,13 @@ macs.ini
 group_vars/all.yaml
 SMD*
 
+# Vault em texto claro — só o .example vai para o repositório
+group_vars/all/vault.yml
+group_vars/*/vault.yml
+!group_vars/all/vault.yml.example
+vault_pass.txt
+.vault_pass
+
 # Python
 __pycache__/
 *.py[cod]

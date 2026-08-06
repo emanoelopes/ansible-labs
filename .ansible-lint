@@ -1,0 +1,36 @@
+---
+# Configuração do ansible-lint.
+#
+# O perfil começa em "min" para que o CI fique verde hoje. Conforme o
+# código for sendo limpo, suba na escala até "production":
+#   min -> basic -> moderate -> safety -> shared -> production
+profile: min
+
+exclude_paths:
+  - .cache/
+  - .github/
+  - .continue/
+  - interface/          # aplicação Python (FastAPI/Textual), não é Ansible
+  - seer/               # scripts auxiliares de conferência de notas
+  - docs/
+  - group_vars/all/vault.yml.example
+
+# Regras que queremos ver no relatório, mas que ainda não devem quebrar o build.
+warn_list:
+  - fqcn                # migração para nomes totalmente qualificados em andamento
+  - name[casing]
+  - name[template]
+  - yaml[line-length]
+  - yaml[trailing-spaces]
+  - no-changed-when     # muitos win_shell/win_command ainda sem changed_when
+  - command-instead-of-shell
+
+# Nunca ignorar: são as regras que pegam vazamento de segredo e erro real.
+enable_list:
+  - no-log-password
+  - risky-shell-pipe
+
+mock_roles:
+  - geerlingguy.mac
+
+offline: false

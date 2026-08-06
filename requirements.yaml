@@ -1,4 +1,27 @@
 ---
+# Instalar com:  ansible-galaxy collection install -r requirements.yaml
 collections:
+  # Núcleo Windows — win_user, win_copy, win_package, win_get_url, win_file,
+  # win_regedit, win_reboot, win_shell, win_command, win_updates
+  - name: ansible.windows
+    version: ">=2.5.0"
+
+  # Extras Windows — win_power_plan, win_scheduled_task, win_auto_logon,
+  # win_firewall_rule, win_shortcut, win_unzip, win_find, win_group_membership
+  - name: community.windows
+    version: ">=2.3.0"
+
+  # win_chocolatey
+  - name: chocolatey.chocolatey
+    version: ">=1.5.0"
+
+  # npm, homebrew, shutdown
+  - name: community.general
+    version: ">=10.0.0"
+
+  # mount — usado em smb_share.yml e playbooks Linux
+  - name: ansible.posix
+    version: ">=1.6.0"
+
+  # Gerenciamento de hosts macOS — geerlingguy.mac.homebrew, geerlingguy.mac.mas
   - name: geerlingguy.mac
-  

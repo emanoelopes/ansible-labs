@@ -2,7 +2,7 @@
   - name: Ensure admin user 'localwp' is present 
     win_user:
       name: localwp
-      password: wordpress
+      password: "{{ vault_senha_localwp }}"
       state: present
       groups:
         - Administradores  

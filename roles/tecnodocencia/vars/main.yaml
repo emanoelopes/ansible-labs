@@ -1,3 +1,5 @@
 ---
-senha_suporte: "SenhaForteSuporte123!"
-senha_bolsista: "SenhaBolsista2026@"
+# Senhas reais em group_vars/all/vault.yml (cifrado com ansible-vault).
+# Ver group_vars/all/vault.yml.example para a lista de variáveis esperadas.
+senha_suporte: "{{ vault_senha_suporte }}"
+senha_bolsista: "{{ vault_senha_bolsista }}"

@@ -3,8 +3,8 @@
   hosts: all # Use o --limit na hora de rodar para atingir apenas a máquina alvo
   gather_facts: no
   vars:
-    # Defina aqui a senha que os alunos vao usar no laboratorio
-    nova_senha_sa: "ufc123"
+    # Senha definida em group_vars/all/vault.yml (cifrado com ansible-vault)
+    nova_senha_sa: "{{ vault_senha_sa }}"
 
   tasks:
     - name: 1. Alterar chave de registro para Modo Misto (SQL e Windows)

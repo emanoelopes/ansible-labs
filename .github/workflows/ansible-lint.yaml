@@ -1,20 +1,22 @@
-# .github/workflows/ansible-lint.yml
 name: ansible-lint
+
 on:
+  push:
+    branches: ["main", "stable", "release/v*"]
   pull_request:
     branches: ["main", "stable", "release/v*"]
+
 jobs:
   build:
     name: Ansible Lint # Naming the build is important to use it as a status check
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
       - name: Run ansible-lint
-        uses: ansible/ansible-lint@main # or vX.X.X version
-        # optional (see below):
+        uses: ansible/ansible-lint@v25.5.0
         with:
-          args: ""
-          gh_action_ref: "<version - e.g. `v25.5.0`>" # Not recommended for non-composite action use
+          # Instala as collections declaradas antes de lintar, senão o
+          # ansible-lint não resolve os módulos win_* e acusa erro falso.
+          requirements_file: requirements.yaml
           setup_python: "true"
-          working_directory: ""
-          requirements_file: ""

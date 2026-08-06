@@ -51,7 +51,7 @@
     - name: Ensure user aluno is present
       win_user:
         name: aluno
-        password: aluno
+        password: "{{ vault_senha_aluno }}"
         password_expired: false
         state: present
         groups: Usuários

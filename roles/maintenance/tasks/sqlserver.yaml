@@ -1,7 +1,7 @@
 - name: Create user sqlserver
   win_user:
     name: sqlserver
-    password: ufc20231
+    password: "{{ vault_senha_sqlserver }}"
     user_cannot_change_password: true
     password_never_expires: true
     state: present

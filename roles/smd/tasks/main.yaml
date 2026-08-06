@@ -547,7 +547,7 @@
         name: mysql
         state: present
         version: "{{ mysql_version }}"
-        package_params: "/Password:ufc123" 
+        package_params: "/Password:{{ vault_senha_mysql_root }}"
       register: mysql_result
    
     - name: Ensure MySQL Workbench is installed
