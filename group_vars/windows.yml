@@ -1,0 +1,16 @@
+---
+# Credencial de conexão das estações Windows (grupo [windows:children]
+# no inventory.ini).
+#
+# A conta 'suporte' é administrativa e compartilhada entre a equipe. Com estas
+# variáveis definidas, não é mais necessário passar -k na linha de comando:
+#
+#   antes:  ansible-playbook site.yaml -e local=lab1 -k
+#   agora:  ansible-playbook site.yaml -e local=lab1
+#
+# A senha real fica cifrada em group_vars/all/vault.yml.
+#
+# Esta variável é usada EXCLUSIVAMENTE para conexão. Nenhuma role define ou
+# altera a senha desta conta — trocá-la quebraria o acesso da equipe.
+ansible_user: suporte
+ansible_password: "{{ vault_senha_suporte }}"

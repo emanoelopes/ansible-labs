@@ -56,23 +56,43 @@
         firmware_version: ''
     disk: '{{ (ansible_facts.disks|default(unknown_disks)|selectattr("system_disk")|first).physical_disk }}'
 
-      #- hosts: "{{ local }}" 
-      #serial: 1
-      #tasks:
-- name: Add or update changes to systems.csv
-  lineinfile:
+- name: Garantir que o diretório de inventário existe na máquina de controle
+  ansible.builtin.file:
+    path: "{{ inventario_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+# systems.csv guarda o ESTADO ATUAL: uma linha por máquina, sobrescrita a cada
+# coleta. É o retrato do parque.
+#
+# throttle: 1 é obrigatório aqui. Sem ele, com forks=10, dez hosts escrevem no
+# mesmo arquivo da máquina de controle ao mesmo tempo e o CSV corrompe.
+- name: Atualizar o estado da máquina em systems.csv
+  ansible.builtin.lineinfile:
     line: '{{ csv_entry }}'
     regexp: '; "{{ ansible_hostname|upper }}";'
-    dest: /home/demo/systems.csv
+    dest: "{{ inventario_dir }}/systems.csv"
     state: present
     create: yes
+    mode: "0640"
   delegate_to: localhost
+  throttle: 1
+  become: false
 
-- name: Add system changes to systems-log.csv
-  lineinfile:
+# systems-log.csv é o HISTÓRICO: append-only, uma linha por coleta.
+# Sem regexp de propósito — cada entrada tem timestamp próprio e deve ser
+# acrescentada, nunca substituída.
+- name: Acrescentar a coleta ao histórico em systems-log.csv
+  ansible.builtin.lineinfile:
     line: '{{ csv_entry }}'
-    regexp: '^{{ ansible_date_time.date }} {{ ansible_date_time.time }};{{ ansible_hostname }};'
-    dest: /home/demo/systems-log.csv
+    dest: "{{ inventario_dir }}/systems-log.csv"
+    insertafter: EOF
     state: present
     create: yes
+    mode: "0640"
   delegate_to: localhost
+  throttle: 1
+  become: false

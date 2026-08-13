@@ -1,0 +1,64 @@
+---
+# Variáveis comuns a todos os hosts.
+#
+# ORIGEM DESTE ARQUIVO: a role smd referencia 14 variáveis que não estavam
+# definidas em lugar nenhum do repositório. Elas provavelmente viviam num
+# group_vars/all.yaml que está listado no .gitignore e não existe mais nesta
+# máquina. Enquanto estiverem indefinidas, as tarefas correspondentes falham
+# com "undefined variable" — não passam nem do template.
+#
+# As entradas abaixo marcadas com REVISAR foram inferidas a partir de
+# roles/smd/vars/main.yml e do uso no código. Confira antes de rodar.
+# As marcadas com PREENCHER não têm como ser inferidas: só você sabe o valor.
+
+# --- Caminhos nas estações Windows -------------------------------------------
+
+# REVISAR: roles/smd/vars/main.yml define 'aplicativos: c:\Aplicativos'.
+# O código usa 'aplicativos_dir'. Aparentam ser a mesma coisa.
+aplicativos_dir: 'c:\Aplicativos'
+
+# REVISAR: roles/smd/vars/main.yml define 'user_temp_folder: C:\Temp'.
+# O código usa 'temp_dir'.
+temp_dir: 'C:\Temp'
+
+# --- Veyon (software de monitoramento de laboratório) -------------------------
+# Usado em roles/smd/tasks/main.yaml, tarefas ~642-690 (tag: veyon).
+
+# PREENCHER: diretório de trabalho da instalação do Veyon na estação.
+# dir_veyon: 'C:\Temp\veyon'
+
+# PREENCHER: nome do instalador, relativo a roles/smd/files/.
+# install_file_veyon: 'veyon-4.x.x-win64-setup.exe'
+
+# PREENCHER: só o nome do executável, usado no win_command com chdir.
+# file_name_veyon: 'veyon-4.x.x-win64-setup.exe'
+
+# PREENCHER: arquivo de configuração exportado do Veyon Master.
+# config_json_file: 'config.json'
+# config_json_name: 'config.json'
+
+# PREENCHER: chave pública para autenticação do Veyon.
+# public_key_veyon_file: 'veyon_public_key.pem'
+# public_key_name_veyon: 'veyon_public_key.pem'
+# public_key_name_cli: 'veyon_public_key.pem'
+
+# --- Google Chrome (instalação offline) ---------------------------------------
+# Usado em roles/smd/tasks/main.yaml, tarefas ~590-604.
+
+# PREENCHER: caminho do instalador na máquina de controle.
+# google_folder_file_install: 'files/ChromeSetup.exe'
+
+# PREENCHER: nome do arquivo já na estação.
+# google_file_name_install: 'ChromeSetup.exe'
+
+# --- DaVinci Resolve ----------------------------------------------------------
+# REVISAR: roles/smd/vars/main.yml já define
+# 'davinci_install_file: DaVinci_Resolve_20.3.1_Windows.exe'.
+# O código na linha 217 usa 'davinci_zip_file'. Se for o mesmo arquivo,
+# aponte para ele; se for um .zip separado, preencha com o nome do zip.
+# davinci_zip_file: 'DaVinci_Resolve_20.3.1_Windows.zip'
+
+# --- MySQL --------------------------------------------------------------------
+# PREENCHER: versão fixada no win_chocolatey (roles/smd/tasks/main.yaml:546).
+# Sem valor, a instalação do MySQL falha.
+# mysql_version: '8.0.36'

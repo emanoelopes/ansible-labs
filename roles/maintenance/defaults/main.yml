@@ -1,0 +1,9 @@
+---
+# Diretório na MÁQUINA DE CONTROLE onde os relatórios de inventário são
+# gravados. Fica fora do versionamento (ver .gitignore): os CSVs contêm
+# hostnames, MACs, números de série e chaves de produto das estações, e este
+# repositório é público.
+#
+# Para mudar o destino sem editar a role:
+#   ansible-playbook site.yaml -e inventario_dir=/algum/outro/lugar
+inventario_dir: "{{ playbook_dir }}/inventario"

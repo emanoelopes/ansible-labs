@@ -5,6 +5,12 @@ macs.ini
 group_vars/all.yaml
 SMD*
 
+# Relatórios de inventário do parque (hostnames, MACs, seriais, chaves de
+# produto). Repositório público — não versionar.
+inventario/
+systems.csv
+systems-log.csv
+
 # Vault em texto claro — só o .example vai para o repositório
 group_vars/all/vault.yml
 group_vars/*/vault.yml

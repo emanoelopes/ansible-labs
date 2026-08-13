@@ -29,6 +29,23 @@ vault_senha_aluno: "TROCAR"
 # Conta 'localwp' (localwp.yaml)
 vault_senha_localwp: "TROCAR"
 
-# Contas da Tecnodocência (roles/tecnodocencia/vars/main.yaml)
-vault_senha_suporte: "TROCAR"
+# Conta administrativa 'suporte' das estações Windows — CREDENCIAL DE CONEXÃO.
+# ATENÇÃO: use aqui a senha que JÁ está em uso nas máquinas (a mesma que você
+# passava com -k). Não invente uma nova: é a credencial compartilhada da equipe
+# e nenhuma role a altera.
+# Usada em: group_vars/windows.yml
+vault_senha_suporte: "SENHA_ATUAL_EM_USO"
+
+# Conta 'Suporte' criada pela role tecnodocencia (obsoleta, sem playbook que a
+# chame). Deliberadamente separada de vault_senha_suporte: são contextos
+# diferentes e não devem compartilhar segredo.
+vault_senha_suporte_tecnodocencia: "TROCAR"
+
+# Usada SOMENTE durante uma rotação de senha, pelo playbook
+# rotacionar_senha_suporte.yml. Fora de uma rotação em andamento, deixe
+# comentada. Ver o cabeçalho daquele playbook para o procedimento completo.
+# vault_senha_suporte_nova: "SENHA_NOVA"
+
+# Conta 'Bolsista' (roles/tecnodocencia/vars/main.yaml).
+# Esta É rotacionada a cada execução da role — pode definir uma senha nova.
 vault_senha_bolsista: "TROCAR"

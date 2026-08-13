@@ -1,0 +1,34 @@
+---
+# Pacotes Chocolatey instalados nas estações do SMD.
+#
+# Fica em defaults/ (e não em vars/) de propósito: assim dá para sobrescrever a
+# lista por laboratório em group_vars/lab1.yml, group_vars/lab2.yml etc., que é
+# o passo seguinte rumo ao estado declarativo por lab.
+smd_pacotes_chocolatey:
+  - asio4all            # driver de som para o Reaper
+  - anaconda3
+  - arduino             # smd0112
+  - audacity            # smd0047
+  - bitvise-ssh-client
+  - firefox
+  - fontforge
+  - foxitreader
+  - gimp                # smd0056,smd0057,smd0088,smd0089,smd0098,smd0105,smd0110
+  - git
+  - inkscape            # smd0088,smd0105,smd0110
+  - krita               # smd0057,smd0089,smd0098
+  - libreoffice-fresh
+  - nodejs
+  - octave              # smd0047
+  - openjdk
+  - pgadmin4
+  - postman
+  - pycharm-community
+  - python
+  - reaper
+  - selenium
+  - tightvnc
+  - vscode
+  - wacom-drivers
+  - winrar
+  - wireshark

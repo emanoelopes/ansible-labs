@@ -10,7 +10,7 @@
   changed_when: choco_install.stdout.find("Chocolatey is now ready") != -1
 
 - name: Instalar o navegador Google Chrome
-  chocolatey.chocolatey.win_choco:
+  chocolatey.chocolatey.win_chocolatey:
     name: googlechrome
     state: present
 
@@ -18,6 +18,10 @@
   ansible.windows.win_user:
     name: Suporte
     password: "{{ senha_suporte }}"
+    # on_create: define a senha só quando a conta não existe. Em máquina já
+    # provisionada a senha NÃO é alterada — essa é a credencial que o Emanoel e
+    # o Peterson usam para conectar, e trocá-la quebraria o acesso dos dois.
+    update_password: on_create
     state: present
     groups: Administradores
     password_never_expires: yes

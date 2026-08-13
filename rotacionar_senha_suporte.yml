@@ -1,0 +1,82 @@
+---
+# Rotação da senha da conta administrativa 'suporte' das estações Windows.
+#
+# POR QUE UM PLAYBOOK SEPARADO
+# A conta 'suporte' é a credencial de conexão (group_vars/windows.yml). Trocar
+# a senha e a variável de conexão ao mesmo tempo derruba o acesso a todas as
+# máquinas. Por isso a troca usa DUAS variáveis do vault:
+#
+#   vault_senha_suporte        -> senha ATUAL, usada para conectar
+#   vault_senha_suporte_nova   -> senha NOVA, que será gravada nas máquinas
+#
+# COMO USAR
+#   1. Combine a troca com o Peterson antes de rodar.
+#   2. Acrescente vault_senha_suporte_nova ao vault:
+#        ansible-vault edit group_vars/all/vault.yml
+#   3. Piloto em UMA máquina:
+#        ansible-playbook rotacionar_senha_suporte.yml -e alvo=lab1 --limit 111
+#   4. Confirme que o login manual com a senha nova funciona nessa máquina.
+#   5. Rode por laboratório, conferindo o resumo final de cada um:
+#        ansible-playbook rotacionar_senha_suporte.yml -e alvo=lab1
+#   6. SÓ DEPOIS que todos os labs estiverem 100%: no vault, mova o valor de
+#      vault_senha_suporte_nova para vault_senha_suporte e apague a var nova.
+#
+# ATENÇÃO: enquanto houver máquina pendente (desligada, fora da rede), o
+# vault_senha_suporte PRECISA continuar com a senha antiga — é com ela que o
+# Ansible alcança as que faltam. Máquinas rotacionadas continuam acessíveis
+# porque este playbook não depende do vault estar atualizado.
+
+- name: Rotacionar a senha da conta 'suporte'
+  hosts: "{{ alvo | default('windows') }}"
+  gather_facts: false
+  serial: "25%"
+  ignore_unreachable: true
+
+  pre_tasks:
+    - name: Abortar se a senha nova não foi definida no vault
+      ansible.builtin.assert:
+        that:
+          - vault_senha_suporte_nova is defined
+          - vault_senha_suporte_nova | length >= 12
+          - vault_senha_suporte_nova != vault_senha_suporte
+        fail_msg: >-
+          Defina vault_senha_suporte_nova em group_vars/all/vault.yml,
+          com no mínimo 12 caracteres e diferente da senha atual.
+      run_once: true
+      delegate_to: localhost
+
+  tasks:
+    - name: Confirmar acesso com a senha atual
+      ansible.windows.win_ping:
+
+    - name: Gravar a nova senha na conta 'suporte'
+      ansible.windows.win_user:
+        name: suporte
+        password: "{{ vault_senha_suporte_nova }}"
+        update_password: always
+        state: present
+        password_never_expires: true
+      no_log: true
+      register: troca
+
+    - name: Validar login com a NOVA senha
+      ansible.windows.win_ping:
+      vars:
+        ansible_password: "{{ vault_senha_suporte_nova }}"
+      register: validacao
+
+    - name: Marcar host como rotacionado
+      ansible.builtin.set_fact:
+        senha_rotacionada: "{{ validacao is succeeded }}"
+
+  post_tasks:
+    - name: Resumo da rotação
+      ansible.builtin.debug:
+        msg: >-
+          OK: {{ ansible_play_hosts_all
+                 | select('in', ansible_play_hosts)
+                 | list | length }} de {{ ansible_play_hosts_all | length }}.
+          PENDENTES (repetir depois): {{ ansible_play_hosts_all
+                 | difference(ansible_play_hosts) | join(', ') | default('nenhum', true) }}
+      run_once: true
+      delegate_to: localhost

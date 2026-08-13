@@ -1,5 +1,11 @@
 ---
-# Senhas reais em group_vars/all/vault.yml (cifrado com ansible-vault).
-# Ver group_vars/all/vault.yml.example para a lista de variáveis esperadas.
-senha_suporte: "{{ vault_senha_suporte }}"
+# ATENÇÃO: role marcada como obsoleta (nenhum playbook ou grupo do inventário
+# a referencia). Mantida apenas para consulta; decidir remoção depois.
+#
+# As senhas abaixo são PRÓPRIAS desta role e não têm relação com a credencial
+# de conexão da equipe (essa fica em group_vars/windows.yml). Não reaproveitar
+# vault_senha_suporte aqui: a conta 'Suporte' desta role é de outro contexto.
+#
+# Valores reais em group_vars/all/vault.yml (cifrado com ansible-vault).
+senha_suporte: "{{ vault_senha_suporte_tecnodocencia }}"
 senha_bolsista: "{{ vault_senha_bolsista }}"

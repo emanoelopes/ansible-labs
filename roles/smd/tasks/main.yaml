@@ -1,38 +1,35 @@
+# Lista em roles/smd/defaults/main.yml (smd_pacotes_chocolatey).
+#
+# Um pacote por tarefa, via loop: se a instalação fosse numa lista única, a
+# primeira falha derrubaria as outras 26 e o relatório não diria qual quebrou.
+# failed_when: false deixa o loop seguir, mas o resultado fica REGISTRADO — a
+# tarefa seguinte reporta o que falhou, em vez de engolir o erro.
 - name: Install chocolatey packages
   win_chocolatey:
-    name: 
-      - asio4all #sound driver for reaper
-      - gimp #smd0056,smd0057,smd0088,smd0089,smd0098,smd0105,smd0110 
-      - inkscape #smd0088,smd0105,smd0110
-      - krita #smd0057,smd0089,smd0098
-      - anaconda3
-      - audacity #smd0047
-      - arduino #smd0112
-      - vscode
-      - openjdk
-      - octave #smd0047
-      - selenium
-      - nodejs
-      - postman
-      - reaper
-      - python
-      - firefox
-      - foxitreader
-      - git
-      - openjdk
-      - bitvise-ssh-client
-      - pycharm-community
-      - winrar
-      - libreoffice-fresh
-      - tightvnc
-      - inkscape
-      - wacom-drivers
-      - krita
-      - fontforge
-      - wwireshark
-      - pgadmin4
-    ignore_errors: True
-    state: latest 
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ smd_pacotes_chocolatey }}"
+  register: choco_result
+  failed_when: false
+  tags: never,faixa2
+
+- name: Listar pacotes Chocolatey que falharam
+  ansible.builtin.debug:
+    msg: >-
+      Falharam nesta máquina:
+      {{ choco_result.results | selectattr('failed') | map(attribute='item') | list }}
+  when: choco_result.results | selectattr('failed') | list | length > 0
+  tags: never,faixa2
+
+- name: Falhar se algum pacote não instalou
+  ansible.builtin.fail:
+    msg: >-
+      {{ choco_result.results | selectattr('failed') | list | length }} de
+      {{ smd_pacotes_chocolatey | length }} pacotes não instalaram.
+      Ver a tarefa anterior para a lista.
+  when:
+    - choco_result.results | selectattr('failed') | list | length > 0
+    - not (choco_ignorar_falhas | default(false))
   tags: never,faixa2
 
 - name: Upgrade all Chocolatey packages
