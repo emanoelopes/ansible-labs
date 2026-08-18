@@ -1,4 +1,24 @@
 ---
+# --- Veyon --------------------------------------------------------------------
+
+# Caminho completo do CLI do Veyon na estação, após a instalação.
+veyon_cli: 'C:\Program Files\Veyon\veyon-cli.exe'
+
+# Nome da chave de autenticação DENTRO do Veyon — não é nome de arquivo.
+# É o mesmo identificador usado no 'authkeys import'. O 'authkeys delete'
+# espera este valor; antes recebia o nome do .pem, o que nunca casaria.
+veyon_nome_chave: 'LaboratoriosSMD/public'
+
+# --- Safe Exam Browser --------------------------------------------------------
+
+# Arquivo de configuração da prova, publicado no compartilhamento Samba.
+# Muda a cada prova — sobrescreva na linha de comando quando for o caso:
+#   ansible-playbook site.yaml -e local=lab2 -t seb \
+#     -e seb_arquivo_prova=SebClientSettings-NomeDaProva.seb
+seb_arquivo_prova: 'SebClientSettings.seb'
+
+# --- Chocolatey ---------------------------------------------------------------
+
 # Pacotes Chocolatey instalados nas estações do SMD.
 #
 # Fica em defaults/ (e não em vars/) de propósito: assim dá para sobrescrever a

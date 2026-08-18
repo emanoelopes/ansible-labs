@@ -1,6 +1,10 @@
-- name: Collec Mac Address e Hostnames do Windows
+- name: Coletar MAC Address e hostnames do Windows
   ansible.builtin.copy:
-    dest: "./lista_mac_hostnames.yml"
+    # Antes era "./lista_mac_hostnames.yml": caminho relativo ao diretório de
+    # onde o ansible-playbook foi chamado, o que gerava o arquivo em lugares
+    # diferentes conforme o cwd — e foi assim que um lista_mac_hostnames.yml
+    # acabou versionado na raiz do repositório.
+    dest: "{{ inventario_dir }}/lista_mac_hostnames.yml"
     content: |
       # Arquivo gerado automaticamente em {{ ansible_date_time.date }}
       mac_to_hostname:
@@ -13,4 +17,5 @@
       {% endfor %}
   delegate_to: localhost
   run_once: true
-  tags: never, collect_macaddress
+  become: false
+  tags: never,collect_macaddress

@@ -212,10 +212,15 @@
 - name: DaVinci Resolve
   # when: ansible_facts['product_name'] == "Inspiron 5400 AIO"
   block:
-    - name: DaVinci Resolve - copy file to the target
-      win_copy:
-        src: "{{ davinci_zip_file }}"
-        dest: "{{ downloads }}"
+    # Antes copiava davinci_zip_file (um .zip) e logo abaixo instalava
+    # davinci_install_file (um .exe) que ninguém extraía — o fluxo não fechava.
+    # Agora baixa direto o .exe do repositório. A variável davinci_zip_file
+    # deixou de existir.
+    - name: DaVinci Resolve - baixar instalador do repositório
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ davinci_install_file }}"
+        dest: "{{ downloads }}\\{{ davinci_install_file }}"
+        force: no
       tags: never,davinci
 
     - name: DaVinci Resolve - Ensure is installed
@@ -387,26 +392,12 @@
     enabled: yes
   tags: never,pycharm
 
-- name: Ensure that flash player uninstaller is on Windows\Temp folder
-  win_stat:
-    path: c:\Windows\temp\uninstall_flash_player.exe
-  register: result
-  tags: never,plugin_flashplayer
+# Bloco de desinstalação do Adobe Flash removido em ago/2026.
+# O Flash teve fim de vida em 31/12/2020 e a Adobe retirou de circulação o
+# uninstall_flash_player.exe, então as tarefas dependiam de um arquivo que não
+# existe mais em lugar nenhum. Nenhuma estação atualizada tem o plugin.
 
-- name: Copy uninstaller to the OptiPlex target
-  ansible.windows.win_copy:
-    src: uninstall_flash_player.exe
-    dest: c:\Windows\temp
-  when: not result.stat.exists 
-  tags: never,plugin_flashplayer
-
-- name: Uninstall the Flash Player Plugin 
-  ansible.windows.win_package:
-    path: c:\Windows\temp\uninstall_flash_player.exe
-    arguments: -uninstall 
-  tags: never,plugin_flashplayer
-
-- name: BGInfo download 
+- name: BGInfo download
   win_copy:
     src: "bginfo/"
     dest: "{{ aplicativos }}/bginfo/"
@@ -482,21 +473,14 @@
 
 
 
-- name: Ensure julia installer is on windows host
-  block:
-    - name: Copy installer to Windows Temp Folder 
-      win_copy: 
-        src: "{{ julia_install_file }}" 
-        dest: "{{ user_temp_folder }}" 
-    - name: Install Julia 
-      win_package:
-        path: "{{ user_temp_folder }}/{{ julia_install_file }}"
-        state: present
-        arguments:
-        - /SP
-        - /SILENT
-        - /CURRENTUSER
-  tags: never,julia 
+# Antes: baixava um .exe do repositório e instalava com /SP /SILENT.
+# O Chocolatey já empacota o Julia, e o instalador offline obrigava a manter a
+# versão fixada à mão (estava presa em 1.12.3). A tag 'julia' foi preservada.
+- name: Ensure julia is installed
+  chocolatey.chocolatey.win_chocolatey:
+    name: julia
+    state: latest
+  tags: never,julia
 - name: Ensure wallpaper is set correctly
   block:
     - name: Select the smd wallpaper file
@@ -585,23 +569,13 @@
       when: mysql_status.state != "started"
   tags: never,mysql
 
-- name: Ensure Google Chrome is installed from install file
-  block:
-    - name: Copy Google file to hosts
-      ansible.windows.win_copy:
-        src: '{{ google_folder_file_install }}'
-        dest: '{{ temp_dir }}'
-      ignore_errors: True
-    - name: Install Google Chrome silent mode
-      ansible.windows.win_command:
-        cmd: '{{ temp_dir }}\{{ google_file_name_install }} /silent /install'
-        chdir: '{{ temp_dir }}'   
-      ignore_errors: True    
-    - name: Remove a file {{ google_file_name_install }}
-      ansible.windows.win_file:
-        path: '{{ temp_dir }}\{{ google_file_name_install }}'
-        state: absent
-      ignore_errors: True
+# Antes: baixava ChromeSetup.exe do repositório e rodava /silent /install.
+# O Chocolatey já empacota o Chrome — é o mesmo caminho que a role
+# tecnodocencia usa. A tag 'googlechrome' foi preservada.
+- name: Ensure Google Chrome is installed
+  chocolatey.chocolatey.win_chocolatey:
+    name: googlechrome
+    state: latest
   tags: never,googlechrome
 
 - name: Safe Exam Browser (SEB)
@@ -630,11 +604,15 @@
         path: C:\Users\aluno\AppData\Roaming\SafeExamBrowser\
         state: directory
       ignore_errors: True
-    - name: Copiar arquivo de prova SEB para diretório de instalação
-      ansible.windows.win_copy:
-        src: /home/peterson/ansible-labs/files/SEB/SebClientSettings-HenriquePequeno.seb
+    # O src anterior era um caminho absoluto dentro do home do Peterson
+    # (/home/peterson/ansible-labs/...), então só funcionava na máquina dele.
+    # O arquivo .seb é específico de cada prova: publique-o no compartilhamento
+    # e informe o nome em seb_arquivo_prova.
+    - name: Baixar arquivo de configuração da prova SEB
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ seb_arquivo_prova }}"
         dest: C:\Users\aluno\AppData\Roaming\SafeExamBrowser\SebClientSettings.seb
-      ignore_errors: True
+        force: yes
   tags: never,seb
 
 - name: Veyon Install
@@ -649,42 +627,57 @@
         path: '{{ dir_veyon }}'
         state: directory
       ignore_errors: false
-    - name: Copy veyon install file to host
-      win_copy: 
-        src: '{{ install_file_veyon }}'
-        dest: '{{ dir_veyon }}'
-    - name: Copy veyon config.json
-      win_copy:
-        src: "{{ config_json_file }}"
-        dest: "{{ dir_veyon }}"
-    - name: Copy veyon public keys to host
-      win_copy:
-        src: '{{ public_key_veyon_file }}'
-        dest: '{{ dir_veyon }}'
+    # Instalador e artefatos vindos do repositório interno: o .exe é binário
+    # (excluído pelo .gitignore) e o config.json e a chave pública são
+    # específicos da instalação do Veyon Master.
+    - name: Baixar o instalador do Veyon do repositório interno
+      ansible.windows.win_get_url:
+        url: '{{ repo_interno_url }}/{{ install_file_veyon }}'
+        dest: '{{ dir_veyon }}\{{ install_file_veyon }}'
+        force: no
+    - name: Baixar o config.json do Veyon
+      ansible.windows.win_get_url:
+        url: '{{ repo_interno_url }}/{{ config_json_file }}'
+        dest: '{{ dir_veyon }}\{{ config_json_file }}'
+        force: no
+    - name: Baixar a chave pública do Veyon
+      ansible.windows.win_get_url:
+        url: '{{ repo_interno_url }}/{{ public_key_veyon_file }}'
+        dest: '{{ dir_veyon }}\{{ public_key_veyon_file }}'
+        force: no
+    # chdir corrigido: o instalador está em dir_veyon. O valor anterior
+    # (c:\Program Files\Veyon\) aponta para um diretório que só passa a
+    # existir DEPOIS da instalação, então a tarefa nunca poderia funcionar.
     - name: Install Veyon windows.win_command
       ansible.windows.win_command:
-        cmd: '{{ file_name_veyon }} /S /NoMaster /ApplyConfig={{ dir_veyon }}/{{ config_json_file }}'
-        chdir: c:\Program Files\Veyon\
-    - name: Remove keys if they exist #add ignore fail 
+        cmd: '{{ file_name_veyon }} /S /NoMaster /ApplyConfig={{ dir_veyon }}\{{ config_json_file }}'
+        chdir: '{{ dir_veyon }}'
+        creates: 'C:\Program Files\Veyon\veyon-cli.exe'
+    # O veyon-cli.exe fica em C:\Program Files\Veyon\, não em dir_veyon.
+    # Chamá-lo pelo nome nu só funcionaria se o instalador tivesse colocado o
+    # diretório no PATH. Usamos o caminho completo ({{ veyon_cli }}) e mantemos
+    # o chdir em dir_veyon, que é onde estão a chave e o config.json passados
+    # como argumento.
+    - name: Remove keys if they exist
       ansible.windows.win_command:
-        cmd: 'veyon-cli.exe authkeys delete {{ public_key_name_cli }}'
+        cmd: '"{{ veyon_cli }}" authkeys delete {{ veyon_nome_chave }}'
         chdir: '{{ dir_veyon }}'
-      ignore_errors: true
-    - name: Import public Key 
-      ansible.windows.win_command: 
-        cmd: 'veyon-cli.exe authkeys import LaboratoriosSMD/public {{ public_key_name_veyon }}'
-        chdir: '{{ dir_veyon }}'
-      ignore_errors: false
-    - name: Import config.json again just in case 
-      ansible.windows.win_command: 
-        cmd: 'veyon-cli.exe config import {{ config_json_name }}'
-        chdir: '{{ dir_veyon }}'
-      ignore_errors: false
-    - name: Restart veyon service 
+      register: veyon_delete_key
+      failed_when: false
+      changed_when: veyon_delete_key.rc == 0
+    - name: Import public Key
       ansible.windows.win_command:
-        cmd:  'veyon-cli.exe service restart'
+        cmd: '"{{ veyon_cli }}" authkeys import {{ veyon_nome_chave }} {{ public_key_name_veyon }}'
         chdir: '{{ dir_veyon }}'
-      ignore_errors: true
+    - name: Import config.json again just in case
+      ansible.windows.win_command:
+        cmd: '"{{ veyon_cli }}" config import {{ config_json_name }}'
+        chdir: '{{ dir_veyon }}'
+    - name: Restart veyon service
+      ansible.windows.win_command:
+        cmd: '"{{ veyon_cli }}" service restart'
+        chdir: '{{ dir_veyon }}'
+      changed_when: true
     - name: Remove a file
       ansible.windows.win_file:
         path: '{{ dir_veyon }}\{{ file_name_veyon }}'

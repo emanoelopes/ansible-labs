@@ -11,6 +11,33 @@
 # roles/smd/vars/main.yml e do uso no código. Confira antes de rodar.
 # As marcadas com PREENCHER não têm como ser inferidas: só você sabe o valor.
 
+# --- Repositório interno de binários ------------------------------------------
+# Espelho HTTP servido pelo PRÓPRIO CONTROLADOR a partir do compartilhamento
+# Samba //10.44.24.130/smd, montado somente-leitura. Ver roles/repo_local e o
+# playbook repo_local.yml.
+#
+# Motivo do desenho: numa sessão WinRM com transporte NTLM a credencial não é
+# delegada adiante (double-hop), então as estações não conseguem ler o Samba
+# diretamente. Servindo por HTTP a partir do controlador, elas baixam em
+# paralelo e sem credencial nenhuma.
+#
+# Os arquivos esperados na raiz do compartilhamento são os nomes definidos em
+# install_file_veyon, config_json_file, public_key_veyon_file e
+# google_file_name_install.
+#
+# PREENCHER: IP do controlador NA REDE DOS LABORATÓRIOS (10.102.227.0/24).
+#
+# Descubra com:   ip -4 addr | grep 10.102.227
+#
+# Não é detectado automaticamente de propósito. A detecção por
+# ansible_default_ipv4 devolveria a interface da rota padrão — em geral a que
+# sai para a internet, não a que fala com os labs — e um valor errado aqui faz
+# as 164 estações baixarem do endereço errado, falhando todas com a mesma
+# mensagem obscura. Melhor não rodar do que rodar apontando para o lugar errado.
+repo_bind_ip: '10.102.226.208'
+repo_porta: 8081
+repo_interno_url: "http://{{ repo_bind_ip }}:{{ repo_porta }}"
+
 # --- Caminhos nas estações Windows -------------------------------------------
 
 # REVISAR: roles/smd/vars/main.yml define 'aplicativos: c:\Aplicativos'.
@@ -22,43 +49,45 @@ aplicativos_dir: 'c:\Aplicativos'
 temp_dir: 'C:\Temp'
 
 # --- Veyon (software de monitoramento de laboratório) -------------------------
-# Usado em roles/smd/tasks/main.yaml, tarefas ~642-690 (tag: veyon).
+# Usado em roles/smd/tasks/main.yaml (tag: veyon).
 
-# PREENCHER: diretório de trabalho da instalação do Veyon na estação.
-# dir_veyon: 'C:\Temp\veyon'
+# FONTE ÚNICA DA VERSÃO. Alterar só aqui: o nome do instalador e a URL de
+# download em popular_repositorio.yml são derivados deste valor. Confira as
+# versões em https://github.com/veyon/veyon/releases
+veyon_versao: '4.11.0'
 
-# PREENCHER: nome do instalador, relativo a roles/smd/files/.
-# install_file_veyon: 'veyon-4.x.x-win64-setup.exe'
+# Diretório de trabalho da instalação do Veyon na estação.
+dir_veyon: 'C:\Temp\veyon'
 
-# PREENCHER: só o nome do executável, usado no win_command com chdir.
-# file_name_veyon: 'veyon-4.x.x-win64-setup.exe'
+# Nome do instalador no compartilhamento. Derivado da versão.
+install_file_veyon: "veyon-{{ veyon_versao }}-win64-setup.exe"
+file_name_veyon: "{{ install_file_veyon }}"
 
-# PREENCHER: arquivo de configuração exportado do Veyon Master.
-# config_json_file: 'config.json'
-# config_json_name: 'config.json'
+# Arquivo de configuração exportado do Veyon Master.
+config_json_file: 'config.json'
+config_json_name: 'config.json'
 
-# PREENCHER: chave pública para autenticação do Veyon.
-# public_key_veyon_file: 'veyon_public_key.pem'
-# public_key_name_veyon: 'veyon_public_key.pem'
-# public_key_name_cli: 'veyon_public_key.pem'
+# Chave pública para autenticação do Veyon (nome do arquivo).
+public_key_veyon_file: 'veyon_public_key.pem'
+public_key_name_veyon: 'veyon_public_key.pem'
+# public_key_name_cli foi removida: aquele argumento é o NOME da chave dentro
+# do Veyon, não um arquivo. Virou veyon_nome_chave em roles/smd/defaults/main.yml.
 
-# --- Google Chrome (instalação offline) ---------------------------------------
-# Usado em roles/smd/tasks/main.yaml, tarefas ~590-604.
-
-# PREENCHER: caminho do instalador na máquina de controle.
-# google_folder_file_install: 'files/ChromeSetup.exe'
-
-# PREENCHER: nome do arquivo já na estação.
-# google_file_name_install: 'ChromeSetup.exe'
+# --- Google Chrome ------------------------------------------------------------
+# google_folder_file_install e google_file_name_install foram removidas.
+# O Chrome passou a ser instalado via Chocolatey (pacote googlechrome), como já
+# fazia a role tecnodocencia, então não há mais instalador offline a nomear.
+# O mesmo vale para julia_install_file, ainda presente em roles/smd/vars/main.yml
+# mas já sem uso.
 
 # --- DaVinci Resolve ----------------------------------------------------------
-# REVISAR: roles/smd/vars/main.yml já define
-# 'davinci_install_file: DaVinci_Resolve_20.3.1_Windows.exe'.
-# O código na linha 217 usa 'davinci_zip_file'. Se for o mesmo arquivo,
-# aponte para ele; se for um .zip separado, preencha com o nome do zip.
-# davinci_zip_file: 'DaVinci_Resolve_20.3.1_Windows.zip'
+# davinci_zip_file foi eliminada. A tarefa copiava um .zip e, logo abaixo,
+# instalava um .exe que ninguém extraía — o fluxo não fechava. Agora a role
+# baixa direto o davinci_install_file, já definido em roles/smd/vars/main.yml
+# como DaVinci_Resolve_20.3.1_Windows.exe. É esse nome que deve estar no
+# compartilhamento Samba.
 
 # --- MySQL --------------------------------------------------------------------
 # PREENCHER: versão fixada no win_chocolatey (roles/smd/tasks/main.yaml:546).
 # Sem valor, a instalação do MySQL falha.
-# mysql_version: '8.0.36'
+mysql_version: '8.0.36'
