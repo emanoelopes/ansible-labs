@@ -29,6 +29,17 @@ vault_senha_aluno: "TROCAR"
 # Conta 'localwp' (localwp.yaml)
 vault_senha_localwp: "TROCAR"
 
+# Senha da conta de LEITURA no Samba //10.44.24.130/smd, usada pelo controlador
+# para montar o compartilhamento de instaladores (roles/repo_local).
+# Usuário e domínio ficam em roles/repo_local/defaults/main.yml.
+vault_senha_smb: "TROCAR"
+
+# Senha de aplicativo do Gmail/Google Workspace, usada pelo auditoria.yml para
+# enviar o relatório diário de desvio. NÃO é a senha da conta: em contas com
+# verificação em duas etapas é preciso gerar uma "senha de app" em
+# https://myaccount.google.com/apppasswords
+vault_senha_smtp: "TROCAR"
+
 # Conta administrativa 'suporte' das estações Windows — CREDENCIAL DE CONEXÃO.
 # ATENÇÃO: use aqui a senha que JÁ está em uso nas máquinas (a mesma que você
 # passava com -k). Não invente uma nova: é a credencial compartilhada da equipe
