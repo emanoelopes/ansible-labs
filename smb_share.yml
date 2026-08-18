@@ -1,17 +1,27 @@
 ---
-- name: Mounting SMB Share
+# OBSOLETO — substituído por repo_local.yml + roles/repo_local.
+#
+# Este playbook montava //10.44.24.130/smd em /home/demo/smb_share, caminho que
+# não existe nesta máquina, e passava a senha nas opções de montagem (onde ela
+# fica visível em /proc/mounts para qualquer usuário). A variável ad_password
+# nunca foi definida em lugar nenhum, então ele também falhava por variável
+# indefinida.
+#
+# O substituto monta em modo somente-leitura, usa arquivo de credenciais com
+# permissão 0600 e ainda publica o conteúdo por HTTP para as estações:
+#
+#   ansible-playbook repo_local.yml
+#
+# Mantido apenas como referência histórica. Pode ser removido.
+
+- name: Mounting SMB Share (OBSOLETO - use repo_local.yml)
   hosts: localhost
-  
-  vars:
-    ad_domain: ufcvirtual.local
-    ad_username: emanoel
+  connection: local
+  gather_facts: false
 
   tasks:
-    - name: Mount ephemeral SMB volume
-      ansible.posix.mount:
-        src: //10.44.24.130/smd
-        path: /home/demo/smb_share 
-        opts: "rw,vers=3,file_mode=0600,dir_mode=0700,dom={{ ad_domain }},username={{ ad_username }},password={{ ad_password }}"
-        fstype: cifs
-        state: ephemeral
-      become: true
+    - name: Avisar que este playbook foi substituído
+      ansible.builtin.fail:
+        msg: >-
+          smb_share.yml está obsoleto. Use: ansible-playbook repo_local.yml
+          (monta somente-leitura e publica os instaladores por HTTP).

@@ -1,0 +1,137 @@
+---
+# Sobe o espelho HTTP. Roda no CONTROLADOR (hosts: localhost).
+
+- name: Validar que repo_bind_ip foi preenchido e existe nesta máquina
+  ansible.builtin.assert:
+    that:
+      - repo_bind_ip != 'PREENCHER'
+      - repo_bind_ip in ansible_all_ipv4_addresses
+    fail_msg: >-
+      repo_bind_ip está como '{{ repo_bind_ip }}', que não é um endereço deste
+      controlador. Os IPs desta máquina são {{ ansible_all_ipv4_addresses }}.
+      Escolha o da rede dos laboratórios (10.102.227.0/24) e fixe em
+      group_vars/all/main.yml. Sem isso o servidor HTTP nem sobe, e se subisse
+      as estações baixariam do endereço errado.
+    success_msg: "Repositório será publicado em {{ repo_interno_url }}"
+
+- name: Verificar se a porta {{ repo_porta }} já está em uso
+  ansible.builtin.wait_for:
+    host: "{{ repo_bind_ip }}"
+    port: "{{ repo_porta }}"
+    timeout: 2
+    state: stopped
+  register: repo_porta_livre
+  failed_when: false
+
+- name: Falhar se a porta estiver ocupada por outro serviço
+  ansible.builtin.fail:
+    msg: >-
+      Já há algo escutando em {{ repo_bind_ip }}:{{ repo_porta }}. Pare o
+      serviço ou defina outra porta em repo_porta (group_vars/all/main.yml).
+  when:
+    - repo_porta_livre.failed | default(false)
+    - not (repo_reusar_porta | default(false))
+
+- name: Verificar dependências do controlador
+  ansible.builtin.command: "which {{ item }}"
+  loop:
+    - mount.cifs
+    - systemd-run
+    - python3
+  changed_when: false
+  register: repo_deps
+  failed_when: repo_deps.rc != 0
+
+# A senha vai num arquivo de credenciais em vez de ir nas opções de montagem.
+# Em 'opts', ela apareceria no /proc/mounts e na saída de 'mount' para qualquer
+# usuário da máquina.
+- name: Criar arquivo de credenciais do Samba
+  ansible.builtin.copy:
+    dest: /etc/cifs-smd.cred
+    mode: "0600"
+    owner: root
+    group: root
+    content: |
+      username={{ repo_smb_usuario }}
+      password={{ repo_smb_senha }}
+      domain={{ repo_smb_dominio }}
+  become: true
+  no_log: true
+
+- name: Garantir que o ponto de montagem existe
+  ansible.builtin.file:
+    path: "{{ repo_mount_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Montar o compartilhamento Samba (somente leitura)
+  ansible.posix.mount:
+    src: "{{ repo_smb_servidor }}"
+    path: "{{ repo_mount_dir }}"
+    fstype: cifs
+    opts: "ro,vers=3.0,credentials=/etc/cifs-smd.cred,uid={{ ansible_user_id }},file_mode=0444,dir_mode=0555"
+    state: ephemeral
+  become: true
+
+- name: Confirmar que a subpasta de instaladores existe
+  ansible.builtin.stat:
+    path: "{{ repo_dir_publicado }}"
+  register: repo_subpasta_stat
+
+- name: Falhar se a subpasta não existir
+  ansible.builtin.fail:
+    msg: >-
+      O compartilhamento montou, mas não há '{{ repo_subpasta }}' dentro de
+      {{ repo_mount_dir }}. Confira o nome e a caixa das letras — o CIFS
+      diferencia maiúsculas de minúsculas.
+  when: not repo_subpasta_stat.stat.exists
+
+- name: Confirmar que a subpasta tem conteúdo
+  ansible.builtin.find:
+    paths: "{{ repo_dir_publicado }}"
+    file_type: file
+  register: repo_conteudo
+
+- name: Falhar se a subpasta estiver vazia
+  ansible.builtin.fail:
+    msg: >-
+      {{ repo_dir_publicado }} montou mas está vazio. Sem os instaladores lá, as
+      tarefas de download falhariam uma a uma nas 164 estações.
+  when: repo_conteudo.matched | int == 0
+
+# Unidade transitória do systemd em vez de nohup: ela pode ser consultada,
+# parada de forma determinística e não fica órfã se o playbook abortar.
+- name: Subir o servidor HTTP do repositório
+  ansible.builtin.command:
+    argv:
+      - systemd-run
+      - "--unit={{ repo_unidade }}"
+      - "--collect"
+      - python3
+      - -m
+      - http.server
+      - "{{ repo_porta }}"
+      - --bind
+      - "{{ repo_bind_ip }}"
+      - --directory
+      - "{{ repo_dir_publicado }}"
+  become: true
+  register: repo_subida
+  changed_when: repo_subida.rc == 0
+  failed_when:
+    - repo_subida.rc != 0
+    - "'already exists' not in repo_subida.stderr"
+
+- name: Aguardar o servidor HTTP responder
+  ansible.builtin.wait_for:
+    host: "{{ repo_bind_ip }}"
+    port: "{{ repo_porta }}"
+    timeout: 30
+
+- name: Informar a URL do repositório
+  ansible.builtin.debug:
+    msg: >-
+      Repositório disponível em {{ repo_interno_url }}
+      ({{ repo_conteudo.matched }} arquivos). Para derrubar ao final:
+      ansible-playbook repo_local.yml -e repo_acao=parar

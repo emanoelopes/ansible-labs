@@ -1,0 +1,34 @@
+---
+# Espelho HTTP local dos instaladores binários.
+#
+# O controlador monta o compartilhamento Samba em modo somente-leitura e serve
+# o conteúdo por HTTP na rede dos laboratórios. As estações baixam com
+# win_get_url, sem credencial alguma — o que evita o problema de double-hop do
+# WinRM/NTLM e permite download paralelo nas 164 máquinas.
+
+# --- Origem (Samba) -----------------------------------------------------------
+repo_smb_servidor: '//10.44.24.130/smd'
+repo_smb_dominio: 'ufcvirtual.local'
+repo_smb_usuario: 'emanoel'
+# Senha vem de group_vars/all/vault.yml (vault_senha_smb).
+repo_smb_senha: "{{ vault_senha_smb }}"
+
+# Ponto de montagem no controlador. Montado com 'ro' de propósito: a automação
+# só lê. Você adiciona arquivos ao share pelos meios normais.
+repo_mount_dir: '/mnt/smd'
+
+# Subpasta do compartilhamento onde ficam os instaladores Windows. Só ELA é
+# publicada por HTTP — o resto do share não fica exposto na rede dos labs.
+# Atenção à caixa: o CIFS preserva maiúsculas e diferencia.
+repo_subpasta: 'windows_instaladores'
+
+# Diretório efetivamente servido. Derivado; não editar.
+repo_dir_publicado: "{{ repo_mount_dir }}/{{ repo_subpasta }}"
+
+# --- Publicação (HTTP) --------------------------------------------------------
+# repo_bind_ip, repo_porta e repo_interno_url ficam em group_vars/all/main.yml,
+# e não aqui: as estações Windows precisam enxergar a URL, e defaults de role
+# só valem para a play que executa a role.
+
+# Nome da unidade transitória do systemd que roda o servidor HTTP.
+repo_unidade: 'ansible-repo-labs'

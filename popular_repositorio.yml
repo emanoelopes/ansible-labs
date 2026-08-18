@@ -1,0 +1,148 @@
+---
+# Popula //10.44.24.130/smd/windows_instaladores com os binários que as
+# estações baixam durante a execução das roles.
+#
+#   ansible-playbook popular_repositorio.yml
+#
+# Monta o compartilhamento em modo LEITURA E ESCRITA (diferente do repo_local,
+# que monta somente-leitura), baixa o que tem URL pública, e ao final lista o
+# que precisa ser colocado à mão.
+#
+# Para acrescentar um item novo, basta editar a lista repo_itens abaixo.
+# Itens com 'url: null' são apenas verificados, nunca baixados.
+
+- name: Popular o repositório de instaladores
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    # Ponto de montagem temporário com escrita. Separado do /mnt/smd usado pelo
+    # repo_local para não haver dúvida sobre qual está rw e qual está ro.
+    repo_rw_mount: '/mnt/smd-rw'
+
+    # A versão do Veyon NÃO é definida aqui: vem de veyon_versao em
+    # group_vars/all/main.yml, que é a fonte única. Assim o arquivo baixado e o
+    # que as estações procuram não podem divergir.
+
+    repo_itens:
+      - nome: "{{ install_file_veyon }}"
+        url: "https://github.com/veyon/veyon/releases/download/v{{ veyon_versao }}/veyon-{{ veyon_versao }}-win64-setup.exe"
+        descricao: 'Instalador do Veyon'
+
+      # Blackmagic exige preenchimento de formulário antes do download, então
+      # não há URL direta. Baixe em https://www.blackmagicdesign.com/support/
+      - nome: 'DaVinci_Resolve_20.3.1_Windows.exe'
+        url: null
+        descricao: 'DaVinci Resolve (formulário de registro, sem link direto)'
+
+      # Gerados pelo SEU Veyon Master — exporte por lá.
+      - nome: 'config.json'
+        url: null
+        descricao: 'Configuração exportada do Veyon Master'
+      - nome: 'veyon_public_key.pem'
+        url: null
+        descricao: 'Chave pública do Veyon (authkeys export)'
+
+      # Específico de cada prova, criado no SEB Configuration Tool.
+      - nome: 'SebClientSettings.seb'
+        url: null
+        descricao: 'Configuração da prova no Safe Exam Browser'
+
+  tasks:
+    - name: Garantir que o ponto de montagem existe
+      ansible.builtin.file:
+        path: "{{ repo_rw_mount }}"
+        state: directory
+        mode: "0755"
+      become: true
+
+    # Recriado aqui para o playbook funcionar mesmo sem o repo_local ter rodado
+    # antes. Mesma senha do vault, mesma permissão 0600.
+    - name: Criar arquivo de credenciais do Samba
+      ansible.builtin.copy:
+        dest: /etc/cifs-smd.cred
+        mode: "0600"
+        owner: root
+        group: root
+        content: |
+          username={{ repo_smb_usuario | default('emanoel') }}
+          password={{ vault_senha_smb }}
+          domain={{ repo_smb_dominio | default('ufcvirtual.local') }}
+      become: true
+      no_log: true
+
+    - name: Montar o compartilhamento com escrita
+      ansible.posix.mount:
+        src: "{{ repo_smb_servidor | default('//10.44.24.130/smd') }}"
+        path: "{{ repo_rw_mount }}"
+        fstype: cifs
+        opts: "rw,vers=3.0,credentials=/etc/cifs-smd.cred,uid={{ ansible_user_id }},file_mode=0644,dir_mode=0755"
+        state: ephemeral
+      become: true
+
+    # block/always: sem isso, uma falha de download deixaria o compartilhamento
+    # montado com escrita, o que é justamente o estado que não queremos manter.
+    - name: Baixar e conferir
+      block:
+        - name: Garantir que a pasta de instaladores existe
+          ansible.builtin.file:
+            path: "{{ repo_rw_mount }}/windows_instaladores"
+            state: directory
+            mode: "0755"
+
+        - name: Baixar os itens que têm URL pública
+          ansible.builtin.get_url:
+            url: "{{ item.url }}"
+            dest: "{{ repo_rw_mount }}/windows_instaladores/{{ item.nome }}"
+            mode: "0644"
+            # force: no torna o playbook re-executável sem rebaixar tudo.
+            force: no
+          loop: "{{ repo_itens | selectattr('url') | list }}"
+          loop_control:
+            label: "{{ item.nome }}"
+          register: repo_downloads
+          failed_when: false
+
+        - name: Avisar sobre downloads que falharam
+          ansible.builtin.debug:
+            msg: >-
+              Falha ao baixar {{ item.item.nome }} de {{ item.item.url }} —
+              confira a URL e a versão. Erro: {{ item.msg | default('sem detalhe') }}
+          loop: "{{ repo_downloads.results | selectattr('failed') | list }}"
+          loop_control:
+            label: "{{ item.item.nome }}"
+          when: repo_downloads.results | selectattr('failed') | list | length > 0
+
+        - name: Conferir o que existe na pasta
+          ansible.builtin.stat:
+            path: "{{ repo_rw_mount }}/windows_instaladores/{{ item.nome }}"
+          loop: "{{ repo_itens }}"
+          loop_control:
+            label: "{{ item.nome }}"
+          register: repo_estado
+
+        - name: Relatório do repositório
+          ansible.builtin.debug:
+            msg: >-
+              {{ item.item.nome }} — {{ 'PRESENTE' if item.stat.exists else 'FALTANDO' }}
+              {{ '(' ~ item.item.descricao ~ ')' if not item.stat.exists else '' }}
+          loop: "{{ repo_estado.results }}"
+          loop_control:
+            label: "{{ item.item.nome }}"
+
+        - name: Falhar se faltar algum item
+          ansible.builtin.fail:
+            msg: >-
+              Faltam no compartilhamento:
+              {{ repo_estado.results | rejectattr('stat.exists') | map(attribute='item.nome') | list }}.
+              Os que não têm URL pública precisam ser colocados à mão em
+              {{ repo_rw_mount }}/windows_instaladores.
+          when: repo_estado.results | rejectattr('stat.exists') | list | length > 0
+
+      always:
+        - name: Desmontar o compartilhamento
+          ansible.posix.mount:
+            path: "{{ repo_rw_mount }}"
+            state: unmounted
+          become: true

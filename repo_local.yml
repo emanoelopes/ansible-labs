@@ -1,0 +1,31 @@
+---
+# Espelho HTTP local dos instaladores, para as estações baixarem com
+# win_get_url sem precisar de credencial do Samba.
+#
+#   subir:   ansible-playbook repo_local.yml
+#   parar:   ansible-playbook repo_local.yml -e repo_acao=parar
+#
+# Fluxo típico:
+#   ansible-playbook repo_local.yml
+#   ansible-playbook site.yaml -e local=lab1 -t googlechrome,veyon
+#   ansible-playbook repo_local.yml -e repo_acao=parar
+#
+# Requisitos no controlador: cifs-utils, systemd e python3.
+#   sudo apt install cifs-utils
+
+- name: Espelho HTTP dos instaladores
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Subir o repositório
+      ansible.builtin.include_role:
+        name: repo_local
+      when: (repo_acao | default('subir')) == 'subir'
+
+    - name: Parar o repositório
+      ansible.builtin.include_role:
+        name: repo_local
+        tasks_from: parar
+      when: (repo_acao | default('subir')) == 'parar'

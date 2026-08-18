@@ -1,0 +1,23 @@
+---
+# Derruba o espelho HTTP e desmonta o compartilhamento.
+
+- name: Parar o servidor HTTP do repositório
+  ansible.builtin.command: "systemctl stop {{ repo_unidade }}"
+  become: true
+  register: repo_parada
+  changed_when: repo_parada.rc == 0
+  failed_when:
+    - repo_parada.rc != 0
+    - "'not loaded' not in repo_parada.stderr"
+
+- name: Desmontar o compartilhamento Samba
+  ansible.posix.mount:
+    path: "{{ repo_mount_dir }}"
+    state: unmounted
+  become: true
+
+- name: Remover o arquivo de credenciais
+  ansible.builtin.file:
+    path: /etc/cifs-smd.cred
+    state: absent
+  become: true
