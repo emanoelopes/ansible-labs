@@ -1,0 +1,43 @@
+---
+# Estado desejado do laboratório 1.
+#
+# PILOTO da etapa 2. Este é o primeiro laboratório com estado declarado; os
+# demais continuam no modelo antigo, por tags, até este validar.
+#
+# Auditar sem alterar nada:
+#   ansible-playbook estado.yml -e alvo=lab1 --check --diff
+#
+# Aplicar numa máquina só, antes do lote:
+#   ansible-playbook estado.yml -e alvo=lab1 --limit 111
+#
+# Aplicar no laboratório inteiro:
+#   ansible-playbook estado.yml -e alvo=lab1
+
+# Software que deve estar presente em toda estação do lab1.
+# Lista inicial derivada de smd_pacotes_chocolatey — REVISAR: ela era usada
+# para todas as máquinas do SMD indistintamente, e provavelmente há itens aqui
+# que não fazem sentido no lab1. Tirar o que não se usa é parte do piloto.
+estado_pacotes:
+  - firefox
+  - vscode
+  - git
+  - python
+  - openjdk
+  - libreoffice-fresh
+  - foxitreader
+  - winrar
+  - gimp
+  - inkscape
+  - audacity
+  - github-desktop
+
+# 'present' garante presença sem atualizar a cada execução. Trocar para
+# 'latest' quando houver janela para atualizações não supervisionadas.
+estado_pacotes_versao: present
+
+# Energia e desligamento
+estado_plano_energia: 'Equilibrado'
+estado_desligar_hora: '23:00'
+
+# Logon automático da conta de aluno. A senha vem de vault_senha_aluno.
+estado_autologon_usuario: aluno

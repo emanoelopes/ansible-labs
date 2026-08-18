@@ -1,0 +1,195 @@
+---
+# Auditoria diária de desvio de configuração.
+#
+# Roda o estado.yml em modo --check (não altera nada), compara o resultado com
+# o estado declarado em group_vars/<lab>.yml e envia por e-mail apenas o que
+# divergiu. É a etapa 4 do relatório: execução sem operador.
+#
+#   manual:     ansible-playbook auditoria.yml -e alvo=lab1
+#   sem e-mail: ansible-playbook auditoria.yml -e alvo=lab1 -e enviar_email=false
+#   instalar o agendamento diário:
+#               ansible-playbook auditoria.yml -t instalar_agendamento
+#
+# Por que rodar o ansible-playbook de dentro de um playbook: o modo --check
+# precisa valer para as estações mas NÃO para o envio do e-mail, que é uma ação
+# real. Separando em dois processos, o relatório sai de um e a notificação do
+# outro, e a senha do SMTP continua vindo do vault como todo o resto.
+
+- name: Auditoria de desvio
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    alvo: lab1
+    enviar_email: true
+    destinatario: 'emanoel@virtual.ufc.br'
+    relatorio_json: "{{ inventario_dir }}/auditoria-{{ alvo }}.json"
+    relatorio_txt: "{{ inventario_dir }}/auditoria-{{ alvo }}.txt"
+
+    # Gmail / Google Workspace. A senha é uma "app password", não a senha da
+    # conta — contas com verificação em duas etapas exigem isso.
+    smtp_host: 'smtp.gmail.com'
+    smtp_porta: 587
+    smtp_usuario: 'emanoel@virtual.ufc.br'
+
+  tasks:
+    - name: Garantir o diretório de relatórios
+      ansible.builtin.file:
+        path: "{{ inventario_dir }}"
+        state: directory
+        mode: "0750"
+
+    - name: Executar a verificação de desvio (--check, não altera nada)
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - "{{ playbook_dir }}/estado.yml"
+          - -e
+          - "alvo={{ alvo }}"
+          - --check
+      environment:
+        ANSIBLE_STDOUT_CALLBACK: json
+        ANSIBLE_CALLBACKS_ENABLED: json
+        ANSIBLE_LOAD_CALLBACK_PLUGINS: 'true'
+      register: verificacao
+      changed_when: false
+      failed_when: false
+
+    - name: Salvar a saída bruta
+      ansible.builtin.copy:
+        content: "{{ verificacao.stdout }}"
+        dest: "{{ relatorio_json }}"
+        mode: "0640"
+
+    - name: Interpretar o resultado
+      ansible.builtin.set_fact:
+        resultado: "{{ verificacao.stdout | from_json }}"
+      failed_when: false
+
+    # Usa o bloco 'stats' do callback json, que já traz um resumo por host.
+    # Evita o filtro json_query, que dependeria do pacote jmespath instalado no
+    # controlador — uma dependência a mais para uma tarefa agendada quebrar.
+    - name: Montar as listas de divergência
+      ansible.builtin.set_fact:
+        divergencias: >-
+          {{ resultado.stats | dict2items
+             | selectattr('value.changed', 'gt', 0)
+             | map(attribute='key') | list }}
+        inalcancaveis: >-
+          {{ resultado.stats | dict2items
+             | selectattr('value.unreachable', 'gt', 0)
+             | map(attribute='key') | list }}
+        com_falha: >-
+          {{ resultado.stats | dict2items
+             | selectattr('value.failures', 'gt', 0)
+             | map(attribute='key') | list }}
+      when: resultado is defined
+
+    - name: Compor o relatório
+      ansible.builtin.set_fact:
+        corpo: |
+          Auditoria de desvio — {{ alvo }}
+          {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+
+          Fora do estado declarado: {{ divergencias | default([]) | length }}
+          {% if divergencias | default([]) | length > 0 %}
+            {{ divergencias | join(', ') }}
+          {% endif %}
+
+          Inalcançáveis (desligadas ou sem rede): {{ inalcancaveis | default([]) | length }}
+          {% if inalcancaveis | default([]) | length > 0 %}
+            {{ inalcancaveis | join(', ') }}
+          {% endif %}
+
+          Com erro na verificação: {{ com_falha | default([]) | length }}
+          {% if com_falha | default([]) | length > 0 %}
+            {{ com_falha | join(', ') }}
+          {% endif %}
+
+          {% if (divergencias | default([]) | length == 0)
+                and (inalcancaveis | default([]) | length == 0)
+                and (com_falha | default([]) | length == 0) %}
+          Nenhuma divergência. O laboratório está no estado declarado.
+          {% else %}
+          Detalhamento por tarefa em {{ relatorio_json }}.
+
+          Para corrigir:
+            ansible-playbook estado.yml -e alvo={{ alvo }}
+          {% endif %}
+
+    - name: Salvar o relatório legível
+      ansible.builtin.copy:
+        content: "{{ corpo }}"
+        dest: "{{ relatorio_txt }}"
+        mode: "0640"
+
+    - name: Mostrar o relatório
+      ansible.builtin.debug:
+        msg: "{{ corpo.split('\n') }}"
+
+    # Só notifica quando há o que notificar. Um e-mail diário dizendo "está
+    # tudo bem" vira ruído e deixa de ser lido em duas semanas.
+    - name: Enviar e-mail se houver divergência
+      community.general.mail:
+        host: "{{ smtp_host }}"
+        port: "{{ smtp_porta }}"
+        username: "{{ smtp_usuario }}"
+        password: "{{ vault_senha_smtp }}"
+        to: "{{ destinatario }}"
+        subject: "[ansible-labs] {{ alvo }}: {{ divergencias | default([]) | length }} máquina(s) fora do estado"
+        body: "{{ corpo }}"
+        secure: starttls
+      when:
+        - enviar_email | bool
+        - (divergencias | default([]) | length > 0)
+          or (inalcancaveis | default([]) | length > 0)
+          or (com_falha | default([]) | length > 0)
+      no_log: true
+
+- name: Instalar o agendamento diário
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [never, instalar_agendamento]
+
+  tasks:
+    - name: Criar a unidade de serviço
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ansible-auditoria.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Auditoria de desvio dos laboratórios (ansible-labs)
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          User={{ ansible_user_id }}
+          WorkingDirectory={{ playbook_dir }}
+          ExecStart=/usr/bin/ansible-playbook {{ playbook_dir }}/auditoria.yml -e alvo=lab1
+      become: true
+
+    - name: Criar o timer diário
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ansible-auditoria.timer
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Executa a auditoria de desvio todo dia às 6h
+
+          [Timer]
+          OnCalendar=*-*-* 06:00:00
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+      become: true
+
+    - name: Ativar o timer
+      ansible.builtin.systemd_service:
+        name: ansible-auditoria.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+      become: true

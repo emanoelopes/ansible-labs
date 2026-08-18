@@ -1,0 +1,38 @@
+---
+# Estado desejado de uma estação de laboratório.
+#
+# Estes são os valores base. Cada laboratório sobrescreve o que for diferente
+# em group_vars/lab1.yml, group_vars/lab2.yml e assim por diante.
+#
+# Diferença em relação ao resto do projeto: NADA aqui está atrás de tag 'never'.
+# Rodar a role sem tag nenhuma significa "coloque esta máquina no estado
+# declarado". É essa a mudança de modelo — de receita acionada à mão para
+# convergência para um estado.
+
+# --- Software -----------------------------------------------------------------
+# Pacotes Chocolatey que devem estar presentes. Por padrão, nenhum: cada lab
+# declara os seus, para não instalar 27 pacotes onde não se pretendia.
+estado_pacotes: []
+
+# state: latest atualiza a cada execução; present só garante presença.
+# 'present' é o default por ser menos intrusivo em máquina de aula.
+estado_pacotes_versao: present
+
+# --- Energia ------------------------------------------------------------------
+# Plano de energia permanente da estação.
+estado_plano_energia: 'Equilibrado'
+
+# Desligamento automático. Defina estado_desligar_hora como null para não criar
+# a tarefa agendada.
+estado_desligar_hora: '23:00'
+estado_desligar_nome_tarefa: 'Desligar às 23h'
+
+# --- Sessão -------------------------------------------------------------------
+# Usuário de logon automático. null desativa a configuração (não remove a
+# existente — remover exigiria uma tarefa explícita).
+estado_autologon_usuario: null
+
+# --- Controle de execução -----------------------------------------------------
+# Quando true, a role só relata divergências sem corrigir. Útil para auditoria
+# antes de aplicar em lote.
+estado_somente_auditar: false

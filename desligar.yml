@@ -1,0 +1,69 @@
+---
+# Desliga as estações de um laboratório.
+#
+#   ansible-playbook desligar.yml -e alvo=lab1
+#   ansible-playbook desligar.yml -e alvo=lab1 --limit 111
+#   ansible-playbook desligar.yml -e alvo=lab3          (macOS)
+#
+# Para reiniciar em vez de desligar:
+#   ansible-playbook desligar.yml -e alvo=lab1 -e acao=reiniciar
+
+- name: Desligar estações
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: true
+
+  vars:
+    acao: desligar
+    # Segundos até o desligamento. 0 é imediato; um valor maior dá margem para
+    # alguém cancelar com 'shutdown /a' se o comando foi disparado por engano.
+    atraso: 0
+
+  tasks:
+    - name: Confirmar que um alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook desligar.yml -e alvo=lab1"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+
+    # async 1 + poll 0 = dispara e não espera. É obrigatório aqui: a máquina
+    # derruba a conexão ao desligar, e sem isso o Ansible interpretaria o
+    # sucesso do comando como falha de rede em todas as estações.
+    - name: Desligar estação Windows
+      ansible.windows.win_shell: "shutdown /s /f /t {{ atraso }}"
+      async: 1
+      poll: 0
+      when:
+        - ansible_os_family == 'Windows'
+        - acao == 'desligar'
+
+    - name: Reiniciar estação Windows
+      ansible.windows.win_shell: "shutdown /r /f /t {{ atraso }}"
+      async: 1
+      poll: 0
+      when:
+        - ansible_os_family == 'Windows'
+        - acao == 'reiniciar'
+
+    - name: Desligar estação macOS ou Linux
+      community.general.shutdown:
+        delay: "{{ atraso }}"
+      become: true
+      when:
+        - ansible_os_family != 'Windows'
+        - acao == 'desligar'
+
+    - name: Reiniciar estação macOS ou Linux
+      ansible.builtin.reboot:
+        post_reboot_delay: 0
+      become: true
+      when:
+        - ansible_os_family != 'Windows'
+        - acao == 'reiniciar'
+
+    - name: Registrar o que foi disparado
+      ansible.builtin.debug:
+        msg: >-
+          {{ acao }} disparado em {{ inventory_hostname }}
+          ({{ ansible_os_family }}). O Ansible não aguarda confirmação —
+          a conexão cai junto com a máquina.

@@ -1,0 +1,34 @@
+---
+# Converge um laboratório para o estado declarado em group_vars/<lab>.yml.
+#
+# Ao contrário do site.yaml, este playbook NÃO depende de tags: rodar sem
+# argumento nenhum significa "coloque estas máquinas no estado declarado".
+#
+#   auditar:   ansible-playbook estado.yml -e alvo=lab1 --check --diff
+#   piloto:    ansible-playbook estado.yml -e alvo=lab1 --limit 111
+#   aplicar:   ansible-playbook estado.yml -e alvo=lab1
+#
+# O modo --check é o detector de desvio: o que aparecer como 'changed' é
+# exatamente o que está fora do estado declarado. Nada é alterado.
+
+- name: Convergir laboratório para o estado declarado
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: true
+
+  # 25% por vez: se algo der errado, atinge um quarto do laboratório, não ele
+  # inteiro. E max_fail_percentage interrompe antes de propagar um erro
+  # sistemático para as demais levas.
+  serial: '25%'
+  max_fail_percentage: 20
+
+  roles:
+    - estado_lab
+
+  pre_tasks:
+    - name: Avisar quando nenhum alvo foi informado
+      ansible.builtin.fail:
+        msg: >-
+          Informe o laboratório: ansible-playbook estado.yml -e alvo=lab1
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost

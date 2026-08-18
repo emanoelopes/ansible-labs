@@ -1,3 +1,21 @@
-- name: Shutdown 
-  community.general.shutdown:
-  become: true
+---
+# OBSOLETO — substituído por desligar.yml.
+#
+# Este arquivo não era executável: faltava a chave 'hosts:', então
+# 'ansible-playbook lab3-shutdown.yaml' falhava com erro de estrutura. Era um
+# fragmento de lista de tarefas que nenhum outro arquivo incluía.
+#
+# Equivalente atual:
+#   ansible-playbook desligar.yml -e alvo=lab3
+#
+# Mantido apenas como referência. Pode ser removido.
+
+- name: Shutdown lab3 (OBSOLETO - use desligar.yml)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Avisar que este playbook foi substituído
+      ansible.builtin.fail:
+        msg: "Use: ansible-playbook desligar.yml -e alvo=lab3"

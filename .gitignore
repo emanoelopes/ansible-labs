@@ -17,6 +17,7 @@ group_vars/*/vault.yml
 !group_vars/all/vault.yml.example
 vault_pass.txt
 .vault_pass
+.ansible_vault_pass
 
 # Python
 __pycache__/

@@ -50,7 +50,7 @@
       - ansible_facts['product_name'] != "DB85PRO"
 
     - name: Set autologon for user aluno
-      community.windows.win_auto_logon:
+      ansible.windows.win_auto_logon:
         username: aluno
         password: "{{ vault_senha_aluno }}"
       no_log: true

@@ -1,0 +1,69 @@
+---
+# Converge a estação para o estado declarado em group_vars/<lab>.yml.
+#
+# Todas as tarefas são idempotentes e suportam --check, para que
+#   ansible-playbook estado.yml -e alvo=lab1 --check --diff
+# funcione como detector de desvio: o que aparecer como 'changed' é exatamente
+# o que está fora do estado declarado.
+
+- name: Validar que o estado foi declarado para este host
+  ansible.builtin.assert:
+    that:
+      - estado_pacotes | length > 0
+    fail_msg: >-
+      Nenhum pacote declarado para {{ inventory_hostname }} (grupo(s):
+      {{ group_names | join(', ') }}). Crie group_vars/<lab>.yml com
+      estado_pacotes, ou a role não tem o que convergir.
+    quiet: true
+
+# --- Software -----------------------------------------------------------------
+
+# Um pacote por iteração, e não uma lista única: assim a falha de um pacote
+# identifica qual falhou e não derruba os demais.
+- name: Garantir que os pacotes declarados estão instalados
+  chocolatey.chocolatey.win_chocolatey:
+    name: "{{ item }}"
+    state: "{{ estado_pacotes_versao }}"
+  loop: "{{ estado_pacotes }}"
+  register: estado_choco
+  failed_when: false
+  check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
+
+- name: Relatar pacotes que não puderam ser instalados
+  ansible.builtin.debug:
+    msg: >-
+      Falharam em {{ inventory_hostname }}:
+      {{ estado_choco.results | selectattr('failed') | map(attribute='item') | list }}
+  when: estado_choco.results | selectattr('failed') | list | length > 0
+
+# --- Energia ------------------------------------------------------------------
+
+- name: Garantir o plano de energia
+  community.windows.win_power_plan:
+    name: "{{ estado_plano_energia }}"
+
+- name: Garantir a tarefa de desligamento automático
+  community.windows.win_scheduled_task:
+    name: "{{ estado_desligar_nome_tarefa }}"
+    description: "Desliga a estação diariamente às {{ estado_desligar_hora }}"
+    actions:
+      - path: shutdown.exe
+        arguments: /s /f
+    triggers:
+      - type: daily
+        start_boundary: "2026-01-01T{{ estado_desligar_hora }}:00"
+    username: SYSTEM
+    run_level: highest
+    wake_to_run: yes
+    state: present
+    enabled: yes
+  when: estado_desligar_hora is not none
+
+# --- Sessão -------------------------------------------------------------------
+
+- name: Garantir o logon automático
+  ansible.windows.win_auto_logon:
+    username: "{{ estado_autologon_usuario }}"
+    password: "{{ vault_senha_aluno }}"
+  when: estado_autologon_usuario is not none
+  no_log: true
