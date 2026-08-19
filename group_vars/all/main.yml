@@ -11,6 +11,39 @@
 # roles/smd/vars/main.yml e do uso no código. Confira antes de rodar.
 # As marcadas com PREENCHER não têm como ser inferidas: só você sabe o valor.
 
+# --- Relatórios e inventário --------------------------------------------------
+# Diretório na MÁQUINA DE CONTROLE onde são gravados os relatórios de coleta
+# (systems.csv, lista_mac_hostnames.yml) e as auditorias de desvio.
+#
+# Fica fora do versionamento (ver .gitignore): os arquivos contêm hostnames,
+# MACs, números de série e chaves de produto das estações, e este repositório
+# é público.
+#
+# Para mudar o destino sem editar nada:
+#   ansible-playbook auditoria.yml -e inventario_dir=/algum/outro/lugar
+inventario_dir: "{{ playbook_dir }}/inventario"
+
+# --- Compartilhamento Samba de instaladores -----------------------------------
+# Consumido pela role repo_local (monta somente-leitura e publica por HTTP) e
+# pelo popular_repositorio.yml (monta com escrita para povoar). Por serem dois
+# consumidores, ficam aqui e não em defaults de role.
+repo_smb_servidor: '//10.44.24.130/smd'
+repo_smb_dominio: 'ufcvirtual.local'
+repo_smb_usuario: 'emanoel'
+repo_smb_senha: "{{ vault_senha_smb }}"
+
+# Arquivo de credenciais do CIFS. No HOME, com modo 0600 — evita precisar de
+# sudo só para criá-lo, e o efeito prático de proteção é o mesmo.
+repo_cred_file: "{{ ansible_env.HOME }}/.cifs-smd.cred"
+
+# Ponto de montagem somente-leitura no controlador (tem entrada no /etc/fstab).
+repo_mount_dir: '/mnt/smd'
+
+# Subpasta publicada por HTTP. Só ELA fica exposta na rede dos laboratórios.
+# Atenção à caixa: o CIFS preserva maiúsculas e diferencia.
+repo_subpasta: 'windows_instaladores'
+repo_dir_publicado: "{{ repo_mount_dir }}/{{ repo_subpasta }}"
+
 # --- Repositório interno de binários ------------------------------------------
 # Espelho HTTP servido pelo PRÓPRIO CONTROLADOR a partir do compartilhamento
 # Samba //10.44.24.130/smd, montado somente-leitura. Ver roles/repo_local e o
@@ -52,15 +85,22 @@ temp_dir: 'C:\Temp'
 # Usado em roles/smd/tasks/main.yaml (tag: veyon).
 
 # FONTE ÚNICA DA VERSÃO. Alterar só aqui: o nome do instalador e a URL de
-# download em popular_repositorio.yml são derivados deste valor. Confira as
-# versões em https://github.com/veyon/veyon/releases
+# download em popular_repositorio.yml são derivados destes valores.
+# Confira em https://github.com/veyon/veyon/releases
+#
+# ATENÇÃO: o Veyon usa numeração diferente na tag e no nome do arquivo.
+#   tag do release:    v4.11.0        -> veyon_versao
+#   nome do arquivo:   4.11.0.0       -> veyon_versao_arquivo
+# O padrão acrescenta '.0' ao final, que vale para os releases recentes.
+# Se algum lançamento fugir disso, defina veyon_versao_arquivo explicitamente.
 veyon_versao: '4.11.0'
+veyon_versao_arquivo: "{{ veyon_versao }}.0"
 
 # Diretório de trabalho da instalação do Veyon na estação.
 dir_veyon: 'C:\Temp\veyon'
 
 # Nome do instalador no compartilhamento. Derivado da versão.
-install_file_veyon: "veyon-{{ veyon_versao }}-win64-setup.exe"
+install_file_veyon: "veyon-{{ veyon_versao_arquivo }}-win64-setup.exe"
 file_name_veyon: "{{ install_file_veyon }}"
 
 # Arquivo de configuração exportado do Veyon Master.
@@ -81,11 +121,17 @@ public_key_name_veyon: 'veyon_public_key.pem'
 # mas já sem uso.
 
 # --- DaVinci Resolve ----------------------------------------------------------
-# davinci_zip_file foi eliminada. A tarefa copiava um .zip e, logo abaixo,
-# instalava um .exe que ninguém extraía — o fluxo não fechava. Agora a role
-# baixa direto o davinci_install_file, já definido em roles/smd/vars/main.yml
-# como DaVinci_Resolve_20.3.1_Windows.exe. É esse nome que deve estar no
-# compartilhamento Samba.
+# FONTE ÚNICA DA VERSÃO. É o nome que precisa existir no compartilhamento e o
+# que as estações vão baixar. Para atualizar, troque só esta linha e publique
+# o novo instalador em windows_instaladores.
+#
+# O Blackmagic exige preenchimento de formulário, então não há download
+# automático: o popular_repositorio.yml apenas confere se o arquivo está lá.
+davinci_versao: '21.0.4'
+davinci_install_file: "DaVinci_Resolve_{{ davinci_versao }}_Windows.exe"
+
+# davinci_zip_file foi eliminada: a tarefa copiava um .zip e, logo abaixo,
+# instalava um .exe que ninguém extraía — o fluxo não fechava.
 
 # --- MySQL --------------------------------------------------------------------
 # PREENCHER: versão fixada no win_chocolatey (roles/smd/tasks/main.yaml:546).

@@ -2,22 +2,28 @@
 # Derruba o espelho HTTP e desmonta o compartilhamento.
 
 - name: Parar o servidor HTTP do repositório
-  ansible.builtin.command: "systemctl stop {{ repo_unidade }}"
-  become: true
+  ansible.builtin.command: "systemctl --user stop {{ repo_unidade }}"
   register: repo_parada
   changed_when: repo_parada.rc == 0
-  failed_when:
-    - repo_parada.rc != 0
-    - "'not loaded' not in repo_parada.stderr"
+  failed_when: false
 
+# Sem isso, a unidade parada continua carregada e a próxima subida falha com
+# "already loaded or has a fragment file".
+- name: Limpar a unidade do systemd
+  ansible.builtin.command: "systemctl --user reset-failed {{ repo_unidade }}"
+  changed_when: false
+  failed_when: false
+
+# Sem sudo: a opção 'user' do fstab autoriza quem montou a desmontar.
 - name: Desmontar o compartilhamento Samba
-  ansible.posix.mount:
-    path: "{{ repo_mount_dir }}"
-    state: unmounted
-  become: true
+  ansible.builtin.command: "umount {{ repo_mount_dir }}"
+  register: repo_umount
+  changed_when: repo_umount.rc == 0
+  failed_when:
+    - repo_umount.rc != 0
+    - "'not mounted' not in repo_umount.stderr"
 
 - name: Remover o arquivo de credenciais
   ansible.builtin.file:
-    path: /etc/cifs-smd.cred
+    path: "{{ repo_cred_file }}"
     state: absent
-  become: true

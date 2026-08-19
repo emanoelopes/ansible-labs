@@ -45,34 +45,61 @@
 # A senha vai num arquivo de credenciais em vez de ir nas opções de montagem.
 # Em 'opts', ela apareceria no /proc/mounts e na saída de 'mount' para qualquer
 # usuário da máquina.
+#
+# Fica no HOME e não em /etc: assim esta tarefa dispensa sudo. O modo 0600 já
+# restringe a leitura ao dono, que é o mesmo efeito prático do /etc/ com root.
 - name: Criar arquivo de credenciais do Samba
   ansible.builtin.copy:
-    dest: /etc/cifs-smd.cred
+    dest: "{{ repo_cred_file }}"
     mode: "0600"
-    owner: root
-    group: root
     content: |
       username={{ repo_smb_usuario }}
       password={{ repo_smb_senha }}
       domain={{ repo_smb_dominio }}
-  become: true
   no_log: true
 
-- name: Garantir que o ponto de montagem existe
-  ansible.builtin.file:
+# Esta role NÃO usa sudo. A preparação que exige root é feita uma única vez,
+# à mão, e está descrita na mensagem de erro abaixo. Assim a execução do dia a
+# dia — inclusive agendada — roda sem senha e sem NOPASSWD no sudoers.
+- name: Verificar se o ponto de montagem existe
+  ansible.builtin.stat:
     path: "{{ repo_mount_dir }}"
-    state: directory
-    mode: "0755"
-  become: true
+  register: repo_ponto
 
+- name: Instruir a preparação inicial, se ainda não foi feita
+  ansible.builtin.fail:
+    msg: |
+      Preparação inicial pendente. Execute UMA VEZ, como root:
+
+        sudo mkdir -p {{ repo_mount_dir }}
+
+      E acrescente esta linha ao /etc/fstab:
+
+        {{ repo_smb_servidor }}  {{ repo_mount_dir }}  cifs  noauto,user,ro,vers=3.0,credentials={{ repo_cred_file }},uid={{ ansible_user_id }}  0  0
+
+      A opção 'user' autoriza seu usuário a montar ESTE ponto específico, sem
+      sudo. É privilégio bem mais estreito que um NOPASSWD para o comando
+      mount, que na prática equivale a acesso root.
+  when: not repo_ponto.stat.exists
+
+- name: Verificar se já está montado
+  ansible.builtin.command: "findmnt --noheadings --target {{ repo_mount_dir }}"
+  register: repo_montado
+  changed_when: false
+  failed_when: false
+
+# 'mount <ponto>' sem opções é a forma que a opção 'user' do fstab autoriza:
+# o kernel só aceita os parâmetros que já estão declarados lá. Por isso não
+# usamos o módulo mount aqui — ele monta uma linha de comando completa, que
+# seria recusada sem privilégio.
 - name: Montar o compartilhamento Samba (somente leitura)
-  ansible.posix.mount:
-    src: "{{ repo_smb_servidor }}"
-    path: "{{ repo_mount_dir }}"
-    fstype: cifs
-    opts: "ro,vers=3.0,credentials=/etc/cifs-smd.cred,uid={{ ansible_user_id }},file_mode=0444,dir_mode=0555"
-    state: ephemeral
-  become: true
+  ansible.builtin.command: "mount {{ repo_mount_dir }}"
+  register: repo_mount_rc
+  changed_when: repo_mount_rc.rc == 0
+  failed_when:
+    - repo_mount_rc.rc != 0
+    - "'already mounted' not in repo_mount_rc.stderr"
+  when: repo_mount_dir not in repo_montado.stdout
 
 - name: Confirmar que a subpasta de instaladores existe
   ansible.builtin.stat:
@@ -102,10 +129,31 @@
 
 # Unidade transitória do systemd em vez de nohup: ela pode ser consultada,
 # parada de forma determinística e não fica órfã se o playbook abortar.
+#
+# --user: unidade do usuário, sem sudo. A porta 8081 é não privilegiada
+# (acima de 1024), então não há motivo para o servidor rodar como root —
+# ele serve arquivos de um ponto montado somente-leitura.
+- name: Verificar se o repositório já está no ar
+  ansible.builtin.command: "systemctl --user is-active {{ repo_unidade }}"
+  register: repo_ativo
+  changed_when: false
+  failed_when: false
+
+# Uma unidade que falhou ou terminou continua "carregada" no systemd e impede
+# que outra com o mesmo nome suba — foi o que quebrou a execução anterior.
+# reset-failed limpa esse resíduo. Só roda quando a unidade não está ativa,
+# para não derrubar um servidor que já esteja servindo.
+- name: Limpar resíduo de execução anterior
+  ansible.builtin.command: "systemctl --user reset-failed {{ repo_unidade }}"
+  changed_when: false
+  failed_when: false
+  when: repo_ativo.stdout | trim != 'active'
+
 - name: Subir o servidor HTTP do repositório
   ansible.builtin.command:
     argv:
       - systemd-run
+      - --user
       - "--unit={{ repo_unidade }}"
       - "--collect"
       - python3
@@ -116,12 +164,9 @@
       - "{{ repo_bind_ip }}"
       - --directory
       - "{{ repo_dir_publicado }}"
-  become: true
   register: repo_subida
   changed_when: repo_subida.rc == 0
-  failed_when:
-    - repo_subida.rc != 0
-    - "'already exists' not in repo_subida.stderr"
+  when: repo_ativo.stdout | trim != 'active'
 
 - name: Aguardar o servidor HTTP responder
   ansible.builtin.wait_for:

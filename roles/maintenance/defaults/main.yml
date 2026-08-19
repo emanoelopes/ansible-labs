@@ -1,9 +1,9 @@
 ---
-# Diretório na MÁQUINA DE CONTROLE onde os relatórios de inventário são
-# gravados. Fica fora do versionamento (ver .gitignore): os CSVs contêm
-# hostnames, MACs, números de série e chaves de produto das estações, e este
-# repositório é público.
+# inventario_dir mudou para group_vars/all/main.yml.
 #
-# Para mudar o destino sem editar a role:
-#   ansible-playbook site.yaml -e inventario_dir=/algum/outro/lugar
-inventario_dir: "{{ playbook_dir }}/inventario"
+# Motivo: defaults de role só valem enquanto a role está sendo executada. O
+# auditoria.yml, que não usa esta role, precisa do mesmo diretório para gravar
+# os relatórios — e quebrava com "'inventario_dir' is undefined".
+#
+# Regra prática: variável consumida por mais de uma role ou por playbook
+# avulso pertence a group_vars, não a defaults de role.

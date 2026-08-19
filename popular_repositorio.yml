@@ -8,6 +8,14 @@
 # que monta somente-leitura), baixa o que tem URL pública, e ao final lista o
 # que precisa ser colocado à mão.
 #
+# EXIGE -K. Ao contrário do repo_local, aqui a montagem é rw e não tem entrada
+# no fstab, então precisa de sudo:
+#
+#   ansible-playbook popular_repositorio.yml -K
+#
+# Isso é aceitável porque popular o repositório é operação ocasional e manual;
+# o que roda agendado é o repo_local, que ficou sem sudo nenhum.
+#
 # Para acrescentar um item novo, basta editar a lista repo_itens abaixo.
 # Itens com 'url: null' são apenas verificados, nunca baixados.
 
@@ -27,12 +35,15 @@
 
     repo_itens:
       - nome: "{{ install_file_veyon }}"
-        url: "https://github.com/veyon/veyon/releases/download/v{{ veyon_versao }}/veyon-{{ veyon_versao }}-win64-setup.exe"
+        # A tag do release usa 3 componentes (v4.11.0) e o arquivo usa 4
+        # (veyon-4.11.0.0-win64-setup.exe). Por isso as duas variáveis.
+        url: "https://github.com/veyon/veyon/releases/download/v{{ veyon_versao }}/{{ install_file_veyon }}"
         descricao: 'Instalador do Veyon'
 
       # Blackmagic exige preenchimento de formulário antes do download, então
       # não há URL direta. Baixe em https://www.blackmagicdesign.com/support/
-      - nome: 'DaVinci_Resolve_20.3.1_Windows.exe'
+      # O nome vem de davinci_install_file (group_vars/all/main.yml).
+      - nome: "{{ davinci_install_file }}"
         url: null
         descricao: 'DaVinci Resolve (formulário de registro, sem link direto)'
 
@@ -58,26 +69,23 @@
       become: true
 
     # Recriado aqui para o playbook funcionar mesmo sem o repo_local ter rodado
-    # antes. Mesma senha do vault, mesma permissão 0600.
+    # antes. No HOME e com modo 0600, dispensa sudo.
     - name: Criar arquivo de credenciais do Samba
       ansible.builtin.copy:
-        dest: /etc/cifs-smd.cred
+        dest: "{{ repo_cred_file }}"
         mode: "0600"
-        owner: root
-        group: root
         content: |
-          username={{ repo_smb_usuario | default('emanoel') }}
+          username={{ repo_smb_usuario }}
           password={{ vault_senha_smb }}
-          domain={{ repo_smb_dominio | default('ufcvirtual.local') }}
-      become: true
+          domain={{ repo_smb_dominio }}
       no_log: true
 
     - name: Montar o compartilhamento com escrita
       ansible.posix.mount:
-        src: "{{ repo_smb_servidor | default('//10.44.24.130/smd') }}"
+        src: "{{ repo_smb_servidor }}"
         path: "{{ repo_rw_mount }}"
         fstype: cifs
-        opts: "rw,vers=3.0,credentials=/etc/cifs-smd.cred,uid={{ ansible_user_id }},file_mode=0644,dir_mode=0755"
+        opts: "rw,vers=3.0,credentials={{ repo_cred_file }},uid={{ ansible_user_id }},file_mode=0644,dir_mode=0755"
         state: ephemeral
       become: true
 
@@ -131,14 +139,64 @@
           loop_control:
             label: "{{ item.item.nome }}"
 
-        - name: Falhar se faltar algum item
+        # Separa as duas causas, que pedem ações opostas: item com URL que não
+        # chegou é FALHA DE DOWNLOAD (URL ou versão erradas); item sem URL é
+        # simplesmente algo que você ainda não copiou.
+        - name: Separar falhas de download dos itens manuais
+          ansible.builtin.set_fact:
+            faltando_com_url: >-
+              {{ repo_estado.results | rejectattr('stat.exists')
+                 | selectattr('item.url') | map(attribute='item') | list }}
+            faltando_manual: >-
+              {{ repo_estado.results | rejectattr('stat.exists')
+                 | rejectattr('item.url') | map(attribute='item.nome') | list }}
+
+        - name: Relatar falhas de download
+          ansible.builtin.debug:
+            msg: |
+              DOWNLOAD FALHOU — confira a URL e a versão:
+              {% for i in faltando_com_url %}
+                {{ i.nome }}
+                  {{ i.url }}
+              {% endfor %}
+          when: faltando_com_url | length > 0
+
+        - name: Relatar itens que dependem de você
+          ansible.builtin.debug:
+            msg: |
+              A COLOCAR À MÃO em {{ repo_rw_mount }}/windows_instaladores:
+              {% for n in faltando_manual %}
+                {{ n }}
+              {% endfor %}
+          when: faltando_manual | length > 0
+
+        # ATENÇÃO — NÃO REINTRODUZIR LIMPEZA AUTOMÁTICA AQUI.
+        #
+        # Em 19/08/2026 este playbook teve uma tarefa que apagava tudo o que
+        # não constasse em repo_itens. Como repo_itens lista 5 arquivos e o
+        # compartilhamento tinha ~70 instaladores acumulados ao longo de anos,
+        # a execução com -e limpar=true destruiu o acervo inteiro.
+        #
+        # O erro foi tratar "não declarado" como "descartável". Numa pasta
+        # compartilhada, o playbook não tem como saber o que é lixo: um
+        # instalador antigo pode ser a única cópia de um software que a
+        # licença não permite mais baixar.
+        #
+        # Se um dia for necessário remover versões superadas, a lógica segura é
+        # a inversa: para CADA item declarado, apagar apenas outros arquivos que
+        # casem com o padrão daquele item e tenham versão menor. Nunca varrer a
+        # pasta inteira. E sempre com --diff e confirmação explícita por item.
+
+        # Só falha por download quebrado. Item manual pendente é estado normal
+        # enquanto você não os copia, e não deveria derrubar o playbook.
+        - name: Falhar se algum download não funcionou
           ansible.builtin.fail:
             msg: >-
-              Faltam no compartilhamento:
-              {{ repo_estado.results | rejectattr('stat.exists') | map(attribute='item.nome') | list }}.
-              Os que não têm URL pública precisam ser colocados à mão em
-              {{ repo_rw_mount }}/windows_instaladores.
-          when: repo_estado.results | rejectattr('stat.exists') | list | length > 0
+              {{ faltando_com_url | length }} download(s) falharam. As URLs
+              acima não entregaram arquivo — versão inexistente ou padrão de
+              nome mudado. Os {{ faltando_manual | length }} itens manuais
+              pendentes não são erro.
+          when: faltando_com_url | length > 0
 
       always:
         - name: Desmontar o compartilhamento

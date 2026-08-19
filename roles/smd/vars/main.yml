@@ -31,7 +31,10 @@ pycharm_exec_path: 'C:\Program Files\JetBrains\PyCharm Community Edition 2022.3.
 
 # Davinci Resolve
 # Davinci Resolve
-davinci_install_file: 'DaVinci_Resolve_20.3.1_Windows.exe'
+# davinci_install_file mudou para group_vars/all/main.yml, junto com
+# davinci_versao. Motivo: o popular_repositorio.yml também precisa do nome do
+# arquivo, e vars/ de role não é visível fora da role — o nome acabava
+# duplicado nos dois lugares, com risco de divergir.
 davinci_exec_file: 'C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe'
 
 # Android Studio
