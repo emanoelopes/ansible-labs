@@ -1,31 +1,64 @@
 ---
-  - name: Ensure admin user 'localwp' is present 
-    win_user:
-      name: localwp
-      password: "{{ vault_senha_localwp }}"
-      state: present
-      groups:
-        - Administradores
-    no_log: true
-    tags: create_user
-  - name: Ensure localwp user is absent
-    win_user:
-      name: localwp
-      state: absent
-    tags: remove_user
-  - name: Ensure localwp installer is on windows host
-    win_copy: 
-      src: local-6.4.2-windows.exe
-      dest: c:\Users\localwp\Downloads 
-    tags: copy
-  - name: Install localwp
-    win_package:
-      path: c:\Users\localwp\downloads\local-6.4.2-windows.exe
-      state: present
-    tags: install
-  - name: Uninstall localwp
-    win_package:
-      path: c:\Users\localwp\downloads\local-6.4.2-windows.exe
-      product_id: '{FCC74B77-EC3E-4DD8-A80B-008A702075A9}'
-      state: absent
-    tags: uninstall 
+# Conta e instalação do Local (LocalWP), ambiente WordPress local.
+#
+#   criar conta e instalar:  ansible-playbook localwp.yaml -e alvo=lab2 -t create_user,install
+#   remover:                 ansible-playbook localwp.yaml -e alvo=lab2 -t uninstall,remove_user
+#
+# As tarefas são mutuamente excludentes (criar/remover, instalar/desinstalar),
+# por isso todas estão sob 'never': rodar o playbook sem -t não faria sentido e
+# poderia criar e apagar a mesma conta na mesma execução.
+
+- name: LocalWP
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    localwp_instalador: 'local-6.4.2-windows.exe'
+    localwp_product_id: '{FCC74B77-EC3E-4DD8-A80B-008A702075A9}'
+    localwp_downloads: 'c:\Users\localwp\Downloads'
+
+  tasks:
+    - name: Garantir que o usuário administrador 'localwp' existe
+      ansible.windows.win_user:
+        name: localwp
+        password: "{{ vault_senha_localwp }}"
+        state: present
+        groups:
+          - Administradores
+      no_log: true
+      tags: never,create_user
+
+    - name: Garantir que o usuário 'localwp' foi removido
+      ansible.windows.win_user:
+        name: localwp
+        state: absent
+      tags: never,remove_user
+
+    - name: Garantir que o diretório de downloads existe
+      ansible.windows.win_file:
+        path: "{{ localwp_downloads }}"
+        state: directory
+      tags: never,copy,install
+
+    # Antes era win_copy de roles/smd/files/, onde o instalador não existe —
+    # o .gitignore exclui *.exe. Vem do espelho HTTP, como os demais binários.
+    - name: Baixar o instalador do LocalWP
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ localwp_instalador }}"
+        dest: "{{ localwp_downloads }}\\{{ localwp_instalador }}"
+        force: no
+      tags: never,copy,install
+
+    - name: Instalar o LocalWP
+      ansible.windows.win_package:
+        path: "{{ localwp_downloads }}\\{{ localwp_instalador }}"
+        product_id: "{{ localwp_product_id }}"
+        state: present
+      tags: never,install
+
+    - name: Desinstalar o LocalWP
+      ansible.windows.win_package:
+        path: "{{ localwp_downloads }}\\{{ localwp_instalador }}"
+        product_id: "{{ localwp_product_id }}"
+        state: absent
+      tags: never,uninstall

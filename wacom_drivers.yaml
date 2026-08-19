@@ -1,5 +1,15 @@
 ---
-- name: Instalação dos drivers das mesas digitalizadoras da wacom
-  win_chocolatey:
-    name: wacom-drivers
-    state: present 
+# Instala os drivers das mesas digitalizadoras Wacom.
+#
+#   ansible-playbook wacom_drivers.yaml -e alvo=lab4
+#   ansible-playbook wacom_drivers.yaml -e alvo=lab4 --limit 411
+
+- name: Drivers das mesas digitalizadoras Wacom
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Instalar os drivers da Wacom
+      chocolatey.chocolatey.win_chocolatey:
+        name: wacom-drivers
+        state: present

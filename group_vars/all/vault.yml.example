@@ -1,15 +1,23 @@
 ---
-# MODELO — copie para group_vars/all/vault.yml, preencha e cifre:
+# MODELO. O arquivo real é group_vars/all/vault.yml, que está no .gitignore.
 #
+# PRIMEIRA VEZ (o vault ainda não existe):
 #   cp group_vars/all/vault.yml.example group_vars/all/vault.yml
-#   $EDITOR group_vars/all/vault.yml
+#   nano group_vars/all/vault.yml          # preencher os valores
 #   ansible-vault encrypt group_vars/all/vault.yml
 #
-# Depois execute os playbooks com --ask-vault-pass (ou configure
-# vault_password_file no ansible.cfg).
+# DEPOIS (o vault já existe e está cifrado) — NÃO rodar 'encrypt' de novo:
+#   ansible-vault edit group_vars/all/vault.yml     # decifra, abre, recifra
+#   ansible-vault view group_vars/all/vault.yml     # só consultar
 #
-# group_vars/all/vault.yml está no .gitignore e NUNCA deve ser commitado
-# em texto claro.
+# A senha do vault vem de ANSIBLE_VAULT_PASSWORD_FILE (ver ansible.cfg).
+# Sem ela definida, acrescente --ask-vault-pass aos comandos.
+#
+# Conferir se o vault tem tudo o que o código pede:
+#   diff <(ansible-vault view group_vars/all/vault.yml \
+#            | grep -oE '^vault_[a-z_]+' | sort) \
+#        <(grep -rhoE 'vault_[a-z_]+' roles/ *.yml *.yaml group_vars/windows.yml \
+#            | sort -u)
 
 # Conta de serviço do SQL Server (roles/maintenance/tasks/sqlserver.yaml)
 vault_senha_sqlserver: "TROCAR"

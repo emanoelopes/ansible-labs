@@ -1,8 +1,34 @@
 ---
-  - name: Copy files remote host to another remote host using Method Pull
-    synchronize:
-      src: "{{ item }}"
-      dest: "{{ item }}"
-    delegate_to: 10.102.227.86
-    with_items:
-      - "/Users/aluno/Downloads/smd_lab3.dmg"
+# Distribui um arquivo entre as estações macOS do lab3.
+#
+#   ansible-playbook sync.yaml -e alvo=lab3
+#   ansible-playbook sync.yaml -e alvo=lab3 -e arquivo=/Users/aluno/Downloads/outro.dmg
+#
+# Correções em relação à versão anterior:
+#
+#   - delegate_to apontava para o IP fixo 10.102.227.86, o que fazia toda cópia
+#     passar por aquela máquina específica. Se ela estivesse desligada, nada
+#     funcionava. Agora a origem é uma variável.
+#   - usava 'with_items' e o módulo 'synchronize' sem FQCN.
+#   - src e dest eram o mesmo caminho, o que só faz sentido no modo pull.
+
+- name: Distribuir arquivo entre estações macOS
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    # Máquina de onde o arquivo é puxado. Precisa estar ligada e acessível.
+    origem: '10.102.227.86'
+    arquivo: '/Users/aluno/Downloads/smd_lab3.dmg'
+
+  tasks:
+    - name: Não copiar a máquina de origem para ela mesma
+      ansible.builtin.meta: end_host
+      when: ansible_host == origem
+
+    - name: Puxar o arquivo da máquina de origem
+      ansible.posix.synchronize:
+        src: "{{ arquivo }}"
+        dest: "{{ arquivo }}"
+        mode: pull
+      delegate_to: "{{ origem }}"

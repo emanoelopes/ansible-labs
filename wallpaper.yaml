@@ -1,26 +1,45 @@
-- name: Select a style to wallpaper
-  ansible.windows.win_regedit:
-    path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
-    name: WallpaperStyle
-    data: 2
-    type: string
+---
+# Define o papel de parede padrão das estações.
+#
+#   ansible-playbook wallpaper.yaml -e alvo=lab1
+#
+# Correções em relação à versão anterior deste arquivo:
+#
+#   - usava 'win_reg', módulo que não existe. O correto é win_regedit.
+#   - definia wallpaper_path localmente como 'C:\Caminho\Para\Sua\Imagem.jpg',
+#     um placeholder, sobrescrevendo o valor real que já existe em
+#     roles/smd/vars/main.yml. Agora usa a variável do projeto.
+#   - o win_shell usava 'commands:', sintaxe inexistente — o módulo recebe o
+#     comando como texto livre.
 
-# try this: https://github.com/crombeen/ansible/blob/master/desktop.yml
-# - path: HKCU:\Control Panel\Desktop
-#       name: WallpaperStyle
-#       data: 10
-#       type: string
+- name: Papel de parede padrão
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
 
-
-- name: Garantir que o caminho do papel de parede esteja correto
-  win_reg:
-    path: HKEY_CURRENT_USER\Control Panel\Desktop
-    name: Wallpaper
-    data: "{{ wallpaper_path }}"
-    type: string
   vars:
-    wallpaper_path: "C:\\Caminho\\Para\\Sua\\Imagem.jpg" # Substitua pelo caminho real da imagem
-- name: Atualizar as configurações do papel de parede para aplicar a mudança
-  win_shell:
-    commands:
-      - RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+    # Mesmo valor de roles/smd/vars/main.yml. Sobrescreva com -e se precisar.
+    wallpaper_path: 'C:\Windows\Web\Wallpaper\Windows\wallpapersmd.jpg'
+
+  tasks:
+    - name: Definir o caminho do papel de parede
+      ansible.windows.win_regedit:
+        path: HKCU:\Control Panel\Desktop
+        name: Wallpaper
+        data: "{{ wallpaper_path }}"
+        type: string
+      register: wallpaper_registro
+
+    - name: Definir o estilo do papel de parede como Preencher
+      ansible.windows.win_regedit:
+        path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
+        name: WallpaperStyle
+        data: "2"
+        type: string
+      register: wallpaper_estilo
+
+    # Só recarrega quando algo mudou de fato — evita reportar 'changed' a cada
+    # execução, o que tornaria o --check inútil neste playbook.
+    - name: Aplicar a mudança na sessão atual
+      ansible.windows.win_shell: >-
+        RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+      when: wallpaper_registro.changed or wallpaper_estilo.changed

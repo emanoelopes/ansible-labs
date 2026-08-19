@@ -1,7 +1,14 @@
 ---
-  - name: Ensure Epic Games Launcher is the latest version
-    win_chocolatey:
-      name: epicgameslauncher 
-      state: latest
+# Instala/atualiza o Epic Games Launcher (pré-requisito do Unreal Engine).
+#
+#   ansible-playbook unreal.yaml -e alvo=lab4
 
+- name: Epic Games Launcher
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
 
+  tasks:
+    - name: Garantir que o Epic Games Launcher está na última versão
+      chocolatey.chocolatey.win_chocolatey:
+        name: epicgameslauncher
+        state: latest
