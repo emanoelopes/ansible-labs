@@ -538,10 +538,13 @@
         state: present
       register: workbench_install
         
+    # Era 'mysql_install.reboot_required', mas o register da tarefa acima
+    # chama-se mysql_result. Como a expressão terminava em default(false), o
+    # erro era silencioso: o reboot nunca disparava por causa do MySQL.
     - name: Reboot if necessary
       win_reboot:
       when: >
-        (mysql_install.reboot_required | default(false)) or 
+        (mysql_result.reboot_required | default(false)) or
         (workbench_install.reboot_required | default(false))
 
     - name: Configure 3306 Windows Firewall port
@@ -559,9 +562,11 @@
         state: started
       register: mysql_status
 
+    # Era 'var:', que espera o NOME de uma variável e não um texto com
+    # template — imprimia a string literal em vez do valor.
     - name: Show MySQL Service Status
       debug:
-        var: "MySQL version {{ mysql_version }} installed. Status: {{ mysql_status }}"
+        msg: "MySQL {{ mysql_version }} instalado. Serviço: {{ mysql_status.state | default('desconhecido') }}"
 
     - name: Show error details if service not running
       debug:

@@ -44,19 +44,24 @@
       when: dot_net_install.reboot_required | default(false)
 
     - name: Instalar o SQL Server 2014 Enterprise silenciosamente
-      ansible.windows.win_command: '"{{ iso_mount.mount_paths[0] | default(iso_mount.mount_path) }}setup.exe" /Q /ACTION=Install /IACCEPTSQLSERVERLICENSETERMS /FEATURES=SQLEngine,SSMS /INSTANCENAME=MSSQLSERVER /SQLSVCACCOUNT="NT Service\MSSQLSERVER" /AGTSVCACCOUNT="NT Service\SQLSERVERAGENT" /SQLSYSADMINACCOUNTS="{{ ansible_hostname | default(inventory_hostname) }}\suporte" /SECURITYMODE=SQL /SAPWD="Sql@smd2026" /TCPENABLED=1 /NPENABLED=1 /UPDATEENABLED=0'
+      ansible.windows.win_command: '"{{ iso_mount.mount_paths[0] | default(iso_mount.mount_path) }}setup.exe" /Q /ACTION=Install /IACCEPTSQLSERVERLICENSETERMS /FEATURES=SQLEngine,SSMS /INSTANCENAME=MSSQLSERVER /SQLSVCACCOUNT="NT Service\MSSQLSERVER" /AGTSVCACCOUNT="NT Service\SQLSERVERAGENT" /SQLSYSADMINACCOUNTS="{{ ansible_hostname | default(inventory_hostname) }}\suporte" /SECURITYMODE=SQL /SAPWD="{{ vault_senha_sa_instalacao }}" /TCPENABLED=1 /NPENABLED=1 /UPDATEENABLED=0'
       become: yes
       become_method: runas
       become_user: SYSTEM
       register: sql_install
       failed_when: sql_install.rc not in [0, 3010]
+      changed_when: sql_install.rc in [0, 3010]
+      no_log: true
       async: 3600
       poll: 30
 
     - name: Conceder acesso total (Sysadmin) ao usuario 'aluno' do Windows
       ansible.windows.win_shell: >
-        sqlcmd -S localhost -U sa -P "Sql@smd2026" -Q "IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = N'{{ ansible_hostname }}\aluno') BEGIN CREATE LOGIN [{{ ansible_hostname }}\aluno] FROM WINDOWS; END; EXEC sp_addsrvrolemember N'{{ ansible_hostname }}\aluno', N'sysadmin';"
-      ignore_errors: yes
+        sqlcmd -S localhost -U sa -P "{{ vault_senha_sa_instalacao }}" -Q "IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = N'{{ ansible_hostname }}\aluno') BEGIN CREATE LOGIN [{{ ansible_hostname }}\aluno] FROM WINDOWS; END; EXEC sp_addsrvrolemember N'{{ ansible_hostname }}\aluno', N'sysadmin';"
+      register: sql_sysadmin
+      changed_when: sql_sysadmin.rc == 0
+      failed_when: false
+      no_log: true
 
     - name: Desmontar a imagem ISO
       community.windows.win_disk_image:
@@ -82,7 +87,10 @@
       path: C:\Program Files\Microsoft SQL Server\120\Setup Bootstrap\SQLServer2014\setup.exe
     register: sql_bootstrap_check
 
-  - name: Verificar se o SQL Server 2014 esta instalado (Setup Bootstrap)  
+  # Esta tarefa tinha o MESMO nome da anterior, embora uma apenas consulte e a
+  # outra DESINSTALE o SQL Server. No log apareciam duas linhas idênticas e
+  # nada indicava que a segunda era destrutiva.
+  - name: DESINSTALAR o SQL Server 2014 (remove SQLEngine e SSMS)
     ansible.windows.win_command: '"C:\Program Files\Microsoft SQL Server\120\Setup Bootstrap\SQLServer2014\setup.exe" /Q /ACTION=Uninstall /INSTANCENAME=MSSQLSERVER /FEATURES=SQLEngine,SSMS'
     become: yes
     become_method: runas
@@ -90,6 +98,7 @@
     when: sql_bootstrap_check.stat.exists
     register: sql_uninstall
     failed_when: sql_uninstall.rc not in [0, 3010]
+    changed_when: sql_uninstall.rc in [0, 3010]
     async: 3600
     poll: 30
   tags: never,sql2014_uninstall

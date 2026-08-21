@@ -19,6 +19,8 @@
   args:
     no_profile: yes
   register: installed_software
+  changed_when: false   # so consulta estado, nunca altera
+
 - name: display installed software
   debug:
     var: installed_software.stdout

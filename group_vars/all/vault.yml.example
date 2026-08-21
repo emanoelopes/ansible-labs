@@ -22,8 +22,23 @@
 # Conta de serviço do SQL Server (roles/maintenance/tasks/sqlserver.yaml)
 vault_senha_sqlserver: "TROCAR"
 
-# Login 'sa' do SQL Server 2014 (roles/sql_server_2014/tasks/fix_sql_auth.yml)
-vault_senha_sa: "TROCAR"
+# --- Login 'sa' do SQL Server 2014 --------------------------------------------
+# São DUAS senhas para o mesmo login, e isso é proposital.
+#
+# Na instalação, o SQL Server aplica a política de senha do Windows: mínimo de
+# 8 caracteres e ao menos 3 das 4 categorias (maiúscula, minúscula, dígito,
+# símbolo). Uma senha simples é recusada e a instalação falha.
+# Usada em roles/sql_server_2014/tasks/main.yaml.
+vault_senha_sa_instalacao: "Sql@smd2026"
+
+# Depois de instalado, o fix_sql_auth.yml roda ALTER LOGIN com CHECK_POLICY=OFF
+# e então pode definir a senha simples que os alunos usam em aula.
+# Usada em roles/sql_server_2014/tasks/fix_sql_auth.yml.
+vault_senha_sa: "ufc123"
+
+# Superusuário 'postgres' do PostgreSQL (postgres.yml).
+# NÃO confundir com as do SQL Server: são bancos diferentes.
+vault_senha_postgres: "ufc123"
 
 # Conta de estudo do Power BI (roles/maintenance/tasks/powerbi.yaml)
 vault_senha_powerbi: "TROCAR"

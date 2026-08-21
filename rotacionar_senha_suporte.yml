@@ -64,19 +64,44 @@
       vars:
         ansible_password: "{{ vault_senha_suporte_nova }}"
       register: validacao
+      ignore_unreachable: true
+      ignore_errors: true
 
-    - name: Marcar host como rotacionado
-      ansible.builtin.set_fact:
-        senha_rotacionada: "{{ validacao is succeeded }}"
+    # Sem esta tarefa, um host cuja validação falhasse continuaria contado como
+    # OK no resumo: o 'ignore_unreachable: true' do play impede que a falha de
+    # autenticação o remova de ansible_play_hosts. E falha de autenticação em
+    # WinRM aparece como UNREACHABLE, não como failed.
+    #
+    # É o pior cenário possível desta rotação — a senha foi trocada na máquina
+    # mas não se conseguiu confirmar qual ficou valendo. Precisa gritar.
+    - name: Falhar explicitamente se a nova senha não autenticou
+      ansible.builtin.fail:
+        msg: >-
+          A senha de {{ inventory_hostname }} foi ALTERADA mas o login com a
+          senha nova não funcionou. A máquina pode ter ficado inacessível.
+          Verifique manualmente antes de prosseguir com os demais laboratórios.
+      when: (validacao is unreachable) or (validacao is failed)
 
   post_tasks:
-    - name: Resumo da rotação
+    # ansible_play_hosts traz os hosts que continuam ativos; os que saíram
+    # falharam ou ficaram inalcançáveis. Com 'serial', este resumo sai uma vez
+    # por leva — some as levas para ter o total do laboratório.
+    - name: Resumo da rotação (esta leva)
       ansible.builtin.debug:
-        msg: >-
-          OK: {{ ansible_play_hosts_all
-                 | select('in', ansible_play_hosts)
-                 | list | length }} de {{ ansible_play_hosts_all | length }}.
-          PENDENTES (repetir depois): {{ ansible_play_hosts_all
-                 | difference(ansible_play_hosts) | join(', ') | default('nenhum', true) }}
+        msg: |
+          Rotacionadas e validadas: {{ ansible_play_hosts | length }} de {{ ansible_play_hosts_all | length }}
+          {% set pendentes = ansible_play_hosts_all | difference(ansible_play_hosts) %}
+          {% if pendentes | length > 0 %}
+          PENDENTES: {{ pendentes | join(', ') }}
+
+          Podem estar desligadas (repita depois, a senha antiga ainda vale nelas)
+          ou ter falhado a validação (verifique manualmente — nessas a senha
+          pode já ter mudado).
+          {% else %}
+          Nenhuma pendência nesta leva.
+          {% endif %}
+
+          Enquanto houver pendência em QUALQUER laboratório, mantenha
+          vault_senha_suporte com a senha ANTIGA.
       run_once: true
       delegate_to: localhost

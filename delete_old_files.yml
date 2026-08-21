@@ -13,7 +13,7 @@
       register: collected_directories
 
     - name: Remove directories
-      tags: never, delete
+      tags: never,delete
       win_file:
         path: "{{ item.path }}"
         state: absent
@@ -32,13 +32,33 @@
         patterns: ['*.lnk']
       register: collected_links
 
+    # Prévia sem apagar nada. Rode sempre isto antes do -t delete.
+    - name: Listar o que seria removido
+      ansible.builtin.debug:
+        msg: |
+          Seriam removidos de {{ inventory_hostname }}:
+            {{ (collected_files.files | map(attribute='path') | list)
+               | difference(collected_links.files | map(attribute='path') | list)
+               | length }} arquivo(s)
+            {{ collected_directories.files | length }} diretório(s)
+          Atalhos preservados: {{ collected_links.files | length }}
+      tags: never,listar
+
+    # A condição anterior era:
+    #   when: collected_files.files != collected_links.files
+    # Ela comparava as DUAS LISTAS INTEIRAS e não mencionava 'item', então valia
+    # igual para todos os itens do laço: como as listas quase nunca são
+    # idênticas, o resultado era sempre verdadeiro e os atalhos .lnk eram
+    # apagados junto — o oposto da intenção.
+    #
+    # Agora a checagem é por item, comparando o caminho com a lista de atalhos.
     - name: Remove files
-      tags: never, delete
+      tags: never,delete
       win_file:
         path: "{{ item.path }}"
         state: absent
       with_items: "{{ collected_files.files }}"
-      when: collected_files.files != collected_links.files
+      when: item.path not in (collected_links.files | map(attribute='path') | list)
 
     # - name: Only extension
     #   debug:

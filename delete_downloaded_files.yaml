@@ -1,17 +1,37 @@
 ---
-- name: Remove downloaded files 
-  hosts: '{{ local }}' 
+# Esvazia a pasta Downloads do usuário 'aluno' nas estações Windows.
+#
+#   prévia:   ansible-playbook delete_downloaded_files.yaml -e local=lab1 -t listar
+#   apagar:   ansible-playbook delete_downloaded_files.yaml -e local=lab1 -t delete
+#
+# ATENÇÃO — este playbook não tinha tag nenhuma na tarefa de remoção. Bastava
+# executá-lo, sem argumento adicional, para esvaziar Downloads em todas as
+# máquinas do alvo. Os três playbooks irmãos (delete_old_files,
+# delete_old_files_mac, delete_processing_354) já exigiam '-t delete'; este
+# ficou de fora, provavelmente por descuido. Alinhado em ago/2026.
+
+- name: Remove downloaded files
+  hosts: '{{ local }}'
   gather_facts: false
   vars:
     directories: ['C:\Users\aluno\Downloads']
   tasks:
-    - name: Collect files 
+    - name: Collect files
+      tags: always
       win_find:
         paths: "{{ directories }}"
-        recurse: true 
+        recurse: true
       register: collected_files
 
+    - name: Listar o que seria removido
+      ansible.builtin.debug:
+        msg: >-
+          {{ collected_files.files | length }} arquivo(s) seriam removidos de
+          {{ directories | join(', ') }} em {{ inventory_hostname }}
+      tags: never,listar
+
     - name: Remove files
+      tags: never,delete
       win_file:
         path: "{{ item.path }}"
         state: absent

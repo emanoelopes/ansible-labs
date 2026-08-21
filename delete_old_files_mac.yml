@@ -1,4 +1,9 @@
 ---
+# Limpa arquivos do usuário 'aluno' nas estações macOS do lab3.
+#
+#   prévia:   ansible-playbook delete_old_files_mac.yml -t listar
+#   apagar:   ansible-playbook delete_old_files_mac.yml -t delete
+
 - name: Remove old user files and directories
   hosts: lab3
   become: true
@@ -6,31 +11,57 @@
   gather_facts: false
   vars:
     user: 'aluno'
-    directories: ['/Users/{{ user }}/Desktop','/Users/{{ user }}/Downloads','/Users/{{ user }}/Documents']
+    directories:
+      - '/Users/{{ user }}/Desktop'
+      - '/Users/{{ user }}/Downloads'
+      - '/Users/{{ user }}/Documents'
+    # Pastas cujo conteúdo deve ser preservado por inteiro.
+    preservar:
+      - 'Blackmagic Design'
+      - 'Processing'
+
   tasks:
     - name: Collect directories and files
       throttle: 1
       tags: always
       ignore_errors: true
-      find:
-        paths: "{{ directories }}" 
-        recurse: true 
-        file_type: any 
-        excludes: 
-          - 'Blackmagic Design'
-          - 'Processing'
+      ansible.builtin.find:
+        paths: "{{ directories }}"
+        recurse: true
+        file_type: any
       register: collected
-    
+
+    # O 'excludes' do módulo find filtra pelo NOME da entrada, mas continua
+    # descendo dentro dela: os arquivos DENTRO de 'Processing' e de
+    # 'Blackmagic Design' vinham na lista e seriam apagados, embora a pasta em
+    # si fosse poupada. A proteção precisa olhar o caminho inteiro.
+    - name: Aplicar a lista de preservação ao caminho completo
+      ansible.builtin.set_fact:
+        a_remover: >-
+          {{ collected.files
+             | rejectattr('path', 'search', preservar | join('|'))
+             | list }}
+      tags: always
+
     - name: show files and directories
       tags: never,show
-      debug:
+      ansible.builtin.debug:
         var: collected
-    
+
+    - name: Listar o que seria removido
+      ansible.builtin.debug:
+        msg: >-
+          {{ a_remover | length }} de {{ collected.files | length }} entradas
+          seriam removidas de {{ inventory_hostname }}.
+          Preservadas por estarem em {{ preservar | join(' ou ') }}:
+          {{ collected.files | length - (a_remover | length) }}
+      tags: never,listar
+
     - name: remove files and directories
       throttle: 1
-      tags: never, delete
+      tags: never,delete
       ignore_errors: true
-      file:
+      ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
-      with_items: "{{ collected.files }}"
+      with_items: "{{ a_remover }}"

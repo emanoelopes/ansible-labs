@@ -5,14 +5,23 @@
   vars:
     directories: ['C:\Program Files\processing-3.5.4','C:\processing-3.5.4']
   tasks:
-    - name: Collect directories 
-      tags: never,collect 
+    # Esta tarefa registra collected_directories, mas a remoção abaixo NÃO a
+    # usa: ela apaga as duas pastas de 'directories' inteiras, que é o que se
+    # espera ao desinstalar uma versão do Processing. O collect ficou vestigial
+    # — serve só como conferência com -t collect.
+    - name: Collect directories
+      tags: never,collect
       win_find:
         paths: "{{ directories }}"
-        recurse: true 
-        file_type: directory 
+        recurse: true
+        file_type: directory
       register: collected_directories
-    
+
+    - name: Listar o que seria removido
+      ansible.builtin.debug:
+        msg: "Seriam removidas por completo: {{ directories | join(', ') }}"
+      tags: never,listar
+
     - name: Remove directories
       tags: never,delete
       win_file:

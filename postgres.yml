@@ -1,26 +1,58 @@
 ---
-vars:
-  temp_dir: c:\Users\aluno\Downloads\
-  old_install_dir: c:\Program Files\postgreSQL 
-  install_file: postgresql-16.0-1-windows-x64.exe
+# Instala o PostgreSQL nas estações Windows.
+#
+#   ansible-playbook postgres.yml -e alvo=lab2
+#
+# Este arquivo não era executável: começava com 'vars:' no nível raiz, ou seja,
+# era um mapa em vez de uma lista de plays. 'ansible-playbook postgres.yml'
+# falhava com erro de estrutura.
+#
+# INCONSISTÊNCIA DE VERSÃO herdada — confira antes de rodar:
+#   install_file dizia    postgresql-16.0-1
+#   o nome da tarefa dizia          15.1
+#   roles/smd/vars/main.yml aponta  18.1
+# Adotei aqui a de roles/smd/vars/main.yml, que é a mais recente. Ajuste
+# postgres_versao se não for essa.
 
-pre_tasks: 
-  - name: Remove any pre-existent installation directory 
-    win_file: 
-      path: '{{ old_install_dir }}'
-      state: absent
-      
-#From Ansible controller directory '/home/ansible_labs/playbooks/postgresql-15.1-1-windows-x64.exe'
-  - name: Copy PostgreSQL install file to hosts
-    win_copy:
-      src: '{{ install_file }}'
-      dest: '{{ temp_dir }}'
-    tags: postgresql
+- name: PostgreSQL
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
 
-tasks:
-  - name: Install PostgreSQL 15.1 and set postgres password
-    win_shell: "{{ install_file }} --unattendedmodeui none --mode unattended --superpassword ufc123"
-    args:
-      chdir: '{{ temp_dir }}'
-      executable: cmd
-    tags: postgresql
+  vars:
+    postgres_versao: '18.1-1'
+    postgres_instalador: "postgresql-{{ postgres_versao }}-windows-x64.exe"
+    temp_dir: 'c:\Users\aluno\Downloads'
+    old_install_dir: 'c:\Program Files\postgreSQL'
+
+  tasks:
+    - name: Remover instalação anterior
+      ansible.windows.win_file:
+        path: '{{ old_install_dir }}'
+        state: absent
+      tags: never,limpar_anterior
+
+    - name: Garantir que o diretório de downloads existe
+      ansible.windows.win_file:
+        path: '{{ temp_dir }}'
+        state: directory
+      tags: never,postgresql
+
+    # Antes era win_copy de um .exe que não está (nem pode estar) no
+    # repositório — o .gitignore exclui *.exe. Vem do espelho HTTP.
+    - name: Baixar o instalador do PostgreSQL
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ postgres_instalador }}"
+        dest: '{{ temp_dir }}\{{ postgres_instalador }}'
+        force: no
+      tags: never,postgresql
+
+    - name: Instalar o PostgreSQL e definir a senha do superusuário
+      ansible.windows.win_shell: >-
+        .\{{ postgres_instalador }} --unattendedmodeui none --mode unattended
+        --superpassword "{{ vault_senha_postgres }}"
+      args:
+        chdir: '{{ temp_dir }}'
+      register: postgres_install
+      changed_when: postgres_install.rc == 0
+      no_log: true
+      tags: never,postgresql
