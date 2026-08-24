@@ -29,16 +29,18 @@ vault_senha_sqlserver: "TROCAR"
 # 8 caracteres e ao menos 3 das 4 categorias (maiúscula, minúscula, dígito,
 # símbolo). Uma senha simples é recusada e a instalação falha.
 # Usada em roles/sql_server_2014/tasks/main.yaml.
-vault_senha_sa_instalacao: "Sql@smd2026"
+# Exigência do instalador: 8+ caracteres, com maiúscula, minúscula, dígito
+# e símbolo. Uma senha simples é recusada e a instalação falha.
+vault_senha_sa_instalacao: "TROCAR_COMPLEXA"
 
 # Depois de instalado, o fix_sql_auth.yml roda ALTER LOGIN com CHECK_POLICY=OFF
 # e então pode definir a senha simples que os alunos usam em aula.
 # Usada em roles/sql_server_2014/tasks/fix_sql_auth.yml.
-vault_senha_sa: "ufc123"
+vault_senha_sa: "TROCAR"
 
 # Superusuário 'postgres' do PostgreSQL (postgres.yml).
 # NÃO confundir com as do SQL Server: são bancos diferentes.
-vault_senha_postgres: "ufc123"
+vault_senha_postgres: "TROCAR"
 
 # Conta de estudo do Power BI (roles/maintenance/tasks/powerbi.yaml)
 vault_senha_powerbi: "TROCAR"

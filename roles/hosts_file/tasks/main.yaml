@@ -8,6 +8,8 @@
   win_command:
     chdir: "{{ windows_hosts_location }}"
     cmd: update_hosts_windows.bat
+  register: hosts_bat
+  changed_when: hosts_bat.rc == 0
   tags: never,update_hosts
 
 - name: Copy Update Hosts file to Windows host

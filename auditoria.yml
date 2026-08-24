@@ -47,11 +47,19 @@
           - "{{ playbook_dir }}/estado.yml"
           - -e
           - "alvo={{ alvo }}"
+          # Sem escalonamento: em --check nada é alterado, e as levas do
+          # serial apenas multiplicariam o tempo de espera.
+          - -e
+          - "estado_serial=100%"
           - --check
       environment:
         ANSIBLE_STDOUT_CALLBACK: json
         ANSIBLE_CALLBACKS_ENABLED: json
         ANSIBLE_LOAD_CALLBACK_PLUGINS: 'true'
+        # O padrão de 10 em ansible.cfg serve para aplicar mudanças com
+        # cautela. Numa verificação que não altera nada, paralelizar mais é
+        # seguro e corta o tempo proporcionalmente.
+        ANSIBLE_FORKS: '30'
       register: verificacao
       changed_when: false
       failed_when: false
@@ -86,37 +94,55 @@
              | map(attribute='key') | list }}
       when: resultado is defined
 
+    # Máquinas desligadas NÃO são desvio de configuração. Neste parque elas são
+    # ligadas sob demanda, então tratá-las como problema geraria alerta em toda
+    # execução — e um alerta que sempre dispara deixa de ser lido. Elas entram
+    # como informação de cobertura, e não contam para o envio do e-mail.
+    # Em tarefa separada de propósito: chaves definidas num mesmo set_fact não
+    # enxergam umas às outras — todas são resolvidas a partir do contexto
+    # anterior à tarefa. 'corpo' usa 'avaliadas', então precisa vir depois.
+    - name: Calcular quantas máquinas foram avaliadas
+      ansible.builtin.set_fact:
+        avaliadas: >-
+          {{ (resultado.stats | default({}) | length) - (inalcancaveis | default([]) | length) }}
+
     - name: Compor o relatório
       ansible.builtin.set_fact:
         corpo: |
           Auditoria de desvio — {{ alvo }}
           {{ ansible_date_time.date }} {{ ansible_date_time.time }}
 
-          Fora do estado declarado: {{ divergencias | default([]) | length }}
-          {% if divergencias | default([]) | length > 0 %}
-            {{ divergencias | join(', ') }}
-          {% endif %}
-
-          Inalcançáveis (desligadas ou sem rede): {{ inalcancaveis | default([]) | length }}
+          Máquinas avaliadas: {{ avaliadas }} de {{ resultado.stats | default({}) | length }}
           {% if inalcancaveis | default([]) | length > 0 %}
-            {{ inalcancaveis | join(', ') }}
+          Não avaliadas (desligadas): {{ inalcancaveis | length }} — {{ inalcancaveis | join(', ') }}
           {% endif %}
 
-          Com erro na verificação: {{ com_falha | default([]) | length }}
-          {% if com_falha | default([]) | length > 0 %}
-            {{ com_falha | join(', ') }}
-          {% endif %}
+          ── FORA DO ESTADO DECLARADO: {{ divergencias | default([]) | length }} ──
+          {% for h in divergencias | default([]) %}
+            {{ h }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
+
+          ── ERRO NA VERIFICAÇÃO: {{ com_falha | default([]) | length }} ──
+          {% for h in com_falha | default([]) %}
+            {{ h }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
 
           {% if (divergencias | default([]) | length == 0)
-                and (inalcancaveis | default([]) | length == 0)
                 and (com_falha | default([]) | length == 0) %}
-          Nenhuma divergência. O laboratório está no estado declarado.
+          Nada a corrigir nas máquinas avaliadas.
           {% else %}
           Detalhamento por tarefa em {{ relatorio_json }}.
 
           Para corrigir:
             ansible-playbook estado.yml -e alvo={{ alvo }}
           {% endif %}
+
+          Máquinas desligadas não são avaliadas e não geram alerta. Elas serão
+          verificadas na próxima execução em que estiverem ligadas.
 
     - name: Salvar o relatório legível
       ansible.builtin.copy:
@@ -140,10 +166,10 @@
         subject: "[ansible-labs] {{ alvo }}: {{ divergencias | default([]) | length }} máquina(s) fora do estado"
         body: "{{ corpo }}"
         secure: starttls
+      # Máquina desligada não entra na condição: é situação normal aqui.
       when:
         - enviar_email | bool
         - (divergencias | default([]) | length > 0)
-          or (inalcancaveis | default([]) | length > 0)
           or (com_falha | default([]) | length > 0)
       no_log: true
 
@@ -162,6 +188,7 @@
           [Unit]
           Description=Auditoria de desvio dos laboratórios (ansible-labs)
           After=network-online.target
+          Wants=network-online.target
 
           [Service]
           Type=oneshot
@@ -170,17 +197,25 @@
           ExecStart=/usr/bin/ansible-playbook {{ playbook_dir }}/auditoria.yml -e alvo=lab1
       become: true
 
-    - name: Criar o timer diário
+    # Semanal, e não diária, e no meio da tarde: as estações são ligadas sob
+    # demanda, então às 6h quase nenhuma responderia e a auditoria avaliaria
+    # um punhado de máquinas. Quarta à tarde tende a pegar o laboratório em
+    # uso, o que dá cobertura útil.
+    #
+    # Para mudar o dia ou a hora, edite OnCalendar e rode de novo:
+    #   Mon Tue Wed Thu Fri Sat Sun  |  formato: DIA *-*-* HH:MM:SS
+    - name: Criar o timer semanal
       ansible.builtin.copy:
         dest: /etc/systemd/system/ansible-auditoria.timer
         mode: "0644"
         content: |
           [Unit]
-          Description=Executa a auditoria de desvio todo dia às 6h
+          Description=Auditoria semanal de desvio dos laboratórios
 
           [Timer]
-          OnCalendar=*-*-* 06:00:00
+          OnCalendar=Wed *-*-* 14:00:00
           Persistent=true
+          RandomizedDelaySec=600
 
           [Install]
           WantedBy=timers.target

@@ -368,10 +368,15 @@
     state: present
   tags: never,libre_office
 
-- name: Delete version 2022.3 
+# 'removes' faz a tarefa ser pulada quando o desinstalador não existe, ou seja,
+# quando essa versão do PyCharm já não está instalada. Sem isso, a tarefa
+# tentava executar um caminho inexistente e reportava mudança a cada execução.
+- name: Delete version 2022.3
   win_shell: "{{ pycharm_uninstall_path }} /S"
-  args: 
+  args:
     executable: cmd
+    removes: "{{ pycharm_uninstall_path }}"
+  changed_when: true
   tags: never,pycharm_uninstall
 
 - name: Ensure Python and Pycharm are installed
@@ -495,10 +500,11 @@
         name: WallpaperStyle
         data: 2
         type: string
+    # Era 'win_shell: {commands: [...]}' — sintaxe inexistente. O módulo recebe
+    # o comando como texto livre. Mesmo defeito que havia no wallpaper.yaml.
     - name: Update wallpaper configurations to apply the changes
-      win_shell:
-        commands:
-          - RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+      win_shell: RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
+      changed_when: true
   rescue:
     - name: Print when errors
       debug:
@@ -515,10 +521,12 @@
     - name: Executar script PowerShell para desabilitar a internet
       win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "disable"
       when: internet_action == "disable"
+      changed_when: true
 
     - name: Executar script PowerShell para habilitar a internet
       win_shell: powershell.exe -ExecutionPolicy Bypass -File C:\Temp\disable_internet.ps1 -Action "enable"
-      when: internet_action == "enable" 
+      when: internet_action == "enable"
+      changed_when: true
   tags: never,exam
 
 - name: MySQL & Workbench setup

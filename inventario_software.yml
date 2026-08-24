@@ -1,0 +1,190 @@
+---
+# Compara o software instalado num laboratório com o que está declarado em
+# group_vars/<lab>.yml, para embasar a revisão da lista de pacotes.
+#
+#   ansible-playbook inventario_software.yml -e alvo=lab1
+#
+# Não altera nada em máquina nenhuma.
+#
+# DUAS ORIGENS, UM RELATÓRIO
+#   choco    -> pacotes gerenciados pelo Chocolatey (win_chocolatey_facts)
+#   registro -> tudo que aparece em Adicionar/Remover Programas, o que inclui
+#               DaVinci, Veyon, SQL Server e demais instaladores .exe
+#
+# Um mesmo software pode aparecer nas duas origens com nomes diferentes: o
+# Chocolatey usa o nome do pacote ('libreoffice-fresh') e o registro usa o nome
+# de exibição ('LibreOffice 25.8'). Por isso a origem vem marcada em cada linha,
+# em vez de tentar unificar os nomes — o que geraria falsos pares.
+
+- name: Coletar software instalado
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Coletar pacotes do Chocolatey
+      chocolatey.chocolatey.win_chocolatey_facts:
+
+    - name: Coletar programas registrados no Windows
+      ansible.windows.win_shell: |
+        $itens = @()
+        $chaves = @(
+          'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+          'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        )
+        foreach ($c in $chaves) {
+          $itens += Get-ItemProperty $c -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -and -not $_.SystemComponent } |
+            Select-Object -ExpandProperty DisplayName
+        }
+        $itens | Sort-Object -Unique | ConvertTo-Json -Compress
+      args:
+        no_profile: yes
+      register: registro_raw
+      changed_when: false
+
+    - name: Normalizar as duas listas deste host
+      ansible.builtin.set_fact:
+        pacotes_choco: >-
+          {{ ansible_facts.chocolatey.packages | map(attribute='package') | list | unique | sort }}
+        pacotes_registro: >-
+          {{ (registro_raw.stdout | from_json) | default([], true) | unique | sort }}
+
+- name: Relatório comparativo
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    # 'reduce' é filtro do Jinja puro e não existe no Ansible: a acumulação
+    # precisa ser feita com loop, usando intersect e union.
+    - name: Consolidar Chocolatey — presentes em TODAS
+      ansible.builtin.set_fact:
+        choco_todas: >-
+          {{ (choco_todas | default(hostvars[item].pacotes_choco))
+             | intersect(hostvars[item].pacotes_choco) }}
+        choco_alguma: >-
+          {{ (choco_alguma | default([])) | union(hostvars[item].pacotes_choco) }}
+      loop: "{{ ansible_play_hosts }}"
+      loop_control: { label: "{{ item }}" }
+      run_once: true
+
+    - name: Consolidar registro do Windows — presentes em TODAS
+      ansible.builtin.set_fact:
+        reg_todas: >-
+          {{ (reg_todas | default(hostvars[item].pacotes_registro))
+             | intersect(hostvars[item].pacotes_registro) }}
+        reg_alguma: >-
+          {{ (reg_alguma | default([])) | union(hostvars[item].pacotes_registro) }}
+      loop: "{{ ansible_play_hosts }}"
+      loop_control: { label: "{{ item }}" }
+      run_once: true
+
+    - name: Medir a cobertura da análise
+      ansible.builtin.set_fact:
+        hosts_ok: "{{ ansible_play_hosts }}"
+        hosts_total: "{{ groups[alvo] | length }}"
+        hosts_ausentes: "{{ groups[alvo] | difference(ansible_play_hosts) }}"
+        cobertura: >-
+          {{ ((ansible_play_hosts | length) * 100 / (groups[alvo] | length)) | round | int }}
+      run_once: true
+
+    # Um item por linha, com a origem marcada. O join('\n') anterior gravava a
+    # sequência literal \n no arquivo em vez de quebrar a linha — dentro de um
+    # bloco YAML, quem produz quebra de verdade é o laço do template.
+    - name: Montar o relatório
+      ansible.builtin.set_fact:
+        relatorio: |
+          ══════════════════════════════════════════════════════════════
+          INVENTÁRIO DE SOFTWARE — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+
+          Cobertura: {{ hosts_ok | length }} de {{ hosts_total }} máquinas ({{ cobertura }}%)
+          {% if hosts_ausentes | length > 0 %}
+          Não analisadas: {{ hosts_ausentes | join(', ') }}
+          {% endif %}
+          {% if cobertura | int < 80 %}
+
+          !! COBERTURA BAIXA — onde se lê "em TODAS", entenda "em todas as
+          {{ hosts_ok | length }} que responderam". Repita com mais máquinas ligadas. !!
+          {% endif %}
+
+          Declarados em group_vars/{{ alvo }}.yml: {{ estado_pacotes | length }}
+
+
+          ─── 1. DECLARADO, MAS FALTANDO EM ALGUMA MÁQUINA ─────────────
+          Ação: investigar. Ou o estado.yml não rodou em todas, ou a
+          instalação falha (nome errado no Chocolatey, por exemplo).
+
+          {% for p in estado_pacotes | difference(choco_todas) | sort %}
+            {{ "%-38s" | format(p) }}{{ 'ausente em todas' if p not in choco_alguma else 'presente em algumas' }}
+          {% else %}
+            (nenhum — a lista declarada está aplicada em todas)
+          {% endfor %}
+
+          ─── 2. CHOCOLATEY: EM TODAS, MAS NÃO DECLARADO ───────────────
+          Ação: candidatos a entrar em group_vars/{{ alvo }}.yml. Se está em
+          {{ hosts_ok | length }} de {{ hosts_ok | length }} máquinas, já é padrão de fato.
+
+          {% for p in choco_todas | difference(estado_pacotes) | sort %}
+            {{ p }}
+          {% else %}
+            (nenhum)
+          {% endfor %}
+
+          ─── 3. CHOCOLATEY: SÓ EM ALGUMAS MÁQUINAS ────────────────────
+          Ação: decidir. Divergência dentro do mesmo laboratório costuma ser
+          resíduo de instalação manual. Ou entra na lista, ou é removido.
+
+          {% for p in choco_alguma | difference(choco_todas) | sort %}
+            {{ p }}
+          {% else %}
+            (nenhum — as máquinas estão homogêneas)
+          {% endfor %}
+
+          ─── 4. REGISTRO DO WINDOWS: EM TODAS ─────────────────────────
+          Instalado fora do Chocolatey (.exe, .msi). Inclui DaVinci, Veyon,
+          SQL Server. Não é gerenciável por estado_pacotes.
+
+          {% for p in reg_todas | sort %}
+            {{ p }}
+          {% else %}
+            (nenhum)
+          {% endfor %}
+
+          ─── 5. REGISTRO DO WINDOWS: SÓ EM ALGUMAS ────────────────────
+          Ação: o grupo mais revelador. Software presente em parte do
+          laboratório, instalado à mão e sem controle nenhum.
+
+          {% for p in reg_alguma | difference(reg_todas) | sort %}
+            {{ p }}
+          {% else %}
+            (nenhum)
+          {% endfor %}
+
+          ══════════════════════════════════════════════════════════════
+          RESUMO
+            Chocolatey em todas ...... {{ choco_todas | length }}
+            Chocolatey só em algumas . {{ choco_alguma | difference(choco_todas) | length }}
+            Registro em todas ........ {{ reg_todas | length }}
+            Registro só em algumas ... {{ reg_alguma | difference(reg_todas) | length }}
+          ══════════════════════════════════════════════════════════════
+      run_once: true
+
+    - name: Exibir o relatório
+      ansible.builtin.debug:
+        msg: "{{ relatorio.split('\n') }}"
+      run_once: true
+
+    - name: Salvar o relatório
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/software-{{ alvo }}.txt"
+        mode: "0640"
+        content: "{{ relatorio }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Informar onde ficou
+      ansible.builtin.debug:
+        msg: "Relatório salvo em {{ inventario_dir }}/software-{{ alvo }}.txt"
+      run_once: true

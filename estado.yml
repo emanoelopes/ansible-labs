@@ -15,10 +15,14 @@
   hosts: "{{ alvo | default('nao_definido') }}"
   gather_facts: true
 
-  # 25% por vez: se algo der errado, atinge um quarto do laboratório, não ele
-  # inteiro. E max_fail_percentage interrompe antes de propagar um erro
-  # sistemático para as demais levas.
-  serial: '25%'
+  # 25% por vez ao APLICAR: se algo der errado, atinge um quarto do laboratório
+  # e não ele inteiro. E max_fail_percentage interrompe antes de propagar um
+  # erro sistemático para as demais levas.
+  #
+  # Em modo --check nada é alterado, então escalonar só multiplica o tempo de
+  # espera. A auditoria sobrescreve com 100%:
+  #   ansible-playbook estado.yml -e alvo=lab1 --check -e estado_serial=100%
+  serial: "{{ estado_serial | default('25%') }}"
   max_fail_percentage: 20
 
   roles:
