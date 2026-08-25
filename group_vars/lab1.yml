@@ -1,8 +1,12 @@
 ---
 # Estado desejado do laboratório 1.
 #
-# PILOTO da etapa 2. Este é o primeiro laboratório com estado declarado; os
-# demais continuam no modelo antigo, por tags, até este validar.
+# Lista revisada em 24/08/2026 a partir de inventario/software-lab1.txt,
+# com 96% de cobertura (25 de 26 máquinas). Passou de 12 para 36 pacotes:
+# a maior parte já estava instalada em todas as máquinas sem estar declarada.
+#
+# O MySQL ficou de fora de propósito — continua sendo instalado pela role smd,
+# que passa a senha de root via package_params.
 #
 # Auditar sem alterar nada:
 #   ansible-playbook estado.yml -e alvo=lab1 --check --diff
@@ -13,26 +17,90 @@
 # Aplicar no laboratório inteiro:
 #   ansible-playbook estado.yml -e alvo=lab1
 
-# Software que deve estar presente em toda estação do lab1.
-# Lista inicial derivada de smd_pacotes_chocolatey — REVISAR: ela era usada
-# para todas as máquinas do SMD indistintamente, e provavelmente há itens aqui
-# que não fazem sentido no lab1. Tirar o que não se usa é parte do piloto.
 estado_pacotes:
+  # ── Navegadores e leitura ──────────────────────────────────────────
   - firefox
-  - vscode
-  - git
-  - python
-  - openjdk
-  - libreoffice-fresh
+  - googlechrome
   - foxitreader
+
+  # ── Escritório ─────────────────────────────────────────────────────
+  - libreoffice-fresh
   - winrar
+
+  # ── Desenvolvimento: editores e IDEs ───────────────────────────────
+  - vscode
+  - pycharm-community
+  - netbeans
+  - notepadplusplus
+  - androidstudio
+
+  # ── Desenvolvimento: linguagens e ferramentas ──────────────────────
+  - git
+  - github-desktop
+  - nodejs
+  - postman
+  - bitvise-ssh-client
+  - autohotkey.portable
+
+  # ATENÇÃO — DISPERSÃO DE PYTHON
+  # O inventário achou 'python' e 'python3' em todas as máquinas, mais
+  # 'python313' e 'python314' em algumas. São quatro entradas para a mesma
+  # linguagem: 'python' é metapacote que aponta para o python3 mais recente.
+  # Declarei apenas o metapacote. Se alguma disciplina exige versão fixa,
+  # troque por 'python313' — mas não mantenha as duas, ou o laboratório
+  # passa a ter dois interpretadores concorrendo no PATH.
+  - python
+
+  # ATENÇÃO — DOIS JDKs
+  # 'openjdk' estava declarado e 'corretto21jdk' apareceu em algumas
+  # máquinas. Mantive só o openjdk. Se o Corretto for exigência de alguma
+  # disciplina, acrescente — mas convém saber que serão dois JDKs.
+  - openjdk
+
+  # ── Bancos de dados ────────────────────────────────────────────────
+  # ATENÇÃO: a role smd instala o mysql passando a senha de root via
+  # package_params (vault_senha_mysql_root). Instalado por aqui, numa
+  # máquina nova, ele viria SEM essa senha definida. Em máquina que já
+  # tem mysql, nada muda. Considere manter a instalação pela role e
+  # remover estas duas linhas.
+  #- mysql
+  #- mysql.workbench
+
+  # ── Estatística ────────────────────────────────────────────────────
+  - r.project
+  - r.studio
+
+  # ── Design e multimídia ────────────────────────────────────────────
   - gimp
   - inkscape
+  - krita
+  - blender
+  - fontforge
   - audacity
-  - github-desktop
+  - reaper
+  - asio4all          # driver de áudio de baixa latência, usado com o Reaper
+
+  # ── Jogos e simulação (disciplinas de desenvolvimento de jogos) ─────
+  - unity-hub
+  - godot
+  - epicgameslauncher
+  - processing
+
+  # ── Eletrônica ─────────────────────────────────────────────────────
+  - arduino
+
+  # ── Rede e infraestrutura ──────────────────────────────────────────
+  - wireshark
+  - tightvnc
+
+  # ── Periféricos ────────────────────────────────────────────────────
+  - wacom-drivers
 
 # 'present' garante presença sem atualizar a cada execução. Trocar para
 # 'latest' quando houver janela para atualizações não supervisionadas.
+#
+# Com 36 pacotes, a primeira convergência numa máquina nova é demorada.
+# Nas seguintes, o Chocolatey apenas confere e a execução é rápida.
 estado_pacotes_versao: present
 
 # Energia e desligamento

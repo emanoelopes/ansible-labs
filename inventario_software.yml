@@ -20,6 +20,22 @@
   hosts: "{{ alvo | default('nao_definido') }}"
   gather_facts: false
 
+  vars:
+    # Expressões regulares (início do nome) do que NÃO deve aparecer no
+    # relatório do Chocolatey. São dependências, não escolhas de configuração:
+    # declará-las em estado_pacotes só geraria ruído.
+    ignorar_padroes:
+      - 'chocolatey'          # o próprio choco e suas extensions
+      - 'kb[0-9]+'            # atualizações do Windows
+      - 'vcredist'            # redistribuíveis do Visual C++
+      - 'dotnetfx'
+      - 'netfx'
+      # git.install, vscode.install, nodejs.install: vêm arrastados pelo
+      # metapacote correspondente, que é o que se declara. Confira que o
+      # metapacote aparece na seção 1 ou 2 antes de confiar neste filtro.
+      - '.*\.install$'
+      - '.*\.extension$'
+
   tasks:
     - name: Coletar pacotes do Chocolatey
       chocolatey.chocolatey.win_chocolatey_facts:
@@ -42,10 +58,19 @@
       register: registro_raw
       changed_when: false
 
+    # minúsculas: o Chocolatey não diferencia caixa nos IDs, e a mesma máquina
+    # reporta ora 'firefox' ora 'Firefox'. Sem normalizar, um pacote instalado
+    # aparecia como ausente só por causa da grafia.
+    #
+    # ignorar_padroes tira do relatório o que não se declara: dependências
+    # internas do Chocolatey, redistribuíveis, atualizações do Windows e as
+    # variantes '.install', que vêm arrastadas pelo pacote principal.
     - name: Normalizar as duas listas deste host
       ansible.builtin.set_fact:
         pacotes_choco: >-
-          {{ ansible_facts.chocolatey.packages | map(attribute='package') | list | unique | sort }}
+          {{ ansible_facts.chocolatey.packages | map(attribute='package')
+             | map('lower') | reject('match', ignorar_padroes | join('|'))
+             | list | unique | sort }}
         pacotes_registro: >-
           {{ (registro_raw.stdout | from_json) | default([], true) | unique | sort }}
 
