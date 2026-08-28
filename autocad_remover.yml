@@ -1,0 +1,158 @@
+---
+# Remove o AutoCAD 2027 das estações.
+#
+#   PRÉVIA (não remove nada):
+#     ansible-playbook autocad_remover.yml -e alvo=lab1 --limit 111
+#
+#   REMOVER de verdade:
+#     ansible-playbook autocad_remover.yml -e alvo=lab1 --limit 111 -t remover
+#
+# A remoção exige a tag explícita. Sem ela, o playbook apenas mostra o que
+# faria — mesmo motivo dos playbooks de limpeza: operação sem volta não deve
+# acontecer por execução distraída.
+#
+# COMO FUNCIONA
+# Lê a UninstallString do registro, que é o que o Windows usa em
+# Adicionar/Remover Programas, e a executa com os parâmetros silenciosos dos
+# instaladores ODIS. É mais confiável que depender da mídia original, que o
+# autocad.yml apaga após instalar.
+
+- name: Remover AutoCAD 2027
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    # Trecho do nome como aparece em Adicionar/Remover Programas.
+    autocad_padrao: 'AutoCAD 2027'
+    autocad_exe: 'C:\Program Files\Autodesk\AutoCAD 2027\acad.exe'
+    autocad_timeout: 3600
+
+  tasks:
+    - name: Localizar as entradas de desinstalação
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+        $chaves = @(
+          'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+          'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        )
+        $achados = @()
+        foreach ($c in $chaves) {
+          $achados += Get-ItemProperty $c |
+            Where-Object { $_.DisplayName -like '*{{ autocad_padrao }}*' } |
+            Select-Object DisplayName, DisplayVersion, UninstallString, QuietUninstallString
+        }
+        $achados | ConvertTo-Json -Depth 3 -Compress
+      args:
+        no_profile: yes
+      register: autocad_reg
+      changed_when: false
+      tags: always
+
+    - name: Interpretar
+      ansible.builtin.set_fact:
+        entradas: "{{ (autocad_reg.stdout | from_json) | default([], true) }}"
+      tags: always
+
+    # from_json devolve objeto único quando há só um resultado, e lista quando
+    # há vários. Normalizar evita o playbook quebrar no caso de uma entrada só.
+    - name: Normalizar para lista
+      ansible.builtin.set_fact:
+        entradas: "{{ [entradas] if entradas is mapping else entradas }}"
+      tags: always
+
+    - name: PRÉVIA — o que seria removido
+      ansible.builtin.debug:
+        msg: |
+          {{ inventory_hostname }}: {{ entradas | length }} entrada(s)
+          Serão removidas nesta ordem (atualizações antes do produto base):
+          {% for e in entradas | sort(attribute='DisplayName', reverse=true) %}
+
+          {{ loop.index }}. {{ e.DisplayName }} ({{ e.DisplayVersion | default('sem versão') }})
+          {% if e.QuietUninstallString %}
+             modo: silencioso próprio
+             {{ e.QuietUninstallString }}
+          {% elif e.UninstallString %}
+             modo: UninstallString + -q
+             {{ e.UninstallString }} -q
+          {% else %}
+             SEM string de desinstalação — SERÁ PULADA.
+             Entrada de registro sem desinstalador próprio; o produto sai
+             junto com a entrada principal do pacote.
+          {% endif %}
+          {% endfor %}
+          {% if entradas | length == 0 %}
+            (nada encontrado com o padrão '{{ autocad_padrao }}')
+          {% endif %}
+      tags: always
+
+    - name: Avisar que nada será feito sem a tag
+      ansible.builtin.debug:
+        msg: "Prévia apenas. Para remover: acrescente -t remover ao comando."
+      when: "'remover' not in ansible_run_tags"
+      tags: always
+
+    # Duas correções em relação à primeira versão:
+    #
+    # 1. 'default(x)' só substitui variável INDEFINIDA. QuietUninstallString
+    #    existe no registro com valor null, então o default não disparava e o
+    #    PowerShell recebia nulo. O segundo argumento 'true' faz o filtro
+    #    tratar valores falsos — inclusive null — como ausentes.
+    #
+    # 2. A UninstallString do ODIS não traz parâmetro silencioso: executada
+    #    como está, abre interface gráfica, o que numa sessão WinRM trava.
+    #    Daí o '-q' acrescentado quando usamos a string não-silenciosa.
+    #
+    # A ordem importa: pacotes de atualização saem antes do produto base,
+    # senão a desinstalação da base pode deixar resíduo registrado.
+    # 3. A UninstallString é 'C:\Program Files\...\Installer.exe -i uninstall ...'
+    #    — caminho com espaço seguido de argumentos. Passada direto ao
+    #    PowerShell, ele lê 'C:\Program' como nome de comando e falha.
+    #    A separação é feita aqui, no próprio PowerShell: tudo até o '.exe'
+    #    é o executável, o resto são argumentos, e a chamada usa Start-Process
+    #    com -Wait para o código de saída ser o do desinstalador.
+    - name: Executar a desinstalação
+      ansible.windows.win_shell: |
+        $s = @'
+        {{ item.QuietUninstallString | default(item.UninstallString, true) }}
+        '@
+        $s = $s.Trim()
+        if ($s -notmatch '(?i)^\s*"?(.*?\.exe)"?\s*(.*)$') {
+          Write-Error "Não consegui separar executável e argumentos de: $s"
+          exit 2
+        }
+        $exe  = $matches[1]
+        $args = $matches[2]
+        {% if not item.QuietUninstallString %}
+        $args = "$args -q"
+        {% endif %}
+        if (-not (Test-Path $exe)) {
+          Write-Error "Desinstalador não encontrado: $exe"
+          exit 3
+        }
+        $p = Start-Process -FilePath $exe -ArgumentList $args -Wait -PassThru -NoNewWindow
+        exit $p.ExitCode
+      loop: "{{ entradas | sort(attribute='DisplayName', reverse=true) }}"
+      loop_control:
+        label: "{{ item.DisplayName }}"
+      when: (item.QuietUninstallString | default(item.UninstallString, true)) is truthy
+      async: "{{ autocad_timeout }}"
+      poll: 30
+      register: remocao
+      tags: never,remover
+
+    - name: Conferir se o executável sumiu
+      ansible.windows.win_stat:
+        path: "{{ autocad_exe }}"
+      register: depois
+      tags: never,remover
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ 'REMOVIDO — o executável não existe mais.'
+             if not depois.stat.exists
+             else 'ATENÇÃO: ' ~ autocad_exe ~ ' ainda existe. A desinstalação
+                   silenciosa pode não ter sido aceita; remova pelo painel de
+                   Adicionar/Remover Programas na máquina.' }}
+      tags: never,remover

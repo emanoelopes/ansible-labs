@@ -6,14 +6,24 @@
 # funcione como detector de desvio: o que aparecer como 'changed' é exatamente
 # o que está fora do estado declarado.
 
+- name: Compor a lista efetiva de pacotes
+  ansible.builtin.set_fact:
+    estado_pacotes: >-
+      {{ (estado_pacotes_base + estado_pacotes_extra) | unique | sort }}
+
 - name: Validar que o estado foi declarado para este host
   ansible.builtin.assert:
     that:
       - estado_pacotes | length > 0
     fail_msg: >-
       Nenhum pacote declarado para {{ inventory_hostname }} (grupo(s):
-      {{ group_names | join(', ') }}). Crie group_vars/<lab>.yml com
-      estado_pacotes, ou a role não tem o que convergir.
+      {{ group_names | join(', ') }}). Defina estado_pacotes_base em
+      group_vars/windows.yml e/ou estado_pacotes_extra em
+      group_vars/<lab>.yml.
+    success_msg: >-
+      {{ estado_pacotes | length }} pacotes
+      ({{ estado_pacotes_base | length }} do núcleo +
+      {{ estado_pacotes_extra | length }} específicos do laboratório)
     quiet: true
 
 # --- Software -----------------------------------------------------------------

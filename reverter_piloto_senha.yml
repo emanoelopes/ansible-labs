@@ -1,0 +1,73 @@
+---
+# Devolve a senha da conta 'suporte' da máquina piloto ao valor padrão,
+# encerrando o piloto de rotação.
+#
+#   ansible-playbook reverter_piloto_senha.yml -e piloto=111
+#
+# POR QUE EXISTE
+# A 111 ficou com a senha nova enquanto as outras 163 seguiram com a antiga.
+# Isso funciona para a automação, que lê host_vars/111.yml, mas não para uma
+# pessoa: o Peterson não conseguiu acessá-la mesmo com a senha informada.
+# Uma máquina fora do padrão é uma armadilha para quem não acompanhou a
+# mudança — e o custo disso superou o benefício do piloto.
+#
+# DEPOIS DE RODAR
+#   rm host_vars/{{ piloto }}.yml
+#
+# A conexão usa a senha NOVA (a que está na máquina hoje) e grava a ANTIGA.
+# É o inverso do rotacionar_senha_suporte.yml.
+
+- name: Reverter a senha do piloto
+  hosts: "{{ piloto | default('nao_definido') }}"
+  gather_facts: false
+
+  pre_tasks:
+    - name: Abortar se as duas senhas não estiverem no vault
+      ansible.builtin.assert:
+        that:
+          - vault_senha_suporte is defined
+          - vault_senha_suporte_nova is defined
+          - vault_senha_suporte != vault_senha_suporte_nova
+        fail_msg: >-
+          vault_senha_suporte (antiga, destino) e vault_senha_suporte_nova
+          (atual na máquina) precisam existir no vault e ser diferentes.
+      run_once: true
+      delegate_to: localhost
+
+  tasks:
+    - name: Confirmar acesso com a senha do piloto
+      ansible.windows.win_ping:
+
+    - name: Gravar a senha padrão na conta 'suporte'
+      ansible.windows.win_user:
+        name: suporte
+        password: "{{ vault_senha_suporte }}"
+        update_password: always
+        state: present
+        password_never_expires: true
+      no_log: true
+
+    # Valida com a senha PADRÃO, a mesma das outras máquinas. Se passar, a
+    # 111 voltou ao rebanho e o host_vars pode ser removido.
+    - name: Validar login com a senha padrão
+      ansible.windows.win_ping:
+      vars:
+        ansible_password: "{{ vault_senha_suporte }}"
+      register: validacao
+      ignore_unreachable: true
+      ignore_errors: true
+
+    - name: Falhar se a senha padrão não autenticou
+      ansible.builtin.fail:
+        msg: >-
+          A senha de {{ inventory_hostname }} foi alterada mas o login com a
+          senha padrão não funcionou. NÃO remova host_vars/{{ inventory_hostname }}.yml
+          antes de resolver, ou a máquina fica inacessível.
+      when: (validacao is unreachable) or (validacao is failed)
+
+    - name: Confirmar
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} voltou à senha padrão.
+          Agora remova host_vars/{{ inventory_hostname }}.yml e, se não houver
+          outro piloto, apague vault_senha_suporte_nova do vault.

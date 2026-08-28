@@ -1,0 +1,28 @@
+---
+# Estado desejado do laboratório 6.
+#
+# Núcleo comum em group_vars/windows.yml (estado_pacotes_base, 14 pacotes).
+#
+# Derivado de inventario/software-lab6.txt (ago/2026), 100% de cobertura —
+# 26 de 26 máquinas. É a leitura mais confiável dos três laboratórios.
+#
+# Hardware: LENOVO 32091M5, CPU Mark 4664.
+#
+# O lab6 não tem NENHUM pacote além do núcleo. Isso não significa
+# necessariamente que esteja correto: a lista do rascunho é a interseção,
+# ou seja, só o que está em TODAS as máquinas. Vale conferir a seção 3 do
+# relatório — o que aparece em parte das máquinas pode ser justamente o que
+# falta padronizar aqui, como foi o caso no lab1.
+
+estado_pacotes_extra: []
+
+# REMOVIDO DO RASCUNHO — dispersão de Python.
+# 'python3' vem por dependência do metapacote 'python', que está no núcleo.
+# Declarar os dois instala dois interpretadores.
+#  - python3
+
+estado_pacotes_versao: present
+
+estado_plano_energia: 'Equilibrado'
+estado_desligar_hora: '23:00'
+estado_autologon_usuario: aluno

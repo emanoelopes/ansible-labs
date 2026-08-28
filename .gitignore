@@ -11,6 +11,10 @@ inventario/
 systems.csv
 systems-log.csv
 
+# Rascunhos de group_vars gerados por inventario_software.yml. São material
+# de trabalho: versiona-se o arquivo revisado, não o rascunho.
+*.yml.rascunho
+
 # Vault em texto claro — só o .example vai para o repositório
 group_vars/all/vault.yml
 group_vars/*/vault.yml

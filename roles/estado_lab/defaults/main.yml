@@ -10,9 +10,18 @@
 # convergência para um estado.
 
 # --- Software -----------------------------------------------------------------
-# Pacotes Chocolatey que devem estar presentes. Por padrão, nenhum: cada lab
-# declara os seus, para não instalar 27 pacotes onde não se pretendia.
-estado_pacotes: []
+# A lista efetiva de pacotes é a soma de duas:
+#
+#   estado_pacotes_base   -> group_vars/windows.yml, vale para os 5 labs Windows
+#   estado_pacotes_extra  -> group_vars/<lab>.yml, o que aquele lab tem a mais
+#
+# Motivo: 14 pacotes são comuns a todos os laboratórios. Repeti-los em cinco
+# arquivos obrigaria a editar os cinco para trocar um item do núcleo, e é
+# assim que listas divergem sem ninguém perceber.
+#
+# Ambas vazias por padrão: lab sem declaração nenhuma não instala nada.
+estado_pacotes_base: []
+estado_pacotes_extra: []
 
 # state: latest atualiza a cada execução; present só garante presença.
 # 'present' é o default por ser menos intrusivo em máquina de aula.

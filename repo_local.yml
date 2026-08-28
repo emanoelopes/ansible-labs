@@ -10,6 +10,14 @@
 #   ansible-playbook site.yaml -e local=lab1 -t googlechrome,veyon
 #   ansible-playbook repo_local.yml -e repo_acao=parar
 #
+# ACRESCENTOU ARQUIVOS AO SAMBA? Use -e remontar=true:
+#
+#   ansible-playbook repo_local.yml -e remontar=true
+#
+# O CIFS guarda cache da listagem do diretório, e arquivos adicionados depois
+# da montagem podem não aparecer no espelho HTTP. Sem o remontar=true, rodar
+# este playbook de novo não adianta: a montagem existente é preservada.
+#
 # Requisitos no controlador: cifs-utils, systemd e python3.
 #   sudo apt install cifs-utils
 

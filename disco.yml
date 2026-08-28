@@ -1,0 +1,227 @@
+---
+# Levanta uso de disco e os maiores consumidores de espaço nas estações.
+#
+#   ansible-playbook disco.yml -e alvo=lab1
+#   ansible-playbook disco.yml -e alvo=lab1 --limit '122,123,132,135,143,145,146'
+#
+# Somente leitura — nada é apagado. Seguro de rodar com aula em andamento.
+#
+# Produz um relatório por máquina com espaço livre e o tamanho dos candidatos
+# clássicos a limpeza, mais a contagem de versões duplicadas de software, que
+# o inventário de agosto apontou como problema no lab1 (5 versões do
+# Wireshark, 5 do Unity, 4 do WinRAR, 3 do PyCharm convivendo).
+
+- name: Levantamento de disco
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    limite_alerta_gb: 20      # abaixo disso, instalação grande tende a falhar
+
+  tasks:
+    - name: Coletar espaço e maiores consumidores
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        function TamanhoGB($caminho) {
+          if (-not (Test-Path $caminho)) { return 0 }
+          $b = (Get-ChildItem $caminho -Recurse -Force -File |
+                Measure-Object -Property Length -Sum).Sum
+          return [math]::Round($b / 1GB, 2)
+        }
+
+        $disco = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+
+        # Pastas que costumam acumular sem ninguém notar
+        $alvos = [ordered]@{
+          'Windows Update (SoftwareDistribution)' = 'C:\Windows\SoftwareDistribution\Download'
+          'Temp do Windows'                        = 'C:\Windows\Temp'
+          'Temp (C:\Temp)'                         = 'C:\Temp'
+          'Downloads do aluno'                     = 'C:\Users\aluno\Downloads'
+          'Documentos do aluno'                    = 'C:\Users\aluno\Documents'
+          'Área de trabalho do aluno'              = 'C:\Users\aluno\Desktop'
+          'AppData do aluno'                       = 'C:\Users\aluno\AppData\Local\Temp'
+          'Cache do Chocolatey'                    = 'C:\ProgramData\chocolatey\lib-bad'
+          'Instaladores Autodesk'                  = 'C:\Autodesk'
+        }
+        $pastas = @()
+        foreach ($k in $alvos.Keys) {
+          $pastas += [pscustomobject]@{ item = $k; gb = (TamanhoGB $alvos[$k]) }
+        }
+
+        # Arquivos de sistema que ocupam muito e são recuperáveis
+        $hiber = 0
+        if (Test-Path 'C:\hiberfil.sys') {
+          $hiber = [math]::Round((Get-Item 'C:\hiberfil.sys' -Force).Length / 1GB, 2)
+        }
+
+        # Perfis de usuário além do aluno e do suporte.
+        #
+        # O filtro de ReparsePoint é obrigatório: em Windows pt-BR existe
+        # 'C:\Users\Todos os Usuários', que é uma JUNÇÃO para C:\ProgramData.
+        # Sem excluí-la, o levantamento soma os dados de programas do sistema
+        # como se fossem perfil descartável — e sugere apagar o que quebraria
+        # a máquina. Vale para 'Default User' e 'All Users' também.
+        $perfis = @()
+        Get-ChildItem 'C:\Users' -Directory -Force |
+          Where-Object {
+            $_.Name -notin @('aluno','suporte','Public','Default') -and
+            -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)
+          } |
+          ForEach-Object {
+            $perfis += [pscustomobject]@{ nome = $_.Name; gb = (TamanhoGB $_.FullName) }
+          }
+
+        # Versões duplicadas do mesmo software. O agrupamento é pela primeira
+        # palavra do nome ('Wireshark 4.4.6' e 'Wireshark 4.6.0' viram
+        # 'Wireshark'), e EstimatedSize dá o espaço ocupado por cada uma.
+        $prog = @()
+        $chaves = @(
+          'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+          'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        )
+        foreach ($c in $chaves) {
+          $prog += Get-ItemProperty $c | Where-Object { $_.DisplayName } |
+                   Select-Object DisplayName,
+                                 @{n='mb'; e={ if ($_.EstimatedSize) { [math]::Round($_.EstimatedSize/1024,0) } else { 0 } }}
+        }
+
+        # Agrupar pela PRIMEIRA PALAVRA era grosseiro demais: juntava Visual
+        # C++, .NET, Edge e Office sob 'Microsoft', e componentes de uma mesma
+        # instalação sob 'Python'. Agora removemos os trechos que variam com a
+        # versão (números, x64/x86, parênteses) e agrupamos pelo nome restante.
+        function Familia($nome) {
+          $n = $nome -replace '\(.*?\)', ''                  # (x64), (git a4da714)
+          $n = $n -replace '(?i)\b(x86|x64|32-bit|64-bit)\b', ''
+          # Versão pontuada. Exige ao menos um ponto, de propósito: um padrão
+          # que aceitasse número solto destruiria nomes como '7-Zip'.
+          # Cobre 4.4.6, 2025.1.1 e o formato do Unity (6000.3.0f1).
+          $n = $n -replace '\bv?\d+(\.\w+)+\b', ''
+          $n = $n -replace '\b(19|20)\d{2}\b', ''            # ano: VS 2022 / 2026
+          $n = $n -replace '\s+', ' '
+          return $n.Trim(' ', '-')
+        }
+
+        # Famílias que legitimamente coexistem em várias versões. Desinstalar
+        # runtimes antigos quebra os aplicativos que dependem deles.
+        $naoMexer = @(
+          'Microsoft Visual C\+\+',
+          'Microsoft \.NET',
+          'Microsoft Windows Desktop Runtime',
+          'Microsoft ASP\.NET',
+          'Update for',
+          'Security Update',
+          'Python.*(Launcher|Core|Executables|Documentation|Standard Library|Utility|Tcl|Test|pip|Development)'
+        ) -join '|'
+
+        $dups = @()
+        $prog | Group-Object { Familia $_.DisplayName } |
+          Where-Object { $_.Count -gt 1 -and $_.Name -and $_.Name -notmatch $naoMexer } |
+          ForEach-Object {
+            $soma = ($_.Group | Measure-Object -Property mb -Sum).Sum
+            # espaço liberável = total menos a maior (mantém-se uma versão)
+            $maior = ($_.Group | Measure-Object -Property mb -Maximum).Maximum
+            $dups += [pscustomobject]@{
+              familia    = $_.Name
+              qtd        = $_.Count
+              total_mb   = $soma
+              liberavel_mb = ($soma - $maior)
+              versoes    = ($_.Group | Select-Object -ExpandProperty DisplayName)
+            }
+          }
+
+        [pscustomobject]@{
+          total_gb   = [math]::Round($disco.Size/1GB, 1)
+          livre_gb   = [math]::Round($disco.FreeSpace/1GB, 1)
+          pastas     = $pastas
+          hiberfil   = $hiber
+          perfis     = $perfis
+          duplicados = $dups
+        } | ConvertTo-Json -Depth 4 -Compress
+      args:
+        no_profile: yes
+      register: disco_raw
+      changed_when: false
+
+    - name: Interpretar
+      ansible.builtin.set_fact:
+        disco: "{{ disco_raw.stdout | from_json }}"
+
+- name: Relatório de disco
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    limite_alerta_gb: 20
+
+  tasks:
+    - name: Montar o relatório
+      ansible.builtin.set_fact:
+        relatorio: |
+          ══════════════════════════════════════════════════════════════
+          USO DE DISCO — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+
+          {{ "%-8s %10s %10s   %s" | format('MÁQUINA','TOTAL','LIVRE','SITUAÇÃO') }}
+          {% for h in ansible_play_hosts | sort %}
+          {% set d = hostvars[h].disco %}
+          {{ "%-8s %8s GB %8s GB   %s" | format(h, d.total_gb, d.livre_gb,
+             'CRÍTICO' if d.livre_gb | float < limite_alerta_gb else 'ok') }}
+          {% endfor %}
+
+          ─── RECUPERÁVEL POR MÁQUINA (GB) ─────────────────────────────
+          {% for h in ansible_play_hosts | sort %}
+          {% set d = hostvars[h].disco %}
+          {% set recup = (d.pastas | sum(attribute='gb')) + d.hiberfil + (d.perfis | sum(attribute='gb')) %}
+
+          {{ h }} — livre {{ d.livre_gb }} GB, recuperável ~{{ recup | round(1) }} GB
+          {% for p in d.pastas | sort(attribute='gb', reverse=true) %}
+          {% if p.gb > 0.1 %}
+            {{ "%-42s %6s GB" | format(p.item, p.gb) }}
+          {% endif %}
+          {% endfor %}
+          {% if d.hiberfil > 0.1 %}
+            {{ "%-42s %6s GB" | format('hiberfil.sys (hibernação)', d.hiberfil) }}
+          {% endif %}
+          {% for p in d.perfis | sort(attribute='gb', reverse=true) %}
+          {% if p.gb > 0.1 %}
+            {{ "%-42s %6s GB" | format('Perfil: ' ~ p.nome, p.gb) }}
+          {% endif %}
+          {% endfor %}
+          {% endfor %}
+
+          ─── VERSÕES DUPLICADAS DO MESMO SOFTWARE ─────────────────────
+          Desinstalar as antigas costuma render mais que limpar temporários,
+          e resolve de vez em vez de adiar. 'liberável' desconta a versão
+          mais recente, que se mantém.
+
+          {% for h in ansible_play_hosts | sort %}
+          {% set d = hostvars[h].disco %}
+          {% set dups = d.duplicados | sort(attribute='liberavel_mb', reverse=true) %}
+          {% if dups | length > 0 %}
+
+          {{ h }} — liberável desinstalando antigas: {{ (dups | sum(attribute='liberavel_mb') / 1024) | round(1) }} GB
+          {% for f in dups %}
+          {% if f.liberavel_mb > 100 %}
+            {{ "%-26s %2s versões  libera %6s MB" | format(f.familia, f.qtd, f.liberavel_mb) }}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+          ══════════════════════════════════════════════════════════════
+      run_once: true
+
+    - name: Exibir
+      ansible.builtin.debug:
+        msg: "{{ relatorio.split('\n') }}"
+      run_once: true
+
+    - name: Salvar
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/disco-{{ alvo }}.txt"
+        mode: "0640"
+        content: "{{ relatorio }}"
+      delegate_to: localhost
+      become: false
+      run_once: true

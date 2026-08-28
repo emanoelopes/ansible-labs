@@ -1,0 +1,142 @@
+---
+# Verifica o estado real do AutoCAD nas estações.
+#
+#   ansible-playbook autocad_status.yml -e alvo=lab1
+#
+# Somente leitura. Seguro de rodar com aula em andamento.
+#
+# POR QUE EXISTE
+# Conferir se o acad.exe existe não basta. A 111 e a 114 tinham o executável
+# no lugar e mesmo assim o programa não abria: a instalação não chegou a
+# registrar o produto no serviço de licenciamento da Autodesk, e sem esse
+# registro nem a tela de login aparece.
+#
+# Este playbook separa os três estados que importam:
+#
+#   OK              -> instalado e registrado no licenciamento
+#   SEM LICENCA     -> executável presente, registro ausente. Precisa
+#                      desinstalar e reinstalar (autocad_remover + autocad)
+#   SEM AUTOCAD     -> não instalado
+#
+# 'SEM LICENCA' é o estado traiçoeiro: parece instalado em qualquer verificação
+# superficial, e só falha na frente do aluno.
+
+- name: Estado do AutoCAD
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    autocad_exe: 'C:\Program Files\Autodesk\AutoCAD 2027\acad.exe'
+
+  tasks:
+    - name: Consultar executável e registro de licenciamento
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+        $exe    = Test-Path '{{ autocad_exe }}'
+        $helper = "${env:CommonProgramFiles(x86)}\Autodesk Shared\AdskLicensing\Current\helper\AdskLicensingInstHelper.exe"
+        $reg    = $null
+
+        if (Test-Path $helper) {
+          $saida = & $helper list 2>$null
+          $texto = ($saida | Out-String).Trim()
+          # '[]' significa nenhum produto registrado no licenciamento
+          $reg = -not ($texto -eq '[]' -or [string]::IsNullOrWhiteSpace($texto))
+        }
+
+        $estado = if     (-not $exe -and -not $reg) { 'SEM AUTOCAD' }
+                  elseif ($exe -and $reg)           { 'OK' }
+                  elseif ($exe -and -not $reg)      { 'SEM LICENCA' }
+                  else                              { 'LICENCA SEM EXECUTAVEL' }
+
+        [pscustomobject]@{
+          estado        = $estado
+          exe           = $exe
+          helper        = (Test-Path $helper)
+          servico       = ((Get-Service AdskLicensingService).Status | Out-String).Trim()
+        } | ConvertTo-Json -Compress
+      args:
+        no_profile: yes
+      register: ac_raw
+      changed_when: false
+      # Máquina desligada não deve derrubar o levantamento.
+      ignore_unreachable: true
+
+    - name: Interpretar
+      ansible.builtin.set_fact:
+        ac: "{{ ac_raw.stdout | from_json }}"
+      when: ac_raw.stdout is defined
+
+- name: Relatório
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Montar
+      ansible.builtin.set_fact:
+        relatorio: |
+          ══════════════════════════════════════════════════════════════
+          ESTADO DO AUTOCAD — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+
+          {{ "%-8s  %-24s %s" | format('MÁQUINA', 'ESTADO', 'OBSERVAÇÃO') }}
+          {# groups[alvo] e não ansible_play_hosts: assim as desligadas       #}
+          {# aparecem na lista em vez de sumirem do relatório.                #}
+          {% for h in groups[alvo] | sort %}
+          {% set d = hostvars[h].ac | default(none) %}
+          {% if d is none %}
+          {{ "%-8s  %-24s %s" | format(h, 'NAO RESPONDEU', 'desligada ou fora da rede') }}
+          {% else %}
+          {{ "%-8s  %-24s %s" | format(h, d.estado,
+             'pronta para uso' if d.estado == 'OK'
+             else ('desinstalar e reinstalar' if d.estado == 'SEM LICENCA'
+             else ('instalar' if d.estado == 'SEM AUTOCAD' else 'verificar à mão'))) }}
+          {% endif %}
+          {% endfor %}
+
+          ─── RESUMO ───────────────────────────────────────────────────
+          {# Laço explícito com 'is defined': em máquina que não respondeu, #}
+          {# hostvars[h].ac fica INDEFINIDO, e reject('none') não filtra    #}
+          {# indefinido — só nulo. Um map('extract') quebraria aqui.        #}
+          {% set resp = [] %}{% set ok = [] %}{% set sl = [] %}{% set sa = [] %}
+          {% for h in groups[alvo] %}
+          {% if hostvars[h].ac is defined %}
+          {% set _ = resp.append(h) %}
+          {% if hostvars[h].ac.estado == 'OK' %}{% set _ = ok.append(h) %}{% endif %}
+          {% if hostvars[h].ac.estado == 'SEM LICENCA' %}{% set _ = sl.append(h) %}{% endif %}
+          {% if hostvars[h].ac.estado == 'SEM AUTOCAD' %}{% set _ = sa.append(h) %}{% endif %}
+          {% endif %}
+          {% endfor %}
+            Total no grupo ......... {{ groups[alvo] | length }}
+            Responderam ............ {{ resp | length }}
+            Prontas para uso ....... {{ ok | length }}
+            Instaladas sem licença . {{ sl | length }}
+            Sem AutoCAD ............ {{ sa | length }}
+            Não responderam ........ {{ (groups[alvo] | length) - (resp | length) }}
+
+          {% if sl | length > 0 %}
+          Para as SEM LICENCA — desinstalar e reinstalar:
+            ansible-playbook autocad_remover.yml -e alvo={{ alvo }} --limit '{{ sl | join(',') }}' -t remover
+            ansible-playbook autocad.yml -e alvo={{ alvo }} --limit '{{ sl | join(',') }}'
+          {% endif %}
+          {% if sa | length > 0 %}
+          Para as SEM AUTOCAD — conferir espaço em disco antes:
+            ansible-playbook disco.yml -e alvo={{ alvo }} --limit '{{ sa | join(',') }}'
+            ansible-playbook autocad.yml -e alvo={{ alvo }} --limit '{{ sa | join(',') }}'
+          {% endif %}
+          ══════════════════════════════════════════════════════════════
+      run_once: true
+
+    - name: Exibir
+      ansible.builtin.debug:
+        msg: "{{ relatorio.split('\n') }}"
+      run_once: true
+
+    - name: Salvar
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/autocad-{{ alvo }}.txt"
+        mode: "0640"
+        content: "{{ relatorio }}"
+      delegate_to: localhost
+      become: false
+      run_once: true

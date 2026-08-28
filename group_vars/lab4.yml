@@ -1,45 +1,33 @@
 ---
-# Estado desejado do laboratório 1.
+# Estado desejado do laboratório 4.
 #
-# O núcleo comum aos cinco labs Windows está em group_vars/windows.yml
-# (estado_pacotes_base, 14 pacotes). Aqui vai só o que o lab1 tem a mais.
+# Núcleo comum em group_vars/windows.yml (estado_pacotes_base, 14 pacotes).
+# Aqui só o que o lab4 tem a mais.
 #
-# Lista revisada em 24/08/2026 a partir de inventario/software-lab1.txt,
-# com 96% de cobertura (25 de 26 máquinas).
+# Derivado de inventario/software-lab4.txt (ago/2026), 93% de cobertura —
+# 25 de 27 máquinas na ocasião. Hoje o lab4 tem 26 hosts ativos: a 437 foi
+# recolhida por defeito em 26/08/2026 (patrimônio 346118, Trello HpxDDP24).
 #
-# O MySQL ficou de fora de propósito — continua sendo instalado pela role smd,
-# que passa a senha de root via package_params.
-#
-#   auditar:  ansible-playbook estado.yml -e alvo=lab1 --check --diff
-#   piloto:   ansible-playbook estado.yml -e alvo=lab1 --limit 112
-#   aplicar:  ansible-playbook estado.yml -e alvo=lab1
+# Hardware: Dell OptiPlex 7010, CPU Mark 4664. Sem os pacotes pesados de
+# modelagem 3D e motores de jogo que o lab1 tem.
 
 estado_pacotes_extra:
-  # ── Exclusivos do lab1: dependem do hardware ──────────────────────
-  # O lab1 tem Dell Inspiron 5400 AIO (CPU Mark 10548), contra 4664 do
-  # OptiPlex 7010 do lab4. Modelagem 3D, motores de jogo e renderização
-  # só rodam bem aqui — por isso não estão no núcleo.
-  - blender
-  - unity-hub
-  - godot
-  - epicgameslauncher
-  - processing
-
   # ── Navegadores ───────────────────────────────────────────────────
   - firefox
-  - googlechrome
 
   # ── IDEs e editores ───────────────────────────────────────────────
   - pycharm-community
-  - netbeans
   - notepadplusplus
   - androidstudio
 
   # ── Desenvolvimento ───────────────────────────────────────────────
   - github-desktop
-  - postman
   - bitvise-ssh-client
   - autohotkey.portable
+
+  # Subsistema Linux. Estava instalado nas máquinas, e o playbook wsl.yml
+  # cuida da ativação do recurso do Windows, que o pacote sozinho não faz.
+  - wsl2
 
   # ── Estatística ───────────────────────────────────────────────────
   - r.project
@@ -47,7 +35,7 @@ estado_pacotes_extra:
 
   # ── Design e áudio ────────────────────────────────────────────────
   - fontforge
-  - asio4all          # driver de áudio de baixa latência, usado com o Reaper
+  - asio4all
 
   # ── Eletrônica ────────────────────────────────────────────────────
   - arduino
@@ -58,8 +46,14 @@ estado_pacotes_extra:
   # ── Periféricos ───────────────────────────────────────────────────
   - wacom-drivers
 
-# 'present' garante presença sem atualizar a cada execução. Trocar para
-# 'latest' quando houver janela para atualizações não supervisionadas.
+# REMOVIDOS DO RASCUNHO — dispersão de Python.
+# O inventário achou 'python3' e 'python314' além do 'python' do núcleo.
+# São três entradas para a mesma linguagem: 'python' é metapacote que
+# aponta para o python3 mais recente, e 'python3' vem por dependência.
+# Declarar os três deixaria interpretadores concorrendo no PATH.
+#  - python3
+#  - python314
+
 estado_pacotes_versao: present
 
 estado_plano_energia: 'Equilibrado'

@@ -14,3 +14,29 @@
 # altera a senha desta conta — trocá-la quebraria o acesso da equipe.
 ansible_user: suporte
 ansible_password: "{{ vault_senha_suporte }}"
+
+# ── Núcleo de software comum aos laboratórios Windows ────────────────────
+#
+# Presente em todas as máquinas de lab1, lab4 e lab6 no inventário de
+# ago/2026. O lab2 ficou de fora do cálculo: a coleta pegou só 46% das
+# máquinas e a interseção seria enganosa.
+#
+# Cada laboratório acrescenta o que tem a mais em estado_pacotes_extra,
+# no seu group_vars/<lab>.yml. A role estado_lab soma as duas listas.
+#
+# Alterar aqui vale para os cinco laboratórios — confira antes.
+estado_pacotes_base:
+  - audacity
+  - foxitreader
+  - gimp
+  - git
+  - inkscape
+  - krita
+  - libreoffice-fresh
+  - nodejs
+  - openjdk
+  - python              # metapacote: aponta para o python3 mais recente
+  - reaper
+  - tightvnc
+  - vscode
+  - winrar

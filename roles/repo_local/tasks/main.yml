@@ -88,6 +88,35 @@
   changed_when: false
   failed_when: false
 
+# O CIFS mantém cache de metadados do diretório. Arquivos acrescentados ao
+# compartilhamento DEPOIS da montagem podem não aparecer, e o espelho HTTP
+# passa a servir uma listagem defasada — foi o que aconteceu com os
+# instaladores do AutoCAD em 26/08/2026.
+#
+# Como a tarefa de montar é pulada quando já há montagem, rodar o playbook de
+# novo não resolvia sozinho. Use:
+#
+#   ansible-playbook repo_local.yml -e remontar=true
+#
+# sempre que tiver acrescentado arquivos ao Samba.
+- name: Desmontar para forçar releitura do compartilhamento
+  ansible.builtin.command: "umount {{ repo_mount_dir }}"
+  register: repo_remount
+  changed_when: repo_remount.rc == 0
+  failed_when:
+    - repo_remount.rc != 0
+    - "'not mounted' not in repo_remount.stderr"
+  when:
+    - remontar | default(false) | bool
+    - repo_mount_dir in repo_montado.stdout
+
+- name: Reavaliar a montagem após o umount
+  ansible.builtin.command: "findmnt --noheadings --target {{ repo_mount_dir }}"
+  register: repo_montado
+  changed_when: false
+  failed_when: false
+  when: remontar | default(false) | bool
+
 # 'mount <ponto>' sem opções é a forma que a opção 'user' do fstab autoriza:
 # o kernel só aceita os parâmetros que já estão declarados lá. Por isso não
 # usamos o módulo mount aqui — ele monta uma linha de comando completa, que

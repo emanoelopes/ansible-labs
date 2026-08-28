@@ -1,0 +1,105 @@
+---
+# Instala o AutoCAD 2027 nas estações Windows.
+#
+#   teste em UMA máquina:  ansible-playbook autocad.yml -e alvo=lab1 --limit 112
+#   laboratório inteiro:   ansible-playbook autocad.yml -e alvo=lab1
+#
+# Requer o espelho HTTP no ar:
+#   ansible-playbook repo_local.yml
+#
+# ── ATENÇÃO: ESTE É O INSTALADOR WEB ──────────────────────────────────────
+#
+# O arquivo é o 'webinstall', um iniciador de ~75 MB que BAIXA o produto da
+# Autodesk durante a instalação. Consequências:
+#
+#   - cada estação puxa de 6 a 10 GB da internet, não do Samba;
+#   - com 26 máquinas, são 150 a 260 GB de tráfego externo;
+#   - os domínios da Autodesk precisam estar acessíveis da rede dos labs;
+#   - a instalação leva dezenas de minutos por máquina.
+#
+# Por isso o serial baixo: 4 máquinas por vez, para não saturar o link de
+# saída. Prefira executar fora do horário de aula.
+#
+# A alternativa que elimina tudo isso é criar uma imagem de implantação
+# offline (opção "Criar implantação" no instalador), que baixa uma vez e
+# serve as 26 estações do compartilhamento local.
+
+- name: AutoCAD 2027
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  # 4 por vez: o gargalo aqui é o link de internet, não as máquinas.
+  serial: 4
+
+  vars:
+    autocad_arquivo: 'Autodesk_AutoCAD_2027_1_Brazilian_Portuguese_pt-BR_setup_webinstall.exe'
+    # Subpasta dentro de windows_instaladores. Atenção à caixa: 'autoCAD'.
+    autocad_subpasta: 'autoCAD'
+    autocad_destino: 'C:\Temp'
+
+    # Parâmetro de instalação silenciosa dos instaladores ODIS (Autodesk
+    # 2021+). NÃO VERIFICADO para o iniciador web desta versão — a
+    # documentação da Autodesk descreve '-q' para o setup.exe da mídia
+    # completa. Teste numa máquina e ajuste se necessário.
+    # Outras formas documentadas:
+    #   --silent --sn <numero_serie> --installdir "<caminho>"
+    autocad_args: '-q'
+
+    # Caminho usado pelo 'creates': se existir, a tarefa é pulada. É o que
+    # torna o playbook repetível sem reinstalar.
+    autocad_exe: 'C:\Program Files\Autodesk\AutoCAD 2027\acad.exe'
+
+    # Instalação do AutoCAD leva muito tempo. 2h de teto, conferindo a cada
+    # 60s. Sem isso o WinRM derruba a conexão por inatividade.
+    autocad_timeout: 7200
+
+  tasks:
+    - name: Verificar se o AutoCAD já está instalado
+      ansible.windows.win_stat:
+        path: "{{ autocad_exe }}"
+      register: autocad_check
+
+    - name: Encerrar para esta máquina se já estiver instalado
+      ansible.builtin.meta: end_host
+      when: autocad_check.stat.exists
+
+    - name: Garantir o diretório temporário
+      ansible.windows.win_file:
+        path: "{{ autocad_destino }}"
+        state: directory
+
+    - name: Baixar o iniciador do espelho HTTP
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ autocad_subpasta }}/{{ autocad_arquivo }}"
+        dest: "{{ autocad_destino }}\\{{ autocad_arquivo }}"
+        force: no
+
+    - name: Instalar o AutoCAD 2027
+      ansible.windows.win_command: >-
+        {{ autocad_destino }}\{{ autocad_arquivo }} {{ autocad_args }}
+      args:
+        chdir: "{{ autocad_destino }}"
+        creates: "{{ autocad_exe }}"
+      async: "{{ autocad_timeout }}"
+      poll: 60
+      register: autocad_install
+
+    - name: Confirmar a instalação
+      ansible.windows.win_stat:
+        path: "{{ autocad_exe }}"
+      register: autocad_final
+
+    - name: Falhar se o executável não apareceu
+      ansible.builtin.fail:
+        msg: >-
+          O instalador terminou mas {{ autocad_exe }} não existe em
+          {{ inventory_hostname }}. Provavelmente o parâmetro
+          '{{ autocad_args }}' não é aceito pelo iniciador web, ou o download
+          da Autodesk falhou. Rode numa máquina sem -q para ver o assistente
+          e o erro real.
+      when: not autocad_final.stat.exists
+
+    - name: Remover o iniciador
+      ansible.windows.win_file:
+        path: "{{ autocad_destino }}\\{{ autocad_arquivo }}"
+        state: absent

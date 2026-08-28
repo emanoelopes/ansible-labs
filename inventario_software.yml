@@ -103,6 +103,14 @@
       loop_control: { label: "{{ item }}" }
       run_once: true
 
+    # default([]): laboratório que ainda não tem group_vars/<lab>.yml não
+    # define estado_pacotes. Sem isto, rodar o inventário no lab2 falharia
+    # por variável indefinida — justamente no caso em que ele é mais útil.
+    - name: Definir a lista declarada (vazia se o lab ainda não tem)
+      ansible.builtin.set_fact:
+        declarados: "{{ estado_pacotes | default([]) }}"
+      run_once: true
+
     - name: Medir a cobertura da análise
       ansible.builtin.set_fact:
         hosts_ok: "{{ ansible_play_hosts }}"
@@ -133,14 +141,14 @@
           {{ hosts_ok | length }} que responderam". Repita com mais máquinas ligadas. !!
           {% endif %}
 
-          Declarados em group_vars/{{ alvo }}.yml: {{ estado_pacotes | length }}
+          Declarados em group_vars/{{ alvo }}.yml: {{ declarados | length }}
 
 
           ─── 1. DECLARADO, MAS FALTANDO EM ALGUMA MÁQUINA ─────────────
           Ação: investigar. Ou o estado.yml não rodou em todas, ou a
           instalação falha (nome errado no Chocolatey, por exemplo).
 
-          {% for p in estado_pacotes | difference(choco_todas) | sort %}
+          {% for p in declarados | difference(choco_todas) | sort %}
             {{ "%-38s" | format(p) }}{{ 'ausente em todas' if p not in choco_alguma else 'presente em algumas' }}
           {% else %}
             (nenhum — a lista declarada está aplicada em todas)
@@ -150,7 +158,7 @@
           Ação: candidatos a entrar em group_vars/{{ alvo }}.yml. Se está em
           {{ hosts_ok | length }} de {{ hosts_ok | length }} máquinas, já é padrão de fato.
 
-          {% for p in choco_todas | difference(estado_pacotes) | sort %}
+          {% for p in choco_todas | difference(declarados) | sort %}
             {{ p }}
           {% else %}
             (nenhum)
@@ -213,3 +221,60 @@
       ansible.builtin.debug:
         msg: "Relatório salvo em {{ inventario_dir }}/software-{{ alvo }}.txt"
       run_once: true
+
+    # ── Rascunho de group_vars para um laboratório novo ────────────────
+    #
+    #   ansible-playbook inventario_software.yml -e alvo=lab2 -e gerar_rascunho=true
+    #
+    # Gera group_vars/<lab>.yml.rascunho com os pacotes presentes em TODAS as
+    # máquinas analisadas. Grava com sufixo .rascunho de propósito: o Ansible
+    # não carrega esse arquivo, então gerá-lo não altera o comportamento de
+    # nada. Você revisa, decide o que entra, e só então renomeia.
+    - name: Gerar rascunho de group_vars para o laboratório
+      ansible.builtin.copy:
+        dest: "group_vars/{{ alvo }}.yml.rascunho"
+        mode: "0640"
+        content: |
+          ---
+          # RASCUNHO gerado por inventario_software.yml em {{ '%Y-%m-%d %H:%M' | strftime }}.
+          #
+          # Contém os pacotes Chocolatey presentes nas {{ hosts_ok | length }} de
+          # {{ hosts_total }} máquinas analisadas ({{ cobertura }}% de cobertura).
+          #
+          # ISTO NÃO É UMA LISTA PRONTA. Antes de renomear para {{ alvo }}.yml:
+          #
+          #   1. Confira a cobertura. Abaixo de 80%, refaça com mais máquinas
+          #      ligadas — o que está aqui pode não estar nas desligadas.
+          #   2. Reveja a seção 3 do relatório: o que está só em algumas
+          #      máquinas não entra aqui, e pode ser justamente o que falta.
+          #   3. Procure dispersão de versões (python313 e python314, dois JDKs,
+          #      Unity em cinco versões). Declarar as duas mantém o problema.
+          #   4. Se o laboratório instala algo pela role smd com parâmetro
+          #      próprio — o mysql passa a senha de root via package_params —
+          #      não declare aqui, ou a instalação viria sem o parâmetro.
+          #
+          # Renomear quando estiver revisado:
+          #   mv group_vars/{{ alvo }}.yml.rascunho group_vars/{{ alvo }}.yml
+
+          estado_pacotes:
+          {% for p in choco_todas | sort %}
+            - {{ p }}
+          {% endfor %}
+
+          estado_pacotes_versao: present
+
+          estado_plano_energia: 'Equilibrado'
+          estado_desligar_hora: '23:00'
+          estado_autologon_usuario: aluno
+      delegate_to: localhost
+      become: false
+      run_once: true
+      when: gerar_rascunho | default(false) | bool
+
+    - name: Informar o rascunho gerado
+      ansible.builtin.debug:
+        msg: >-
+          Rascunho em group_vars/{{ alvo }}.yml.rascunho com
+          {{ choco_todas | length }} pacotes. Revise antes de renomear.
+      run_once: true
+      when: gerar_rascunho | default(false) | bool
