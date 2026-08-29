@@ -52,6 +52,52 @@
   community.windows.win_power_plan:
     name: "{{ estado_plano_energia }}"
 
+# O win_power_plan só escolhe o plano; os tempos de suspensão vêm do padrão
+# do plano. Aqui eles passam a ser declarados.
+#
+# A idempotência é feita à mão: lê-se o valor atual com 'powercfg /query',
+# compara-se com o desejado, e só se aplica quando difere. Sem isso a tarefa
+# reportaria 'changed' em toda execução e o --check da auditoria ficaria
+# inútil para esta parte.
+- name: Ajustar tempos de suspensão e monitor
+  ansible.windows.win_shell: |
+    $ErrorActionPreference = 'Stop'
+    $mudou = $false
+
+    function IndiceAtual($sub, $setting) {
+      $saida = powercfg /query SCHEME_CURRENT $sub $setting 2>$null
+      $linha = $saida | Select-String 'Current AC Power Setting Index'
+      if (-not $linha) { return $null }
+      return [Convert]::ToInt32(($linha -split ':')[-1].Trim(), 16)
+    }
+
+    # powercfg trabalha em segundos; a declaração é em minutos.
+    $alvoSuspender = {{ estado_suspender_apos_min }} * 60
+    $alvoMonitor   = {{ estado_desligar_monitor_min }} * 60
+
+    $atualSuspender = IndiceAtual 'SUB_SLEEP' 'STANDBYIDLE'
+    if ($atualSuspender -ne $alvoSuspender) {
+      powercfg /change standby-timeout-ac {{ estado_suspender_apos_min }}
+      $mudou = $true
+    }
+
+    $atualMonitor = IndiceAtual 'SUB_VIDEO' 'VIDEOIDLE'
+    if ($atualMonitor -ne $alvoMonitor) {
+      powercfg /change monitor-timeout-ac {{ estado_desligar_monitor_min }}
+      $mudou = $true
+    }
+
+    $hiberAtiva = Test-Path 'C:\hiberfil.sys'
+    $hiberDesejada = ${{ estado_hibernacao | lower }}
+    if ($hiberAtiva -ne $hiberDesejada) {
+      if ($hiberDesejada) { powercfg /hibernate on } else { powercfg /hibernate off }
+      $mudou = $true
+    }
+
+    if ($mudou) { 'ALTERADO' } else { 'ja conforme' }
+  register: energia
+  changed_when: "'ALTERADO' in energia.stdout"
+
 - name: Garantir a tarefa de desligamento automático
   community.windows.win_scheduled_task:
     name: "{{ estado_desligar_nome_tarefa }}"

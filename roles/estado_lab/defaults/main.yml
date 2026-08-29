@@ -31,6 +31,25 @@ estado_pacotes_versao: present
 # Plano de energia permanente da estação.
 estado_plano_energia: 'Equilibrado'
 
+# Tempo em MINUTOS até a ação, na alimentação por tomada. 0 desativa.
+#
+# POR QUE A SUSPENSÃO FICA DESATIVADA POR PADRÃO
+# Máquina suspensa não responde a WinRM, e a auditoria semanal a reporta como
+# inalcançável — sem distinguir de desligada. O resultado é perseguir
+# problemas inexistentes e não enxergar desvios reais. Numa sala gerenciada
+# remotamente, previsibilidade de acesso vale mais que a economia da
+# suspensão; o desligamento diário às 23h já cobre o consumo noturno.
+#
+# Se preferir manter a suspensão, o caminho é habilitar Wake-on-LAN e acordar
+# as máquinas antes de cada execução — mais economia, mais peças móveis.
+estado_suspender_apos_min: 0      # 0 = nunca suspende
+estado_desligar_monitor_min: 15   # o monitor continua desligando
+
+# A hibernação ocupa em disco o equivalente à memória RAM, no hiberfil.sys.
+# Desativá-la libera esse espaço — relevante num parque onde a falta de disco
+# impediu instalações. O custo é perder a Inicialização Rápida do Windows.
+estado_hibernacao: false
+
 # Desligamento automático. Defina estado_desligar_hora como null para não criar
 # a tarefa agendada.
 estado_desligar_hora: '23:00'

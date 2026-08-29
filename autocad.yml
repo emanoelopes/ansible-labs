@@ -63,6 +63,26 @@
       ansible.builtin.meta: end_host
       when: autocad_check.stat.exists
 
+    # O instalador da Autodesk recusa-se a rodar quando há reinicialização
+    # pendente, e sai rápido com código diferente de zero — foi o que
+    # aconteceu na 135 (rc=11 em 1m37s, sem chegar a baixar nada).
+    # Reiniciar antes evita o falso diagnóstico de "instalador quebrado".
+    - name: Verificar reinicialização pendente
+      ansible.windows.win_shell: |
+        $p = @()
+        if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $p += 'CBS' }
+        if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { $p += 'WindowsUpdate' }
+        if (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue) { $p += 'PendingFileRename' }
+        $p -join ','
+      changed_when: false
+      register: reboot_pendente
+
+    - name: Reiniciar antes de instalar, se houver pendência
+      ansible.windows.win_reboot:
+        reboot_timeout: 900
+        msg: "Reinicialização necessária antes de instalar o AutoCAD."
+      when: reboot_pendente.stdout | trim | length > 0
+
     - name: Garantir o diretório temporário
       ansible.windows.win_file:
         path: "{{ autocad_destino }}"
@@ -83,11 +103,39 @@
       async: "{{ autocad_timeout }}"
       poll: 60
       register: autocad_install
+      # 3010 e 11 significam 'instalou, mas precisa reiniciar' na maioria dos
+      # instaladores. Não são falha — a verificação do acad.exe logo abaixo é
+      # que decide se deu certo.
+      failed_when: autocad_install.rc not in [0, 11, 3010]
+
+    - name: Reiniciar se a instalação pediu
+      ansible.windows.win_reboot:
+        reboot_timeout: 900
+      when: autocad_install.rc | default(0) in [11, 3010]
+
+    # Sem esta espera, a verificação alcança a máquina no meio de um
+    # desligamento e o WinRM devolve 'Illegal operation attempted on a
+    # registry key that has been marked for deletion' — que parece erro grave
+    # e é apenas o serviço sendo encerrado.
+    #
+    # Acontece porque o instalador pode disparar a própria reinicialização, e
+    # porque máquinas com atualização do Windows represada reiniciam mais de
+    # uma vez para aplicá-las.
+    - name: Aguardar a máquina estar acessível
+      ansible.builtin.wait_for_connection:
+        delay: 30
+        sleep: 15
+        timeout: 1800
 
     - name: Confirmar a instalação
       ansible.windows.win_stat:
         path: "{{ autocad_exe }}"
       register: autocad_final
+      # Nova rede de segurança: se ainda assim pegar a máquina instável,
+      # tenta de novo em vez de dar o playbook por falhado.
+      until: autocad_final is succeeded
+      retries: 5
+      delay: 30
 
     - name: Falhar se o executável não apareceu
       ansible.builtin.fail:
