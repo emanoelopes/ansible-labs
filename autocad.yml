@@ -151,3 +151,15 @@
       ansible.windows.win_file:
         path: "{{ autocad_destino }}\\{{ autocad_arquivo }}"
         state: absent
+
+    # O instalador web baixa os componentes para C:\Autodesk e não limpa a
+    # pasta ao terminar — cerca de 4 GB por máquina. Num parque onde a falta
+    # de espaço impediu instalações, deixar isso para trás é caro.
+    #
+    # Só remove depois de confirmado que o acad.exe existe: se a instalação
+    # falhou, o cache serve para uma nova tentativa sem baixar tudo de novo.
+    - name: Remover o cache de instalação da Autodesk
+      ansible.windows.win_file:
+        path: 'C:\Autodesk'
+        state: absent
+      when: autocad_final.stat.exists | default(false)

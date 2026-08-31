@@ -5,11 +5,20 @@
 #   ansible-playbook estado.yml -e alvo=lab1 --check --diff
 # funcione como detector de desvio: o que aparecer como 'changed' é exatamente
 # o que está fora do estado declarado.
+#
+# TAGS
+#   pacotes  -> instalação de software (a parte demorada)
+#   energia  -> plano, suspensão, monitor, hibernação, desligamento diário
+#   sessao   -> logon automático
+#
+# Sem tag nenhuma, roda tudo. Para aplicar só a energia, que leva segundos:
+#   ansible-playbook estado.yml -e alvo=lab1 -t energia
 
 - name: Compor a lista efetiva de pacotes
   ansible.builtin.set_fact:
     estado_pacotes: >-
       {{ (estado_pacotes_base + estado_pacotes_extra) | unique | sort }}
+  tags: always
 
 - name: Validar que o estado foi declarado para este host
   ansible.builtin.assert:
@@ -25,6 +34,7 @@
       ({{ estado_pacotes_base | length }} do núcleo +
       {{ estado_pacotes_extra | length }} específicos do laboratório)
     quiet: true
+  tags: always
 
 # --- Software -----------------------------------------------------------------
 
@@ -38,19 +48,22 @@
   register: estado_choco
   failed_when: false
   check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
+  tags: pacotes
 
 - name: Relatar pacotes que não puderam ser instalados
   ansible.builtin.debug:
     msg: >-
       Falharam em {{ inventory_hostname }}:
       {{ estado_choco.results | selectattr('failed') | map(attribute='item') | list }}
-  when: estado_choco.results | selectattr('failed') | list | length > 0
+  when: estado_choco.results | default([]) | selectattr('failed') | list | length > 0
+  tags: pacotes
 
 # --- Energia ------------------------------------------------------------------
 
 - name: Garantir o plano de energia
   community.windows.win_power_plan:
     name: "{{ estado_plano_energia }}"
+  tags: energia
 
 # O win_power_plan só escolhe o plano; os tempos de suspensão vêm do padrão
 # do plano. Aqui eles passam a ser declarados.
@@ -58,8 +71,8 @@
 # A idempotência é feita à mão: lê-se o valor atual com 'powercfg /query',
 # compara-se com o desejado, e só se aplica quando difere. Sem isso a tarefa
 # reportaria 'changed' em toda execução e o --check da auditoria ficaria
-# inútil para esta parte.
-- name: Ajustar tempos de suspensão e monitor
+# inútil justamente nesta parte.
+- name: Ajustar suspensão, monitor e hibernação
   ansible.windows.win_shell: |
     $ErrorActionPreference = 'Stop'
     $mudou = $false
@@ -75,14 +88,12 @@
     $alvoSuspender = {{ estado_suspender_apos_min }} * 60
     $alvoMonitor   = {{ estado_desligar_monitor_min }} * 60
 
-    $atualSuspender = IndiceAtual 'SUB_SLEEP' 'STANDBYIDLE'
-    if ($atualSuspender -ne $alvoSuspender) {
+    if ((IndiceAtual 'SUB_SLEEP' 'STANDBYIDLE') -ne $alvoSuspender) {
       powercfg /change standby-timeout-ac {{ estado_suspender_apos_min }}
       $mudou = $true
     }
 
-    $atualMonitor = IndiceAtual 'SUB_VIDEO' 'VIDEOIDLE'
-    if ($atualMonitor -ne $alvoMonitor) {
+    if ((IndiceAtual 'SUB_VIDEO' 'VIDEOIDLE') -ne $alvoMonitor) {
       powercfg /change monitor-timeout-ac {{ estado_desligar_monitor_min }}
       $mudou = $true
     }
@@ -97,6 +108,7 @@
     if ($mudou) { 'ALTERADO' } else { 'ja conforme' }
   register: energia
   changed_when: "'ALTERADO' in energia.stdout"
+  tags: energia
 
 - name: Garantir a tarefa de desligamento automático
   community.windows.win_scheduled_task:
@@ -114,6 +126,7 @@
     state: present
     enabled: yes
   when: estado_desligar_hora is not none
+  tags: energia
 
 # --- Sessão -------------------------------------------------------------------
 
@@ -123,3 +136,4 @@
     password: "{{ vault_senha_aluno }}"
   when: estado_autologon_usuario is not none
   no_log: true
+  tags: sessao

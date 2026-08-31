@@ -104,7 +104,11 @@
 
         # Famílias que legitimamente coexistem em várias versões. Desinstalar
         # runtimes antigos quebra os aplicativos que dependem deles.
+        # Safe Exam Browser fica de fora por decisão operacional: o Peterson
+        # é responsável pelos laboratórios durante as avaliações bimestrais e
+        # precisa ser consultado antes de qualquer remoção de versão dele.
         $naoMexer = @(
+          'Safe Exam Browser',
           'Microsoft Visual C\+\+',
           'Microsoft \.NET',
           'Microsoft Windows Desktop Runtime',
