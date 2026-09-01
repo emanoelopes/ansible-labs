@@ -38,9 +38,24 @@
         enabled: yes
 
   tasks:
+    # tags: always é obrigatório aqui.
+    #
+    # Sem ele, qualquer execução com --tags pula esta tarefa, a role nem
+    # chega a ser carregada, e as tags internas dela ficam inalcançáveis.
+    # Foi o que aconteceu em 01/09/2026 ao tentar
+    #   ansible-playbook site.yaml -e local=lab2 -t collect_macaddress
+    # — a play terminou sem fazer nada e sem reportar nada.
+    #
+    # Valia para TODAS as tags da role: win_updates, nvda, sqlserver,
+    # powerbi, collect_hardware, opera_gx_removal. Nenhuma jamais executou
+    # por este caminho.
+    #
+    # Carregar a role sempre é inofensivo: todas as tarefas dentro dela são
+    # 'never', então nada roda sem a tag correspondente.
     - name: Run maintenance tasks
-      include_role: 
+      ansible.builtin.include_role:
         name: maintenance
+      tags: always
 
   post_tasks:
     - name: Choose Balanced energy power plan for 7010, 780, m3209, 5400AIO

@@ -1,0 +1,78 @@
+---
+# Estado desejado do laboratório 5.
+#
+# O núcleo comum aos cinco labs Windows está em group_vars/windows.yml
+# (estado_pacotes_base, 14 pacotes). Aqui vai só o que o lab5 tem a mais.
+#
+# Derivado de inventario/software-lab5.txt (01/09/2026), 96% de cobertura —
+# 24 de 25 máquinas. Ficou de fora a 536, sem rota (desligada ou
+# desconectada).
+#
+# ── POR QUE ESTE LABORATÓRIO DIVERGIU TANTO ──────────────────────────────
+# Até 01/09/2026 o inventory.ini declarava o lab5 na porta 5986 com
+# transporte 'basic' — WinRM sobre HTTPS. O listener HTTPS não existe mais
+# nessas máquinas, então TODAS as tentativas de conexão davam timeout e o
+# laboratório estava fora do alcance da automação havia tempo indeterminado.
+#
+# O resultado: SETE dos catorze pacotes do núcleo — audacity, gimp, git,
+# inkscape, krita, libreoffice-fresh e winrar — existiam apenas em parte das
+# máquinas. Metade do núcleo. Ao aplicar o estado.yml eles serão instalados
+# onde faltam, e esta primeira convergência é a mais pesada do parque.
+#
+# É o argumento mais concreto a favor da auditoria semanal: um laboratório
+# inteiro inacessível, divergindo em silêncio, sem ninguém notar.
+
+estado_pacotes_extra:
+  # ── Navegadores ───────────────────────────────────────────────────
+  - firefox
+
+  # ── IDEs e editores ───────────────────────────────────────────────
+  - pycharm-community
+  - notepadplusplus
+
+  # ── Desenvolvimento ───────────────────────────────────────────────
+  - github-desktop
+  - postman
+  - bitvise-ssh-client
+  - autohotkey.portable
+
+  # Virtualização. Ambos exigem virtualização habilitada na BIOS e são
+  # pesados; se falharem em parte das máquinas, o relatório de pacotes que
+  # não instalaram vai apontar quais.
+  - docker-desktop
+  - wsl2
+
+  # ATENÇÃO — QUATRO PYTHONS, O PIOR CASO DO PARQUE
+  # O inventário achou 'python', 'python3', 'python313' E 'python314' em
+  # TODAS as 24 máquinas. O núcleo já declara 'python', que é metapacote
+  # apontando para o python3 mais recente. Os demais vieram por dependência
+  # ou por instalações manuais sobrepostas ao longo do tempo. Não declarei
+  # nenhum dos outros — mas vale uma limpeza na virada de semestre, porque
+  # quatro interpretadores no PATH é fonte garantida de confusão em aula.
+  #  - python3
+  #  - python313
+  #  - python314
+
+  # ── Estatística ───────────────────────────────────────────────────
+  - r.project
+  - r.studio
+
+  # ── Design e áudio ────────────────────────────────────────────────
+  - fontforge
+  - asio4all          # driver de áudio de baixa latência, usado com o Reaper
+
+  # ── Eletrônica ────────────────────────────────────────────────────
+  - arduino
+
+  # ── Rede ──────────────────────────────────────────────────────────
+  - wireshark
+
+  # ── Periféricos ───────────────────────────────────────────────────
+  - wacom-drivers
+
+# 'present' garante presença sem atualizar a cada execução.
+estado_pacotes_versao: present
+
+estado_plano_energia: 'Equilibrado'
+estado_desligar_hora: '23:00'
+estado_autologon_usuario: aluno

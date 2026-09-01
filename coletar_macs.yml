@@ -1,0 +1,104 @@
+---
+# Coleta o MAC de cada estação e grava um mapa por laboratório.
+#
+#   ansible-playbook coletar_macs.yml -e alvo=lab6
+#
+# Alimenta o acordar.yml (Wake-on-LAN). Rode com as máquinas LIGADAS — só se
+# coleta o MAC de quem responde.
+#
+# ── POR QUE UM PLAYBOOK PRÓPRIO, E NÃO A TAG DO site.yaml ────────────────
+# O site.yaml usa 'serial: 25%'. A tarefa de gravação é run_once, então roda
+# uma vez por leva e reescreve o arquivo: o resultado final continha apenas a
+# última leva de máquinas. Aqui não há serial, e todas entram de uma vez.
+
+- name: Coletar MAC das estações
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: true
+
+  tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook coletar_macs.yml -e alvo=lab6"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+
+    # No Windows o MAC vem de ansible_interfaces, uma lista de placas.
+    # 'ansible_default_ipv4.macaddress' é fato de Linux e não existe aqui —
+    # foi o que fez a primeira coleta sair vazia.
+    #
+    # Escolhe-se a placa com default_gateway definido: é a que fala com a
+    # rede. Máquinas com Wi-Fi, VPN ou adaptadores virtuais têm várias.
+    - name: Identificar a placa de rede ativa
+      ansible.builtin.set_fact:
+        mac_ativo: >-
+          {{ (ansible_interfaces
+              | selectattr('default_gateway', 'defined')
+              | selectattr('default_gateway', 'ne', None)
+              | map(attribute='macaddress') | list | first)
+             | default(ansible_interfaces
+                       | selectattr('macaddress', 'defined')
+                       | map(attribute='macaddress') | list | first, true)
+             | default('', true) }}
+        nome_placa: >-
+          {{ (ansible_interfaces
+              | selectattr('default_gateway', 'defined')
+              | selectattr('default_gateway', 'ne', None)
+              | map(attribute='connection_name') | list | first)
+             | default('?', true) }}
+
+    - name: Avisar quando nenhuma placa foi identificada
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: nenhum MAC encontrado em ansible_interfaces.
+          Placas vistas: {{ ansible_interfaces | default([]) | length }}.
+      when: mac_ativo | length == 0
+
+- name: Gravar o mapa
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Gravar macs-{{ alvo }}.yml
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
+        mode: "0640"
+        content: |
+          ---
+          # Gerado por coletar_macs.yml em {{ '%Y-%m-%d %H:%M' | strftime }}
+          #
+          # Só constam as máquinas que responderam. As ausentes precisam de
+          # nova coleta com elas ligadas.
+          #
+          # Analisadas: {{ ansible_play_hosts | length }} de {{ groups[alvo] | length }}
+          macs:
+          {% for h in ansible_play_hosts | sort %}
+          {% if hostvars[h].mac_ativo | default('') | length > 0 %}
+            "{{ h }}":
+              mac: "{{ hostvars[h].mac_ativo | lower }}"
+              placa: "{{ hostvars[h].nome_placa | default('?') }}"
+              hostname: "{{ hostvars[h].ansible_hostname | default('?') | lower }}"
+              ip: "{{ hostvars[h].ansible_host | default('?') }}"
+          {% endif %}
+          {% endfor %}
+          {% set sem = ansible_play_hosts | rejectattr('undefined') | list %}
+          {% for h in groups[alvo] | sort %}
+          {% if h not in ansible_play_hosts %}
+          # {{ h }}: não respondeu na coleta
+          {% elif hostvars[h].mac_ativo | default('') | length == 0 %}
+          # {{ h }}: respondeu mas nenhum MAC foi identificado
+          {% endif %}
+          {% endfor %}
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Resumo
+      ansible.builtin.debug:
+        msg: >-
+          {{ ansible_play_hosts
+             | map('extract', hostvars, 'mac_ativo')
+             | select('defined') | select('length') | list | length }}
+          MAC(s) coletado(s) de {{ groups[alvo] | length }} máquina(s) do {{ alvo }}.
+          Arquivo: {{ inventario_dir }}/macs-{{ alvo }}.yml
+      run_once: true

@@ -1,0 +1,51 @@
+---
+# Converte o mapa de MACs num formato colável nas abas da planilha de
+# inventário.
+#
+#   ansible-playbook macs_planilha.yml -e alvo=lab2
+#   ansible-playbook macs_planilha.yml -e alvo=todos
+#
+# Gera dois arquivos por laboratório, em inventario/:
+#
+#   macs-coluna-<lab>.txt   uma linha por LINHA DA PLANILHA, na mesma ordem,
+#                           com linhas vazias nas posições sem máquina e nos
+#                           separadores entre filas. Cole direto na coluna
+#                           'macaddress', na célula da primeira posição.
+#
+#   macs-tabela-<lab>.tsv   posição<TAB>MAC, só do que foi coletado. Para
+#                           conferência, ou para PROCV se preferir não
+#                           confiar no alinhamento.
+#
+# ── SOBRE O ALINHAMENTO ───────────────────────────────────────────────────
+# O arquivo de coluna presume o layout atual das abas: filas de
+# {{ '7' }} posições, com uma linha em branco entre uma fila e a seguinte.
+# Isso vale hoje para lab2, lab5 e lab6.
+#
+# Se a aba mudar de layout, o arquivo de coluna passa a desalinhar em
+# silêncio — e MAC trocado entre máquinas é pior que MAC ausente, porque o
+# Wake-on-LAN passa a acordar a estação errada sem dar erro. Por isso o
+# playbook FALHA se encontrar posição fora da faixa esperada, em vez de
+# gerar uma coluna torta. E por isso o .tsv existe: confira a primeira e a
+# última linha coladas antes de aceitar o resto.
+
+- name: Gerar formato colável na planilha
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Quantas posições cabem em cada fila da aba.
+    posicoes_por_fila: 7
+    labs: "{{ (alvo | default('') == 'todos') | ternary(['lab1', 'lab2', 'lab4', 'lab5', 'lab6'], [alvo | default('')]) }}"
+
+  tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook macs_planilha.yml -e alvo=lab2 (ou alvo=todos)"
+      when: alvo is not defined
+
+    - name: Processar cada laboratório
+      ansible.builtin.include_tasks: tasks/macs_planilha_um_lab.yml
+      loop: "{{ labs }}"
+      loop_control:
+        loop_var: lab

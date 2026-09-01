@@ -1,0 +1,79 @@
+# Incluído por macs_planilha.yml, uma vez por laboratório.
+# Recebe 'lab' (ex. 'lab2') pelo loop_var.
+
+- name: "{{ lab }} — verificar se o mapa de MACs existe"
+  ansible.builtin.stat:
+    path: "{{ inventario_dir }}/macs-{{ lab }}.yml"
+  register: mapa_lab
+
+- name: "{{ lab }} — avisar que não há mapa e seguir"
+  ansible.builtin.debug:
+    msg: >-
+      {{ lab }}: sem mapa de MACs. Colete antes, com as máquinas ligadas:
+      ansible-playbook coletar_macs.yml -e alvo={{ lab }}
+  when: not mapa_lab.stat.exists
+
+- name: "{{ lab }} — gerar os arquivos"
+  when: mapa_lab.stat.exists
+  block:
+
+    - name: "{{ lab }} — carregar o mapa"
+      ansible.builtin.include_vars:
+        file: "{{ inventario_dir }}/macs-{{ lab }}.yml"
+        name: mapa
+
+    - name: "{{ lab }} — deduzir o dígito do laboratório e as filas"
+      ansible.builtin.set_fact:
+        # As posições são strings de 3 dígitos: laboratório, fila, máquina.
+        digito_lab: "{{ (mapa.macs | default({}) | list | sort | first | default('000'))[0] }}"
+        filas: "{{ mapa.macs | default({}) | list | map('regex_replace', '^.(.).$', '\\1') | unique | sort }}"
+
+    # Uma posição acima de posicoes_por_fila significa que a aba tem um
+    # layout diferente do presumido. Gerar a coluna assim mesmo produziria
+    # deslocamento a partir dali — silencioso e difícil de perceber depois
+    # de colado.
+    - name: "{{ lab }} — recusar se alguma posição estiver fora da faixa"
+      ansible.builtin.fail:
+        msg: >-
+          {{ lab }}: posição {{ item }} excede {{ posicoes_por_fila }} máquinas
+          por fila. Ajuste posicoes_por_fila ou confira o layout da aba antes
+          de colar — o arquivo de coluna depende dessa correspondência.
+      loop: "{{ mapa.macs | default({}) | list | sort }}"
+      when: (item[2] | int) < 1 or (item[2] | int) > (posicoes_por_fila | int)
+
+    - name: "{{ lab }} — gravar a coluna para colar em 'macaddress'"
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/macs-coluna-{{ lab }}.txt"
+        mode: "0644"
+        content: |
+          {% for f in filas %}
+          {% for n in range(1, (posicoes_por_fila | int) + 1) %}
+          {% set pos = digito_lab ~ f ~ n %}
+          {{ mapa.macs[pos].mac if pos in mapa.macs else '' }}
+          {% endfor %}
+          {% if not loop.last %}
+
+          {% endif %}
+          {% endfor %}
+
+    - name: "{{ lab }} — gravar a tabela de conferência"
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/macs-tabela-{{ lab }}.tsv"
+        mode: "0644"
+        content: |
+          {% for pos in mapa.macs | list | sort %}
+          {{ pos }}	{{ mapa.macs[pos].mac }}
+          {% endfor %}
+
+    - name: "{{ lab }} — resumo"
+      ansible.builtin.debug:
+        msg: |
+          {{ lab }}: {{ mapa.macs | length }} MAC(s),
+          {{ filas | length }} fila(s) de {{ posicoes_por_fila }} posições.
+
+          Colar em 'macaddress', a partir da linha da posição {{ digito_lab }}{{ filas | first }}1:
+            {{ inventario_dir }}/macs-coluna-{{ lab }}.txt
+
+          Conferir depois de colar: a primeira e a última linha do .tsv
+          devem bater com a planilha.
+            {{ inventario_dir }}/macs-tabela-{{ lab }}.tsv

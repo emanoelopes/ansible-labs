@@ -173,11 +173,45 @@
           or (com_falha | default([]) | length > 0)
       no_log: true
 
-- name: Instalar o agendamento diário
+- name: Instalar o agendamento semanal
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
   tags: [never, instalar_agendamento]
+
+  vars:
+    # Laboratórios auditados pelo agendamento. Acrescente conforme forem
+    # ganhando group_vars declarado.
+    auditoria_alvos: ['lab1']
+
+  pre_tasks:
+    # O serviço do systemd NÃO herda o ambiente do seu shell. Sem estas
+    # verificações, a primeira execução agendada falharia por falta da senha
+    # do vault — e falharia em silêncio, já que ninguém está olhando às 14h
+    # de quarta. Melhor descobrir agora, na instalação.
+    - name: Confirmar que o arquivo de senha do vault existe
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.ansible_vault_pass"
+      register: vault_pass_file
+
+    - name: Abortar se o arquivo de senha do vault não existir
+      ansible.builtin.fail:
+        msg: >-
+          {{ ansible_env.HOME }}/.ansible_vault_pass não existe. O serviço
+          agendado precisa dele para abrir o vault, e não herda a variável
+          ANSIBLE_VAULT_PASSWORD_FILE do seu shell.
+      when: not vault_pass_file.stat.exists
+
+    - name: Confirmar que a senha do SMTP está no vault
+      ansible.builtin.assert:
+        that:
+          - vault_senha_smtp is defined
+          - vault_senha_smtp != 'TROCAR'
+        fail_msg: >-
+          vault_senha_smtp não está preenchida. Sem ela a auditoria roda mas
+          não consegue enviar o relatório — e você não seria avisado disso.
+          Use: ansible-vault edit group_vars/all/vault.yml
+        quiet: true
 
   tasks:
     - name: Criar a unidade de serviço
@@ -194,7 +228,16 @@
           Type=oneshot
           User={{ ansible_user_id }}
           WorkingDirectory={{ playbook_dir }}
-          ExecStart=/usr/bin/ansible-playbook {{ playbook_dir }}/auditoria.yml -e alvo=lab1
+
+          # Sem esta linha o serviço não abre o vault: systemd não herda o
+          # ambiente do shell de quem instalou.
+          Environment=ANSIBLE_VAULT_PASSWORD_FILE={{ ansible_env.HOME }}/.ansible_vault_pass
+
+          # Um ExecStart por laboratório. Type=oneshot os executa em sequência
+          # e considera o serviço com falha se qualquer um falhar.
+          {% for lab in auditoria_alvos %}
+          ExecStart=/usr/bin/ansible-playbook {{ playbook_dir }}/auditoria.yml -e alvo={{ lab }}
+          {% endfor %}
       become: true
 
     # Semanal, e não diária, e no meio da tarde: as estações são ligadas sob
@@ -228,3 +271,46 @@
         state: started
         daemon_reload: true
       become: true
+
+    # Uma execução de verdade agora, pelo systemd, com o ambiente que ele
+    # usará de fato. É a única forma de saber se a senha do vault e o envio
+    # de e-mail funcionam no contexto do serviço — testar pelo shell não
+    # prova nada, porque o shell tem variáveis que o systemd não tem.
+    - name: Executar uma vez para validar o contexto do serviço
+      ansible.builtin.command: systemctl start ansible-auditoria.service
+      become: true
+      changed_when: true
+
+    - name: Aguardar a conclusão
+      ansible.builtin.command: systemctl is-active ansible-auditoria.service
+      register: exec_estado
+      until: exec_estado.stdout | trim != 'activating'
+      retries: 60
+      delay: 15
+      changed_when: false
+      failed_when: false
+      become: true
+
+    - name: Ler o resultado da execução
+      ansible.builtin.command: systemctl show ansible-auditoria.service -p Result --value
+      register: exec_resultado
+      changed_when: false
+      become: true
+
+    - name: Confirmar
+      ansible.builtin.debug:
+        msg: |
+          Timer instalado e validado.
+
+          Execução de teste: {{ exec_resultado.stdout | trim }}
+          {% if exec_resultado.stdout | trim != 'success' %}
+
+          ATENÇÃO — a execução pelo systemd falhou. Ver o motivo com:
+            journalctl -u ansible-auditoria.service -n 50 --no-pager
+
+          O timer está ativo, mas vai falhar toda quarta até isso ser
+          resolvido.
+          {% else %}
+          Próxima execução automática:
+            systemctl list-timers ansible-auditoria.timer
+          {% endif %}

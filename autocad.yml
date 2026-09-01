@@ -158,8 +158,40 @@
     #
     # Só remove depois de confirmado que o acad.exe existe: se a instalação
     # falhou, o cache serve para uma nova tentativa sem baixar tudo de novo.
+    # NUNCA falha o playbook. A instalação já foi confirmada nesta altura; não
+    # conseguir apagar um cache temporário não invalida nada. A primeira
+    # versão desta tarefa derrubou a execução da 123 por um DLL somente-leitura
+    # — prioridade invertida.
+    #
+    # Os arquivos em C:\Autodesk\IM\BackUps vêm com atributo de somente-leitura,
+    # e o win_file não os remove. Daí limpar os atributos antes.
     - name: Remover o cache de instalação da Autodesk
-      ansible.windows.win_file:
-        path: 'C:\Autodesk'
-        state: absent
+      ansible.windows.win_shell: |
+        $alvo = 'C:\Autodesk'
+        if (-not (Test-Path $alvo)) { 'nada a remover'; exit 0 }
+
+        $antes = [math]::Round(
+          ((Get-ChildItem $alvo -Recurse -Force -File -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum / 1GB), 2)
+
+        Get-ChildItem $alvo -Recurse -Force -ErrorAction SilentlyContinue |
+          ForEach-Object { $_.Attributes = 'Normal' }
+        Remove-Item $alvo -Recurse -Force -ErrorAction SilentlyContinue
+
+        if (Test-Path $alvo) {
+          $resta = [math]::Round(
+            ((Get-ChildItem $alvo -Recurse -Force -File -ErrorAction SilentlyContinue |
+              Measure-Object -Property Length -Sum).Sum / 1GB), 2)
+          "PARCIAL: liberado $($antes - $resta) GB de $antes GB; $resta GB seguem em uso"
+        } else {
+          "LIBERADO: $antes GB"
+        }
+      register: cache_limpo
+      changed_when: "'LIBERADO' in cache_limpo.stdout or 'PARCIAL' in cache_limpo.stdout"
+      failed_when: false
       when: autocad_final.stat.exists | default(false)
+
+    - name: Informar a limpeza do cache
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ cache_limpo.stdout | default('') | trim }}"
+      when: cache_limpo.stdout is defined

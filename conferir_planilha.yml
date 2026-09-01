@@ -1,0 +1,193 @@
+---
+# Compara a planilha "Inventário dos Laboratórios" com a realidade.
+#
+#   ansible-playbook conferir_planilha.yml -e alvo=lab2
+#
+# Somente leitura. Seguro de rodar com aula em andamento.
+#
+# ── COMO OBTER O CSV ──────────────────────────────────────────────────────
+# Na planilha, com a aba do laboratório aberta:
+#   Arquivo > Fazer download > Valores separados por vírgula (.csv)
+# Salve como  inventario/planilha-<lab>.csv  (ex.: inventario/planilha-lab2.csv)
+#
+# A exportação é manual de propósito. Publicar a planilha na web para o
+# playbook buscá-la sozinho a tornaria acessível a quem tivesse o link — e
+# ela contém patrimônios, números de série e endereços MAC.
+#
+# ── O QUE ELE COMPARA ─────────────────────────────────────────────────────
+# Três fontes que deveriam concordar e frequentemente não concordam:
+#
+#   planilha       -> o que o registro patrimonial diz que existe
+#   inventory.ini  -> o que a automação considera gerenciável
+#   rede           -> o que de fato responde
+#
+# Cada desacordo entre elas é um tipo diferente de problema.
+
+- name: Conferir planilha contra a realidade
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Verificar quem responde
+      ansible.windows.win_ping:
+      register: resposta
+      ignore_unreachable: true
+      failed_when: false
+
+- name: Relatório de divergências
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    csv: "{{ inventario_dir }}/planilha-{{ alvo }}.csv"
+
+  tasks:
+    - name: Confirmar que o CSV existe
+      ansible.builtin.stat:
+        path: "{{ csv }}"
+      register: csv_stat
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Instruir a exportação se o CSV não existir
+      ansible.builtin.fail:
+        msg: |
+          {{ csv }} não encontrado.
+
+          Na planilha, com a aba do {{ alvo }} aberta:
+            Arquivo > Fazer download > Valores separados por vírgula (.csv)
+          e salve nesse caminho.
+      when: not csv_stat.stat.exists
+      run_once: true
+
+    - name: Ler o CSV
+      community.general.read_csv:
+        path: "{{ csv }}"
+      register: planilha
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    # As abas não usam os mesmos nomes de coluna: o lab1 chama de 'tombo' o
+    # que as demais chamam de 'Patrimônio', e a caixa das letras varia.
+    # Normalizar aqui evita ter de padronizar a planilha antes de usar.
+    - name: Normalizar as colunas
+      ansible.builtin.set_fact:
+        linhas: >-
+          {{ planilha.list
+             | map('dict2items')
+             | map('items2dict')
+             | list }}
+      run_once: true
+
+    # Só linhas cuja posição é um número de três dígitos. A planilha tem
+    # separadores em branco entre as filas e um rodapé com projetor, lousa,
+    # tela de projeção e ar-condicionado — que têm patrimônio mas não são
+    # estações, e poluiriam o relatório se entrassem como posições.
+    - name: Extrair posição e patrimônio das linhas que são estações
+      ansible.builtin.set_fact:
+        registros: >-
+          {{ registros | default([]) + [{
+               'posicao': (item.posicao | default(item['Posição'] | default(''))) | string | trim,
+               'patrimonio': (item.tombo | default(item['Patrimônio'] | default(''))) | string | trim,
+               'modelo': (item.modelo | default(item['Modelo'] | default(''))) | string | trim
+             }] }}
+      loop: "{{ linhas }}"
+      loop_control:
+        label: "{{ item.posicao | default(item['Posição'] | default('?')) }}"
+      when: >-
+        (item.posicao | default(item['Posição'] | default('')))
+        | string | trim is match('^[0-9]{3}$')
+      run_once: true
+
+    - name: Consolidar as três fontes
+      ansible.builtin.set_fact:
+        # Na planilha COM equipamento: patrimônio preenchido e diferente de
+        # 'vazio'/'sem patrimônio'.
+        planilha_com_equip: >-
+          {{ registros
+             | rejectattr('patrimonio', 'match', '(?i)^\s*(vazio|sem patrimônio|sem patrimonio|)\s*$')
+             | map(attribute='posicao') | list }}
+        planilha_vazias: >-
+          {{ registros
+             | selectattr('patrimonio', 'match', '(?i)^\s*(vazio|sem patrimônio|sem patrimonio)\s*$')
+             | map(attribute='posicao') | list }}
+        no_inventario: "{{ groups[alvo] }}"
+        responderam: >-
+          {{ groups[alvo] | select('in', ansible_play_hosts) | list }}
+      run_once: true
+
+    - name: Montar o relatório
+      ansible.builtin.set_fact:
+        relatorio: |
+          ══════════════════════════════════════════════════════════════
+          CONFERÊNCIA PLANILHA × REALIDADE — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+
+          Planilha: {{ registros | length }} linhas
+                    {{ planilha_com_equip | length }} com equipamento,
+                    {{ planilha_vazias | length }} marcadas como vazias
+          Inventário Ansible: {{ no_inventario | length }} hosts ativos
+          Responderam agora:  {{ responderam | length }}
+
+          ─── 1. NA PLANILHA COM PATRIMÔNIO, MAS FORA DO INVENTÁRIO ────
+          Provável equipamento recolhido sem a planilha ser atualizada.
+          {% set a = planilha_com_equip | difference(no_inventario) %}
+          {% for p in a | sort %}
+            {{ p }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
+
+          ─── 2. NO INVENTÁRIO, MAS A PLANILHA DIZ VAZIA ───────────────
+          Equipamento em uso e não registrado no patrimônio.
+          {% set b = no_inventario | intersect(planilha_vazias) %}
+          {% for p in b | sort %}
+            {{ p }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
+
+          ─── 3. NO INVENTÁRIO E NA PLANILHA, MAS NÃO RESPONDE ─────────
+          Desligada, sem rede, ou com defeito ainda não registrado.
+          {% set c = no_inventario | difference(responderam) %}
+          {% for p in c | sort %}
+            {{ p }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
+
+          ─── 4. POSIÇÕES DUPLICADAS NA PLANILHA ───────────────────────
+          Mesma posição em mais de uma linha — erro de digitação.
+          {% set vistos = [] %}{% set dup = [] %}
+          {% for r in registros %}
+          {% if r.posicao in vistos %}{% set _ = dup.append(r.posicao) %}
+          {% else %}{% set _ = vistos.append(r.posicao) %}{% endif %}
+          {% endfor %}
+          {% for p in dup | unique | sort %}
+            {{ p }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
+
+          ══════════════════════════════════════════════════════════════
+          Divergências: {{ (a | length) + (b | length) + (dup | unique | length) }}
+          (a categoria 3 não é divergência de registro — é estado do momento)
+          ══════════════════════════════════════════════════════════════
+      run_once: true
+
+    - name: Exibir
+      ansible.builtin.debug:
+        msg: "{{ relatorio.split('\n') }}"
+      run_once: true
+
+    - name: Salvar
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/planilha-conferencia-{{ alvo }}.txt"
+        mode: "0640"
+        content: "{{ relatorio }}"
+      delegate_to: localhost
+      become: false
+      run_once: true

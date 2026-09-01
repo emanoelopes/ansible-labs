@@ -1,0 +1,127 @@
+---
+# Liga as estações de um laboratório por Wake-on-LAN.
+#
+#   ansible-playbook acordar.yml -e alvo=lab6
+#   ansible-playbook acordar.yml -e alvo=lab6 --limit '611,612'
+#
+# ── PRÉ-REQUISITOS ────────────────────────────────────────────────────────
+#
+# 1. MAC de cada máquina, coletado com elas ligadas:
+#      ansible-playbook site.yaml -e local=lab6 -t collect_macaddress
+#    Grava inventario/macs-lab6.yml.
+#
+# 2. Wake-on-LAN habilitado na BIOS e no driver de rede de cada estação.
+#    Não é o padrão de fábrica na maioria dos modelos, e habilitar exige ir
+#    máquina a máquina — uma vez só, mas presencialmente.
+#
+# 3. O pacote mágico precisa alcançar a sub-rede das estações. Este é o
+#    obstáculo mais provável aqui: o controlador está em 10.102.226.x e os
+#    laboratórios em 10.102.227.0/24. Pacote mágico é broadcast, e broadcast
+#    não atravessa roteador por padrão.
+#
+#    Duas saídas, ambas dependendo de terceiros ou de infraestrutura:
+#      - pedir à equipe de rede o encaminhamento de broadcast dirigido para
+#        10.102.227.255 (muitas redes o mantêm desabilitado por segurança);
+#      - manter uma máquina dentro da sub-rede dos labs e disparar de lá.
+#
+# Enquanto (2) e (3) não estiverem resolvidos, este playbook roda sem erro e
+# nada acontece — o pacote sai e não chega. Por isso ele CONFERE se as
+# máquinas acordaram, em vez de apenas informar que enviou.
+
+- name: Acordar estações por Wake-on-LAN
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Endereço de broadcast da sub-rede das estações. O padrão do módulo é
+    # 255.255.255.255, que não sai do segmento local do controlador.
+    wol_broadcast: '10.102.227.255'
+    wol_porta: 9
+    # Quanto esperar por uma máquina depois do pacote. Estação desligada
+    # leva de 40 a 90 segundos até o WinRM responder.
+    wol_espera: 180
+
+  tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook acordar.yml -e alvo=lab6"
+      when: alvo is not defined
+
+    - name: Verificar se o mapa de MACs existe
+      ansible.builtin.stat:
+        path: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
+      register: mapa
+
+    - name: Instruir a coleta se o mapa não existir
+      ansible.builtin.fail:
+        msg: |
+          {{ inventario_dir }}/macs-{{ alvo }}.yml não existe.
+
+          Colete os MACs com as máquinas LIGADAS:
+            ansible-playbook site.yaml -e local={{ alvo }} -t collect_macaddress
+
+          Sem os MACs não há como enviar o pacote mágico.
+      when: not mapa.stat.exists
+
+    - name: Carregar o mapa de MACs
+      ansible.builtin.include_vars:
+        file: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
+
+    - name: Separar quem tem MAC de quem não tem
+      ansible.builtin.set_fact:
+        com_mac: "{{ macs.keys() | list | intersect(ansible_play_hosts_all | default(groups[alvo])) }}"
+        sem_mac: "{{ groups[alvo] | difference(macs.keys() | list) }}"
+
+    - name: Avisar sobre máquinas sem MAC coletado
+      ansible.builtin.debug:
+        msg: >-
+          {{ sem_mac | length }} máquina(s) sem MAC no mapa e portanto fora
+          do alcance: {{ sem_mac | join(', ') }}.
+          Estavam desligadas na coleta — repita o collect_macaddress com
+          elas ligadas.
+      when: sem_mac | length > 0
+
+    - name: Enviar o pacote mágico
+      community.general.wakeonlan:
+        mac: "{{ macs[item].mac }}"
+        broadcast: "{{ wol_broadcast }}"
+        port: "{{ wol_porta }}"
+      loop: "{{ com_mac | sort }}"
+      loop_control:
+        label: "{{ item }} ({{ macs[item].mac }})"
+
+    - name: Aguardar as estações responderem
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[item].ansible_host | default(item) }}"
+        port: 5985
+        timeout: "{{ wol_espera }}"
+      loop: "{{ com_mac | sort }}"
+      loop_control:
+        label: "{{ item }}"
+      register: espera
+      failed_when: false
+
+    # A conferência é o que distingue 'enviei o pacote' de 'a máquina ligou'.
+    # Sem ela, uma configuração de rede que descarta o broadcast passaria por
+    # sucesso — o playbook terminaria satisfeito e o laboratório continuaria
+    # apagado.
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: |
+          Wake-on-LAN — {{ alvo }}
+
+          Pacotes enviados: {{ com_mac | length }}
+          Responderam:      {{ espera.results | rejectattr('failed') | list | length }}
+          Não responderam:  {{ espera.results | selectattr('failed') | map(attribute='item') | list | join(', ') | default('nenhuma', true) }}
+          {% if sem_mac | length > 0 %}
+          Sem MAC no mapa:  {{ sem_mac | join(', ') }}
+          {% endif %}
+
+          {% if espera.results | rejectattr('failed') | list | length == 0 %}
+          NENHUMA respondeu. Antes de suspeitar das máquinas, verifique:
+            - o broadcast {{ wol_broadcast }} alcança a sub-rede dos labs?
+            - o Wake-on-LAN está habilitado na BIOS e no driver de rede?
+          Os dois são pré-requisitos externos ao Ansible, e o pacote mágico
+          sai sem erro mesmo quando nenhum deles está atendido.
+          {% endif %}

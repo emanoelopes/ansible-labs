@@ -1,0 +1,91 @@
+---
+# Estado desejado do laboratório 2.
+#
+# O núcleo comum aos cinco labs Windows está em group_vars/windows.yml
+# (estado_pacotes_base, 14 pacotes). Aqui vai só o que o lab2 tem a mais.
+#
+# Derivado de inventario/software-lab2.txt (01/09/2026), 93% de cobertura —
+# 26 de 28 máquinas. Ficaram de fora a 213, em manutenção, e a 225, fora da
+# rede.
+#
+# ATENÇÃO — O LAB2 NÃO TINHA O NÚCLEO COMPLETO
+# Cinco pacotes do núcleo — inkscape, openjdk, reaper, vscode e winrar —
+# existiam apenas em parte das máquinas. Ao aplicar o estado.yml eles serão
+# INSTALADOS onde faltam. É o efeito pretendido: uniformizar. Mas vale saber
+# que a primeira convergência aqui mexe em mais coisa que nos outros labs.
+#
+# Hardware: o mais modesto do parque. Dell OptiPlex 780 e Lenovo antigos,
+# classificados na faixa de desempenho mais baixa da planilha de inventário.
+# Por isso nada de modelagem 3D ou motores de jogo.
+
+estado_pacotes_extra:
+  # ── Navegadores ───────────────────────────────────────────────────
+  - firefox
+
+  # ── IDEs e editores ───────────────────────────────────────────────
+  - pycharm-community
+  - netbeans
+  - notepadplusplus
+  - androidstudio
+  # ATENÇÃO — DOIS ECLIPSE
+  # O inventário achou 'eclipse' e 'eclipse-java-oxygen'. O Oxygen é de 2017
+  # e foi sucedido pelas versões que o pacote 'eclipse' entrega. Declarei
+  # apenas o atual; se alguma disciplina exige o Oxygen especificamente,
+  # acrescente — mas convém saber que serão dois Eclipse na máquina.
+  - eclipse
+
+  # ── Desenvolvimento ───────────────────────────────────────────────
+  - bitvise-ssh-client
+  - postman
+  - autohotkey.portable
+
+  # ATENÇÃO — DISPERSÃO DE PYTHON, PIOR QUE NOS OUTROS LABS
+  # O inventário achou 'python', 'python3' e 'python314' em TODAS as 26
+  # máquinas, mais 'python313' em algumas. São quatro entradas para a mesma
+  # linguagem. O núcleo já declara 'python', que é metapacote apontando para
+  # o python3 mais recente — os demais vêm por dependência ou por instalação
+  # manual antiga. Não declarei nenhum dos outros.
+  #  - python3
+  #  - python313
+  #  - python314
+
+  # ATENÇÃO — DOIS JDKs
+  # O núcleo já traz 'openjdk'. O inventário achou também 'corretto21jdk' em
+  # parte das máquinas. Mantive só o do núcleo.
+  #  - corretto21jdk
+
+  # ── Ciência de dados e estatística ────────────────────────────────
+  - anaconda3
+
+  # ATENÇÃO — CONFLITO COM A ROLE MAINTENANCE
+  # A role maintenance instala o Power BI por outro caminho (tarefa 'powerbi',
+  # com criação de conta de usuário própria e senha do vault). Declarado aqui,
+  # o Chocolatey instalaria uma segunda via, sem essa conta. Considere manter
+  # a instalação pela role e remover esta linha — mesmo caso do mysql no lab1.
+  - powerbi
+
+  # ── Design e áudio ────────────────────────────────────────────────
+  - fontforge
+  - asio4all          # driver de áudio de baixa latência, usado com o Reaper
+
+  # ── Simulação e ensino ────────────────────────────────────────────
+  - processing
+
+  # ── Eletrônica ────────────────────────────────────────────────────
+  - arduino
+
+  # ── Rede ──────────────────────────────────────────────────────────
+  - wireshark
+
+  # ── Periféricos ───────────────────────────────────────────────────
+  - wacom-drivers
+
+  # NÃO DECLARADO — dependência, não escolha de configuração:
+  #  - dotnet4.5.2   (runtime arrastado por outro pacote)
+
+# 'present' garante presença sem atualizar a cada execução.
+estado_pacotes_versao: present
+
+estado_plano_energia: 'Equilibrado'
+estado_desligar_hora: '23:00'
+estado_autologon_usuario: aluno

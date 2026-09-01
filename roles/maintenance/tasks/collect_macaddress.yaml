@@ -1,21 +1,65 @@
-- name: Coletar MAC Address e hostnames do Windows
+# Coleta o MAC de cada estação e grava um mapa por LABORATÓRIO.
+#
+#   ansible-playbook site.yaml -e local=lab6 -t collect_macaddress
+#
+# O arquivo alimenta o acordar.yml (Wake-on-LAN). Rode com as máquinas
+# ligadas — só se coleta o MAC de quem responde.
+#
+# MUDANÇA EM 01/09/2026
+# A versão anterior gravava um mapa MAC -> hostname do Windows, e sobrescrevia
+# o mesmo arquivo a cada laboratório. Dois problemas: o hostname do Windows
+# (SMD0056, por exemplo) não corresponde ao nome no inventário (111, 112...),
+# que é o que o Wake-on-LAN precisa para saber quem acordar; e coletar o lab5
+# apagava o resultado do lab2.
+#
+# Agora é um arquivo por laboratório, indexado pelo nome do inventário, e com
+# hostname e IP junto — úteis para conferir com a planilha de patrimônio.
+
+- name: Identificar o laboratório desta coleta
+  ansible.builtin.set_fact:
+    # Pelo grupo do inventário, não pelo nome do host: derivar 'lab5' do
+    # primeiro dígito de '511' funcionaria hoje, mas quebra na primeira
+    # máquina que fugir da convenção de numeração.
+    lab_da_coleta: >-
+      {{ (hostvars[ansible_play_batch | first].group_names
+          | select('match', '^lab[0-9]+$') | list | first)
+         | default('desconhecido') }}
+  run_once: true
+  tags: never,collect_macaddress
+
+- name: Coletar MAC Address das estações
   ansible.builtin.copy:
-    # Antes era "./lista_mac_hostnames.yml": caminho relativo ao diretório de
-    # onde o ansible-playbook foi chamado, o que gerava o arquivo em lugares
-    # diferentes conforme o cwd — e foi assim que um lista_mac_hostnames.yml
-    # acabou versionado na raiz do repositório.
-    dest: "{{ inventario_dir }}/lista_mac_hostnames.yml"
+    dest: "{{ inventario_dir }}/macs-{{ lab_da_coleta }}.yml"
+    mode: "0640"
     content: |
-      # Arquivo gerado automaticamente em {{ ansible_date_time.date }}
-      mac_to_hostname:
-      {% for host in ansible_play_batch %}
-      {% if hostvars[host]['ansible_default_ipv4']['macaddress'] is defined %}
-        "{{ hostvars[host]['ansible_default_ipv4']['macaddress'] | lower }}": "{{ hostvars[host]['ansible_hostname'] | lower }}"
+      ---
+      # Gerado automaticamente em {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+      # por roles/maintenance/tasks/collect_macaddress.yaml
+      #
+      # Só constam as máquinas que responderam na coleta. As ausentes precisam
+      # de nova execução com elas ligadas.
+      macs:
+      {% for host in ansible_play_batch | sort %}
+      {% if hostvars[host]['ansible_default_ipv4'] is defined and hostvars[host]['ansible_default_ipv4']['macaddress'] is defined %}
+        "{{ host }}":
+          mac: "{{ hostvars[host]['ansible_default_ipv4']['macaddress'] | lower }}"
+          hostname: "{{ hostvars[host]['ansible_hostname'] | default('?') | lower }}"
+          ip: "{{ hostvars[host]['ansible_default_ipv4']['address'] | default('?') }}"
       {% else %}
-        # {{ host }}: Nao foi possivel coletar o MAC Address da interface principal
+        # {{ host }}: MAC não coletado — sem fatos de rede nesta execução
       {% endif %}
       {% endfor %}
   delegate_to: localhost
   run_once: true
   become: false
+  tags: never,collect_macaddress
+
+- name: Informar onde ficou
+  ansible.builtin.debug:
+    msg: >-
+      MACs gravados em {{ inventario_dir }}/macs-*.yml —
+      {{ ansible_play_batch | length }} máquina(s) nesta coleta.
+      Use com: ansible-playbook acordar.yml -e alvo=<lab>
+  delegate_to: localhost
+  run_once: true
   tags: never,collect_macaddress
