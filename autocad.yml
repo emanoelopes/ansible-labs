@@ -23,6 +23,22 @@
 # A alternativa que elimina tudo isso é criar uma imagem de implantação
 # offline (opção "Criar implantação" no instalador), que baixa uma vez e
 # serve as 26 estações do compartilhamento local.
+#
+# ── LICENCIAMENTO: RESOLVIDO FORA DAQUI (01/09/2026) ──────────────────────
+#
+# Este playbook instala o produto, e só. O registro da licença NÃO acontece
+# por WinRM: a instalação termina com sucesso no log, mas
+# 'AdskLicensingInstHelper list' devolve lista vazia. Tentou-se passar
+# --prod_key 001S1 --prod_ver 2027.0.0.F --feature_id ACD --lic_method USER;
+# falta o --config_file (arquivo PIT), cujo caminho não foi localizado.
+#
+# A licença é nomeada por usuário: o aluno entra com o e-mail @alu.ufc.br na
+# primeira abertura do AutoCAD e a Autodesk libera. Ou seja, o passo que
+# faltava é do aluno, não do controlador — automatizá-lo não faria sentido.
+#
+# DECISÃO: encerrado assim. O curso de agosto/2026 rodou com as 17 máquinas
+# instaladas por este playbook e as demais feitas à mão pelo Peterson.
+# Não reabrir sem uma demanda nova.
 
 - name: AutoCAD 2027
   hosts: "{{ alvo | default('nao_definido') }}"

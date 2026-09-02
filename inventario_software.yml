@@ -165,14 +165,50 @@
           {% endfor %}
 
           ─── 3. CHOCOLATEY: SÓ EM ALGUMAS MÁQUINAS ────────────────────
-          Ação: decidir. Divergência dentro do mesmo laboratório costuma ser
-          resíduo de instalação manual. Ou entra na lista, ou é removido.
-
-          {% for p in choco_alguma | difference(choco_todas) | sort %}
-            {{ p }}
+          Ação: decidir. Ou entra na lista, ou é removido.
+          {#
+            A contagem é o que torna a decisão possível. Sem ela esta seção
+            era uma lista de nomes onde 'arduino em 24 de 26' e 'blender em
+            2 de 26' apareciam iguais — e são casos opostos: o primeiro é
+            padrão do laboratório que faltou aplicar, o segundo é resíduo.
+            Por isso a divisão pelo limiar abaixo.
+          #}
+          {% set limiar = 80 %}
+          {% set parciais = choco_alguma | difference(choco_todas) | sort %}
+          {% set ns = namespace(altos=[], baixos=[]) %}
+          {% for p in parciais %}
+          {% set qn = namespace(l=[]) %}
+          {% for h in hosts_ok | sort %}{% if p in hostvars[h].pacotes_choco %}{% set qn.l = qn.l + [h] %}{% endif %}{% endfor %}
+          {% set quem = qn.l %}
+          {% if (quem | length) * 100 / (hosts_ok | length) >= limiar %}
+          {% set ns.altos = ns.altos + [(p, quem)] %}
           {% else %}
-            (nenhum — as máquinas estão homogêneas)
+          {% set ns.baixos = ns.baixos + [(p, quem)] %}
+          {% endif %}
           {% endfor %}
+
+          3a. EM {{ limiar }}% OU MAIS — provavelmente padrão do laboratório
+              que faltou aplicar em algumas máquinas. Candidatos a declarar.
+
+          {% for p, quem in ns.altos %}
+            {{ "%-38s" | format(p) }}{{ quem | length }}/{{ hosts_ok | length }}   falta em: {{ hosts_ok | difference(quem) | sort | join(', ') }}
+          {% else %}
+            (nenhum)
+          {% endfor %}
+
+          3b. ABAIXO DE {{ limiar }}% — provavelmente instalação manual
+              pontual. Confira antes de remover: pode ser software pedido
+              por um professor para uma disciplina específica.
+
+          {% for p, quem in ns.baixos %}
+            {{ "%-38s" | format(p) }}{{ quem | length }}/{{ hosts_ok | length }}   em: {{ quem | join(', ') }}
+          {% else %}
+            (nenhum)
+          {% endfor %}
+          {% if parciais | length == 0 %}
+
+            (nenhum — as máquinas estão homogêneas)
+          {% endif %}
 
           ─── 4. REGISTRO DO WINDOWS: EM TODAS ─────────────────────────
           Instalado fora do Chocolatey (.exe, .msi). Inclui DaVinci, Veyon,
@@ -188,8 +224,15 @@
           Ação: o grupo mais revelador. Software presente em parte do
           laboratório, instalado à mão e sem controle nenhum.
 
+          Aqui a contagem tem outra leitura: como o registro lista a VERSÃO
+          no nome, seis linhas 'Bitvise SSH Client 9.xx' com 1/26 cada não
+          são seis instalações avulsas — são a mesma ferramenta em seis
+          versões, o que é pior. Leia por família, não por linha.
+
           {% for p in reg_alguma | difference(reg_todas) | sort %}
-            {{ p }}
+          {% set qn = namespace(l=[]) %}
+          {% for h in hosts_ok | sort %}{% if p in hostvars[h].pacotes_registro %}{% set qn.l = qn.l + [h] %}{% endif %}{% endfor %}
+            {{ "%-52s" | format(p) }}{{ qn.l | length }}/{{ hosts_ok | length }}{{ '   em: ' ~ (qn.l | join(', ')) if qn.l | length <= 6 else '' }}
           {% else %}
             (nenhum)
           {% endfor %}

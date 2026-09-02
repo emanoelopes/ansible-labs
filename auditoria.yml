@@ -182,7 +182,12 @@
   vars:
     # Laboratórios auditados pelo agendamento. Acrescente conforme forem
     # ganhando group_vars declarado.
-    auditoria_alvos: ['lab1']
+    #
+    # Os cinco desde 01/09/2026. O lab5 é o mais importante da lista: passou
+    # tempo indeterminado inacessível por erro de transporte no inventário,
+    # divergindo em silêncio, e ninguém percebeu — é o caso que justificou
+    # esta auditoria existir.
+    auditoria_alvos: ['lab1', 'lab2', 'lab4', 'lab5', 'lab6']
 
   pre_tasks:
     # O serviço do systemd NÃO herda o ambiente do seu shell. Sem estas
@@ -276,8 +281,14 @@
     # usará de fato. É a única forma de saber se a senha do vault e o envio
     # de e-mail funcionam no contexto do serviço — testar pelo shell não
     # prova nada, porque o shell tem variáveis que o systemd não tem.
+    # --no-block é obrigatório. Sem ele, 'systemctl start' de um serviço
+    # Type=oneshot BLOQUEIA até o serviço terminar — a auditoria dos cinco
+    # laboratórios inteiros, com timeout de WinRM em cada máquina desligada.
+    # Na instalação de 01/09/2026 isso deixou o playbook mudo por mais de
+    # vinte minutos, e a tarefa de espera abaixo virou código morto, porque
+    # só começava depois que o serviço já havia acabado.
     - name: Executar uma vez para validar o contexto do serviço
-      ansible.builtin.command: systemctl start ansible-auditoria.service
+      ansible.builtin.command: systemctl start --no-block ansible-auditoria.service
       become: true
       changed_when: true
 
@@ -285,7 +296,10 @@
       ansible.builtin.command: systemctl is-active ansible-auditoria.service
       register: exec_estado
       until: exec_estado.stdout | trim != 'activating'
-      retries: 60
+      # Cerca de 10 minutos por laboratório: cada um percorre ~30 máquinas e
+      # gasta o timeout de WinRM nas que estiverem desligadas. Um valor fixo
+      # expirava antes do fim assim que a lista passou de um lab.
+      retries: "{{ auditoria_alvos | length * 40 }}"
       delay: 15
       changed_when: false
       failed_when: false
