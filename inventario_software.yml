@@ -103,12 +103,25 @@
       loop_control: { label: "{{ item }}" }
       run_once: true
 
+    # A lista declarada é composta da mesma forma que em
+    # roles/estado_lab/tasks/main.yml: núcleo (group_vars/windows.yml) mais
+    # os extras do laboratório. Ler 'estado_pacotes' NÃO funciona aqui —
+    # essa variável só passa a existir depois que a role a compõe, e este
+    # playbook não chama role nenhuma.
+    #
+    # Enquanto lia 'estado_pacotes', o relatório declarava "0 declarados"
+    # mesmo em laboratório com 31 pacotes na lista, e despejava o núcleo
+    # inteiro na seção 2 como se fosse achado não declarado. Foi assim nos
+    # relatórios de 01 e 02/09/2026.
+    #
     # default([]): laboratório que ainda não tem group_vars/<lab>.yml não
-    # define estado_pacotes. Sem isto, rodar o inventário no lab2 falharia
-    # por variável indefinida — justamente no caso em que ele é mais útil.
+    # define os extras. Sem isto o inventário falharia por variável
+    # indefinida — justamente no caso em que ele é mais útil.
     - name: Definir a lista declarada (vazia se o lab ainda não tem)
       ansible.builtin.set_fact:
-        declarados: "{{ estado_pacotes | default([]) }}"
+        declarados: >-
+          {{ ((estado_pacotes_base | default([])) + (estado_pacotes_extra | default([])))
+             | map('lower') | unique | sort }}
       run_once: true
 
     - name: Medir a cobertura da análise

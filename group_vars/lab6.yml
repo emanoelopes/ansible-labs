@@ -8,18 +8,53 @@
 #
 # Hardware: LENOVO 32091M5, CPU Mark 4664.
 #
-# O lab6 não tem NENHUM pacote além do núcleo. Isso não significa
-# necessariamente que esteja correto: a lista do rascunho é a interseção,
-# ou seja, só o que está em TODAS as máquinas. Vale conferir a seção 3 do
-# relatório — o que aparece em parte das máquinas pode ser justamente o que
-# falta padronizar aqui, como foi o caso no lab1.
+# ── A LISTA VAZIA ERA ARTEFATO DO MÉTODO (corrigido em 02/09/2026) ───────
+# A suspeita registrada acima se confirmou. O rascunho era a INTERSEÇÃO —
+# só o que está em todas as máquinas — e por isso dava zero. A seção 3a do
+# relatório de 02/09/2026, agora com contagem, mostrou dez pacotes entre
+# 80% e 96% das 25 máquinas analisadas: não é resíduo avulso, é o padrão
+# do laboratório que nunca foi aplicado por igual.
 
-estado_pacotes_extra: []
+estado_pacotes_extra:
+  # ── Navegadores ───────────────────────────────────────────────────
+  - firefox           # 24/25
 
-# REMOVIDO DO RASCUNHO — dispersão de Python.
-# 'python3' vem por dependência do metapacote 'python', que está no núcleo.
-# Declarar os dois instala dois interpretadores.
-#  - python3
+  # ── IDEs e editores ───────────────────────────────────────────────
+  - pycharm-community # 24/25
+  - notepadplusplus   # 22/25
+  - netbeans          # 20/25
+
+  # ── Desenvolvimento ───────────────────────────────────────────────
+  - bitvise-ssh-client # 24/25
+  - processing         # 21/25
+
+  # ── Eletrônica ────────────────────────────────────────────────────
+  - arduino           # 24/25
+
+  # ── Áudio ─────────────────────────────────────────────────────────
+  - asio4all          # 24/25, driver de baixa latência usado com o Reaper
+
+  # ── Periféricos ───────────────────────────────────────────────────
+  - wacom-drivers     # 24/25
+
+  # NÃO DECLARADO — segundo JDK.
+  # corretto21jdk está em 21/25, e é candidato legítimo pela contagem. Mas
+  # o núcleo já traz 'openjdk', e declarar os dois põe dois JDKs no PATH de
+  # todas as máquinas — o mesmo problema que já custou tempo no lab1.
+  #
+  # Não declarar NÃO remove: as 21 máquinas que têm continuam tendo. Só
+  # significa que as 4 restantes (631, 633, 634, 641) não vão recebê-lo.
+  # Se o netbeans do lab6 depender especificamente do Corretto, descomente;
+  # se o openjdk servir, o certo é o contrário — desinstalar o Corretto das
+  # 21 e ficar com um JDK só.
+  #  - corretto21jdk
+
+  # NÃO DECLARADO — dispersão de Python, mesma política dos demais labs.
+  # python313 está em 22/25, mas o núcleo já traz 'python', metapacote que
+  # aponta para o python3 mais recente. Declarar os dois instala dois
+  # interpretadores. Vale limpeza na virada de semestre.
+  #  - python313
+  #  - python3
 
 estado_pacotes_versao: present
 
