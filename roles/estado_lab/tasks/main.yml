@@ -68,32 +68,63 @@
 # O win_power_plan só escolhe o plano; os tempos de suspensão vêm do padrão
 # do plano. Aqui eles passam a ser declarados.
 #
-# A idempotência é feita à mão: lê-se o valor atual com 'powercfg /query',
-# compara-se com o desejado, e só se aplica quando difere. Sem isso a tarefa
-# reportaria 'changed' em toda execução e o --check da auditoria ficaria
-# inútil justamente nesta parte.
+# A idempotência é feita à mão: lê-se o valor atual, compara-se com o desejado,
+# e só se aplica quando difere. Sem isso a tarefa reportaria 'changed' em toda
+# execução e o --check da auditoria ficaria inútil justamente nesta parte.
+#
+# ── NÃO VOLTE A LER A SAÍDA DO 'powercfg /query' (corrigido em 03/09/2026) ─
+#
+# A versão anterior procurava a linha 'Current AC Power Setting Index'. As
+# estações têm Windows em português, onde o powercfg imprime "Índice de
+# Configuração de Energia CA Atual" — em outra ordem e com "CA" no lugar de
+# "AC". O Select-String nunca casava, a função devolvia $null, a comparação
+# dava sempre diferente, e a tarefa reaplicava e reportava 'changed' em
+# TODAS as máquinas, em TODA execução.
+#
+# O efeito colateral era o pior: a auditoria semanal detecta desvio pelo que
+# aparece como 'changed' no --check. Com esta tarefa sempre mudando, as 157
+# estações seriam reportadas como divergentes toda quarta-feira — e alerta
+# que sempre dispara é alerta que ninguém lê.
+#
+# A leitura agora é do registro, por GUID. GUID não é traduzido. O da política
+# ativa sai do 'powercfg /getactivescheme', cuja saída também é localizada,
+# mas de onde se extrai só o GUID por expressão regular.
 - name: Ajustar suspensão, monitor e hibernação
   ansible.windows.win_shell: |
     $ErrorActionPreference = 'Stop'
     $mudou = $false
 
+    $rxGuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    $ativo = ([regex]::Match((powercfg /getactivescheme | Out-String), $rxGuid)).Value
+    if (-not $ativo) { throw 'Não foi possível identificar a política de energia ativa.' }
+    $base = "HKLM:\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\$ativo"
+
+    # $null quando a configuração nunca foi alterada em relação ao padrão da
+    # política: a chave só passa a existir depois do primeiro 'powercfg
+    # /change'. Isso faz a primeira execução reportar 'changed' mesmo que o
+    # valor já esteja correto — e as seguintes, não. Converge sozinho.
     function IndiceAtual($sub, $setting) {
-      $saida = powercfg /query SCHEME_CURRENT $sub $setting 2>$null
-      $linha = $saida | Select-String 'Current AC Power Setting Index'
-      if (-not $linha) { return $null }
-      return [Convert]::ToInt32(($linha -split ':')[-1].Trim(), 16)
+      $p = Join-Path $base "$sub\$setting"
+      if (-not (Test-Path $p)) { return $null }
+      return (Get-ItemProperty -Path $p -Name ACSettingIndex -ErrorAction SilentlyContinue).ACSettingIndex
     }
+
+    # GUIDs fixos, os mesmos em qualquer idioma ou versão do Windows.
+    $SUB_SLEEP    = '238c9fa8-0aad-41ed-83f4-97be242c8f20'
+    $STANDBYIDLE  = '29f6c1db-86da-48c5-9fdb-f2b67b1f44da'
+    $SUB_VIDEO    = '7516b95f-f776-4464-8c53-06167f40cc99'
+    $VIDEOIDLE    = '3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e'
 
     # powercfg trabalha em segundos; a declaração é em minutos.
     $alvoSuspender = {{ estado_suspender_apos_min }} * 60
     $alvoMonitor   = {{ estado_desligar_monitor_min }} * 60
 
-    if ((IndiceAtual 'SUB_SLEEP' 'STANDBYIDLE') -ne $alvoSuspender) {
+    if ((IndiceAtual $SUB_SLEEP $STANDBYIDLE) -ne $alvoSuspender) {
       powercfg /change standby-timeout-ac {{ estado_suspender_apos_min }}
       $mudou = $true
     }
 
-    if ((IndiceAtual 'SUB_VIDEO' 'VIDEOIDLE') -ne $alvoMonitor) {
+    if ((IndiceAtual $SUB_VIDEO $VIDEOIDLE) -ne $alvoMonitor) {
       powercfg /change monitor-timeout-ac {{ estado_desligar_monitor_min }}
       $mudou = $true
     }
