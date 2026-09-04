@@ -27,7 +27,24 @@ estado_pacotes_extra:
 
   # ── Navegadores ───────────────────────────────────────────────────
   - firefox
-  - googlechrome
+
+  # REMOVIDO 04/09/2026 — o Chrome NÃO é gerenciado pelo Chocolatey aqui.
+  #
+  # Ele está instalado nas 26 máquinas do lab1 e nas dos outros quatro labs,
+  # mas pelo instalador .exe: aparece na seção 4 dos relatórios (registro do
+  # Windows, em todas), não na seção do Chocolatey. O Chocolatey não enxerga
+  # essa instalação, então declarar 'googlechrome' faz o Ansible querer pôr
+  # uma segunda via em 25 máquinas — em toda execução, para sempre.
+  #
+  # A 147 era a única "conforme" na auditoria de 04/09/2026 justamente por
+  # ser a única onde o Chrome veio pelo Chocolatey. A inversão denunciou o
+  # problema, como no lab2.
+  #
+  # O Chrome se atualiza sozinho e nenhum dos outros labs o declara. Se algum
+  # dia se quiser trazê-lo para o Chocolatey, é migração deliberada — instalar
+  # por cima em 25 estações — e não algo que a lista de estado deva provocar
+  # por acidente.
+  #  - googlechrome
 
   # ── IDEs e editores ───────────────────────────────────────────────
   - pycharm-community
