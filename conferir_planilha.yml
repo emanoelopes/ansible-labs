@@ -172,8 +172,31 @@
             (nenhuma)
           {% endfor %}
 
+          ─── 5. PATRIMÔNIO EM MAIS DE UMA POSIÇÃO ─────────────────────
+          Um equipamento não pode estar em dois lugares. Ou uma das linhas
+          está desatualizada — máquina remanejada e o registro antigo não
+          foi apagado — ou houve erro de digitação num dos números.
+          {#
+            Ao contrário da seção 4, esta compara PATRIMÔNIOS, não posições.
+            Vazios e 'sem patrimônio' ficam de fora: repetem-se por natureza
+            e não indicam erro nenhum.
+          #}
+          {% set pvistos = [] %}{% set pdup = [] %}
+          {% for r in registros %}
+          {% if r.patrimonio | trim | lower not in ['', 'vazio', 'sem patrimônio', 'sem patrimonio', '-'] %}
+          {% if r.patrimonio in pvistos %}{% set _ = pdup.append(r.patrimonio) %}
+          {% else %}{% set _ = pvistos.append(r.patrimonio) %}{% endif %}
+          {% endif %}
+          {% endfor %}
+          {% for pat in pdup | unique | sort %}
+          {% set onde = registros | selectattr('patrimonio', 'equalto', pat) | map(attribute='posicao') | list %}
+            {{ "%-16s" | format(pat) }}posições {{ onde | sort | join(', ') }}
+          {% else %}
+            (nenhum)
+          {% endfor %}
+
           ══════════════════════════════════════════════════════════════
-          Divergências: {{ (a | length) + (b | length) + (dup | unique | length) }}
+          Divergências: {{ (a | length) + (b | length) + (dup | unique | length) + (pdup | unique | length) }}
           (a categoria 3 não é divergência de registro — é estado do momento)
           ══════════════════════════════════════════════════════════════
       run_once: true
