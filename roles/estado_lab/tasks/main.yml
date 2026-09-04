@@ -50,12 +50,48 @@
   check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
   tags: pacotes
 
+# O filtro tem que ser por rc, não por 'failed'.
+#
+# A tarefa acima usa 'failed_when: false' para que um pacote problemático não
+# derrube os outros 30. O efeito colateral é que NADA fica marcado como
+# failed — então este relatório, que filtrava por 'failed', nunca reportava
+# nada. Instalação que não funcionava sumia sem deixar rastro.
+#
+# Foi assim com o anaconda3 no lab2: declarado, nunca instalado, e só
+# descoberto em 03/09/2026 porque a auditoria semanal insistia em acusar 25
+# máquinas fora do estado. Levou uma investigação inteira para chegar a algo
+# que esta tarefa deveria ter dito na primeira execução.
 - name: Relatar pacotes que não puderam ser instalados
   ansible.builtin.debug:
-    msg: >-
+    msg: |
       Falharam em {{ inventory_hostname }}:
-      {{ estado_choco.results | selectattr('failed') | map(attribute='item') | list }}
-  when: estado_choco.results | default([]) | selectattr('failed') | list | length > 0
+      {% for r in estado_falhas %}
+        {{ r.item }} — rc {{ r.rc | default('?') }}: {{ (r.msg | default('sem mensagem')) | truncate(160) }}
+      {% endfor %}
+  vars:
+    estado_falhas: >-
+      {{ estado_choco.results | default([])
+         | rejectattr('rc', 'undefined')
+         | rejectattr('rc', 'equalto', 0) | list }}
+  when: estado_falhas | length > 0
+  tags: pacotes
+
+# Sem isto a falha continua sendo apenas uma linha de debug no meio de
+# centenas: visível para quem está olhando a saída rolar, invisível para
+# quem lê só o PLAY RECAP — que é o caso de toda execução agendada.
+- name: Falhar o host quando algum pacote não instalou
+  ansible.builtin.fail:
+    msg: >-
+      {{ estado_falhas | length }} pacote(s) não instalaram em
+      {{ inventory_hostname }}: {{ estado_falhas | map(attribute='item') | join(', ') }}
+  vars:
+    estado_falhas: >-
+      {{ estado_choco.results | default([])
+         | rejectattr('rc', 'undefined')
+         | rejectattr('rc', 'equalto', 0) | list }}
+  when:
+    - estado_falhas | length > 0
+    - not ansible_check_mode
   tags: pacotes
 
 # --- Energia ------------------------------------------------------------------

@@ -17,6 +17,26 @@
 # Hardware: o mais modesto do parque. Dell OptiPlex 780 e Lenovo antigos,
 # classificados na faixa de desempenho mais baixa da planilha de inventário.
 # Por isso nada de modelagem 3D ou motores de jogo.
+#
+# ── REVISÃO DE 03/09/2026: QUATRO REMOÇÕES ───────────────────────────────
+# A lista original foi derivada de um relatório que ainda não trazia CONTAGEM.
+# Sem ela, "presente no laboratório" e "presente numa máquina do laboratório"
+# eram indistinguíveis, e nove dos dezessete extras existiam em 1 a 4 das 26
+# estações — resíduo de instalação manual, promovido a padrão por engano.
+#
+# Quem revelou isso foi a própria auditoria: ela acusou 25 máquinas fora do
+# estado e a 224 dentro dele. A inversão era a pista. A 224 é a estação
+# reinstalada à mão de onde metade desses pacotes tinha sido lida.
+#
+# Saíram: anaconda3, eclipse, powerbi (os três só na 224) e androidstudio
+# (só na 217). Ficaram netbeans, asio4all e processing, que estavam só na
+# 243 mas formam conjunto coerente e são usados em disciplina; e postman e
+# wireshark, em quatro máquinas contíguas — bancada de redes.
+#
+# REMOVER DA LISTA NÃO DESINSTALA. O estado.yml já havia propagado os nove
+# para as 26 antes desta revisão, e eles continuam lá. A mudança é que
+# deixam de ser exigidos e de gerar alerta. Se quiser desinstalá-los de
+# fato, é operação à parte e deliberada.
 
 estado_pacotes_extra:
   # ── Navegadores ───────────────────────────────────────────────────
@@ -26,13 +46,15 @@ estado_pacotes_extra:
   - pycharm-community
   - netbeans
   - notepadplusplus
-  - androidstudio
-  # ATENÇÃO — DOIS ECLIPSE
-  # O inventário achou 'eclipse' e 'eclipse-java-oxygen'. O Oxygen é de 2017
-  # e foi sucedido pelas versões que o pacote 'eclipse' entrega. Declarei
-  # apenas o atual; se alguma disciplina exige o Oxygen especificamente,
-  # acrescente — mas convém saber que serão dois Eclipse na máquina.
-  - eclipse
+
+  # REMOVIDO 03/09/2026 — estava só na 217, sem conjunto que o justificasse,
+  # e pesa vários GB em cada uma das 26 estações.
+  #  - androidstudio
+
+  # REMOVIDO 03/09/2026 — estava só na 224, junto com eclipse-java-oxygen,
+  # anaconda3, powerbi e dotnet4.5.2. Todo esse bloco é de uma máquina
+  # reinstalada à mão, não do laboratório.
+  #  - eclipse
 
   # ── Desenvolvimento ───────────────────────────────────────────────
   - bitvise-ssh-client
@@ -54,15 +76,18 @@ estado_pacotes_extra:
   # parte das máquinas. Mantive só o do núcleo.
   #  - corretto21jdk
 
-  # ── Ciência de dados e estatística ────────────────────────────────
-  - anaconda3
+  # REMOVIDO 03/09/2026 — estava só na 224. E não instalava: era o único
+  # pacote que a auditoria continuava acusando como ausente em 25 máquinas
+  # DEPOIS de o estado.yml ter rodado. A falha era invisível porque a tarefa
+  # de instalação usa 'failed_when: false' e o relatório filtra por 'failed'.
+  #  - anaconda3
 
-  # ATENÇÃO — CONFLITO COM A ROLE MAINTENANCE
-  # A role maintenance instala o Power BI por outro caminho (tarefa 'powerbi',
-  # com criação de conta de usuário própria e senha do vault). Declarado aqui,
-  # o Chocolatey instalaria uma segunda via, sem essa conta. Considere manter
-  # a instalação pela role e remover esta linha — mesmo caso do mysql no lab1.
-  - powerbi
+  # REMOVIDO 03/09/2026 — estava só na 224, e havia o conflito já anotado: a
+  # role maintenance instala o Power BI por outro caminho (tarefa 'powerbi',
+  # com conta de usuário própria e senha do vault). Declarado aqui, o
+  # Chocolatey instalaria uma segunda via, sem essa conta. A instalação
+  # continua sendo pela role — mesmo caso do mysql no lab1.
+  #  - powerbi
 
   # ── Design e áudio ────────────────────────────────────────────────
   - fontforge
