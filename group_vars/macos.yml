@@ -1,7 +1,33 @@
 # Group variables for macOS hosts
 # Encrypt the companion file group_vars/macos_vault.yml with Ansible Vault.
+#
+# ┌────────────────────────────────────────────────────────────────────────┐
+# │ ESTE ARQUIVO NÃO ESTÁ SENDO CARREGADO (constatado em 04/09/2026)       │
+# └────────────────────────────────────────────────────────────────────────┘
+#
+# Um group_vars/<nome>.yml só é lido se existir um grupo com esse nome no
+# inventário. Não existe grupo 'macos' no inventory.ini — o lab3 está apenas
+# como [lab3], com suas próprias [lab3:vars]. Portanto nada daqui tem efeito:
+# nem ansible_user, nem ansible_password, nem ansible_become_password. O
+# group_vars/macos_vault.yml está órfão pela mesma razão.
+#
+# Além disso, 'ansible_user' abaixo continua com o valor de exemplo. Ligar o
+# grupo sem corrigi-lo seria pior que deixar como está: hoje os playbooks do
+# lab3 usariam o usuário padrão do SSH, e passariam a tentar 'seu_usuario'.
+#
+# PARA ATIVAR, na ordem:
+#   1. preencher ansible_user com o usuário real dos iMacs;
+#   2. preencher vault_macos_password em group_vars/macos_vault.yml (cifrado);
+#   3. acrescentar ao inventory.ini:
+#          [macos:children]
+#          lab3
+#   4. testar com um host só antes do laboratório inteiro:
+#          ansible -m ping lab3 --limit 311
+#
+# O lab3 está parado há tempos (informação do responsável em 04/09/2026) e a
+# migração dele para o modelo de estado declarado ficou para um próximo ciclo.
 
-ansible_user: "seu_usuario"
+ansible_user: "seu_usuario"   # ← valor de exemplo, nunca preenchido
 
 # Use the same secret for SSH and sudo to avoid -k and -K prompts
 ansible_password: "{{ vault_macos_password }}"
