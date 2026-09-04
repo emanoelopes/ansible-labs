@@ -14,6 +14,20 @@
 # relatório de 02/09/2026, agora com contagem, mostrou dez pacotes entre
 # 80% e 96% das 25 máquinas analisadas: não é resíduo avulso, é o padrão
 # do laboratório que nunca foi aplicado por igual.
+#
+# ── AS MÁQUINAS 633 E 634 SÃO DE OUTRO MODELO (04/09/2026) ───────────────
+# Sete pacotes apareceram em exatamente 2 das 25 máquinas, e sempre nas
+# mesmas duas: docker-desktop, wsl2, r.project, r.studio, python314,
+# github-desktop e postman, todos em 633 e 634.
+#
+# Não é resíduo de instalação manual, que era a hipótese inicial. São as
+# duas únicas estações que não são LENOVO 32091M5 — uma Positivo e uma
+# DATEN DB85PRO — e ambas foram reequipadas em 06/07/26 com imagem própria.
+# O software difere porque a imagem difere.
+#
+# Por isso nenhum dos sete está declarado: exigi-los instalaria em 23
+# máquinas software que só existe ali por acidente de procedência. A
+# divergência nessas duas posições é esperada, e não é desvio.
 
 estado_pacotes_extra:
   # ── Navegadores ───────────────────────────────────────────────────

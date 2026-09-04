@@ -101,17 +101,26 @@
         | string | trim is match('^[0-9]{3}$')
       run_once: true
 
+    # O que distingue posição vazia de posição ocupada é o MODELO, não o
+    # patrimônio.
+    #
+    # A versão anterior olhava o patrimônio e tratava 'sem patrimônio' como
+    # posição vazia. No lab1 isso é falso para QUINZE máquinas: os Dell
+    # Inspiron 5400 AIO estão em uso e registrados com etiqueta 'não se
+    # aplica' e patrimônio 'Sem patrimônio' — existem, funcionam, e só não
+    # têm número de tombo. Seriam todas reportadas como divergência.
+    #
+    # Posição de fato vazia se reconhece pelo modelo: 'indisponível', '-' ou
+    # em branco. Máquina sem etiqueta continua sendo máquina.
     - name: Consolidar as três fontes
       ansible.builtin.set_fact:
-        # Na planilha COM equipamento: patrimônio preenchido e diferente de
-        # 'vazio'/'sem patrimônio'.
         planilha_com_equip: >-
           {{ registros
-             | rejectattr('patrimonio', 'match', '(?i)^\s*(vazio|sem patrimônio|sem patrimonio|)\s*$')
+             | rejectattr('modelo', 'match', '(?i)^\s*(indispon[íi]vel|-|)\s*$')
              | map(attribute='posicao') | list }}
         planilha_vazias: >-
           {{ registros
-             | selectattr('patrimonio', 'match', '(?i)^\s*(vazio|sem patrimônio|sem patrimonio)\s*$')
+             | selectattr('modelo', 'match', '(?i)^\s*(indispon[íi]vel|-|)\s*$')
              | map(attribute='posicao') | list }}
         no_inventario: "{{ groups[alvo] }}"
         responderam: >-
@@ -183,7 +192,7 @@
           #}
           {% set pvistos = [] %}{% set pdup = [] %}
           {% for r in registros %}
-          {% if r.patrimonio | trim | lower not in ['', 'vazio', 'sem patrimônio', 'sem patrimonio', '-'] %}
+          {% if r.patrimonio | trim | lower not in ['', 'vazio', 'sem patrimônio', 'sem patrimonio', '-', 'não se aplica', 'nao se aplica'] %}
           {% if r.patrimonio in pvistos %}{% set _ = pdup.append(r.patrimonio) %}
           {% else %}{% set _ = pvistos.append(r.patrimonio) %}{% endif %}
           {% endif %}
