@@ -124,11 +124,31 @@ estado_pacotes_extra:
 # herança de imagem, como se verificou nas 633 e 634 do lab6. Quem esteve
 # na intervenção sabe; preencha com o motivo e a data.
 #
-# estado_pacotes_pontuais:
-#   - pacote: anaconda3
-#     posicoes: ['224']
-#     motivo: '...'
-#     data: '...'
+estado_pacotes_pontuais:
+  - pacote: anaconda3
+    posicoes: ['224']
+    motivo: 'Instalação a pedido'
+    data: 'Indeterminada'
+
+  - pacote: powerbi
+    posicoes: ['224']
+    motivo: >-
+      Instalação a pedido. ATENÇÃO: a role maintenance também instala o
+      Power BI, por outro caminho e com conta de usuário própria. Se algum
+      dia se quiser padronizar, é por lá, não pelo Chocolatey.
+    data: 'Indeterminada'
+
+  - pacote: eclipse
+    posicoes: ['224']
+    motivo: >-
+      Instalação a pedido. A 224 tem também 'eclipse-java-oxygen', versão
+      de 2017 — são dois Eclipse na mesma máquina.
+    data: 'Indeterminada'
+
+  - pacote: androidstudio
+    posicoes: ['217']
+    motivo: 'Instalação a pedido'
+    data: 'Indeterminada'
 
 # 'present' garante presença sem atualizar a cada execução.
 estado_pacotes_versao: present
