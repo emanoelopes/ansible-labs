@@ -108,6 +108,28 @@ estado_pacotes_extra:
   # NÃO DECLARADO — dependência, não escolha de configuração:
   #  - dotnet4.5.2   (runtime arrastado por outro pacote)
 
+# ── ATENDIMENTOS PONTUAIS ────────────────────────────────────────────────
+# Software instalado numa máquina a pedido, de propósito, para uma demanda
+# específica. Não é padrão do laboratório e não é resíduo.
+#
+# Registrar aqui não instala nada: serve para o inventário parar de
+# devolver esses pacotes como decisão em aberto a cada revisão. Eles saem
+# da seção 3b e passam para a 3c, que apenas confere se continuam na
+# máquina onde foram anotados.
+#
+# Os quatro removidos da lista declarada em 03/09/2026 — anaconda3,
+# eclipse e powerbi na 224, androidstudio na 217 — são candidatos naturais
+# a entrar aqui, SE tiverem sido atendimentos pontuais. Não registrei
+# porque não sei: podem ter sido isso, ou resíduo de reinstalação, ou
+# herança de imagem, como se verificou nas 633 e 634 do lab6. Quem esteve
+# na intervenção sabe; preencha com o motivo e a data.
+#
+# estado_pacotes_pontuais:
+#   - pacote: anaconda3
+#     posicoes: ['224']
+#     motivo: '...'
+#     data: '...'
+
 # 'present' garante presença sem atualizar a cada execução.
 estado_pacotes_versao: present
 

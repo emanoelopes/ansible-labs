@@ -124,6 +124,25 @@
              | map('lower') | unique | sort }}
       run_once: true
 
+    # Atendimentos pontuais: software instalado numa máquina a pedido, de
+    # propósito, para uma demanda específica. Não é padrão do laboratório e
+    # não é resíduo — é intervenção única e legítima.
+    #
+    # Sem este registro, a seção 3b devolve esses pacotes como decisão em
+    # aberto em TODA revisão, e quem revisa tem de redescobrir do zero se
+    # aquilo foi de propósito. Com dezenas de linhas, é o tipo de ruído que
+    # faz o relatório inteiro perder credibilidade.
+    #
+    # Declarar aqui não instala nada e não impede nada. Só diz: isto já foi
+    # decidido, pare de perguntar.
+    - name: Carregar os atendimentos pontuais registrados
+      ansible.builtin.set_fact:
+        pontuais: "{{ estado_pacotes_pontuais | default([]) }}"
+        pontuais_nomes: >-
+          {{ (estado_pacotes_pontuais | default([]))
+             | map(attribute='pacote') | map('lower') | list }}
+      run_once: true
+
     - name: Medir a cobertura da análise
       ansible.builtin.set_fact:
         hosts_ok: "{{ ansible_play_hosts }}"
@@ -209,14 +228,41 @@
             (nenhum)
           {% endfor %}
 
-          3b. ABAIXO DE {{ limiar }}% — provavelmente instalação manual
-              pontual. Confira antes de remover: pode ser software pedido
-              por um professor para uma disciplina específica.
+          3b. ABAIXO DE {{ limiar }}%, SEM REGISTRO — decisão em aberto.
+              Pode ser resíduo de reinstalação, herança de imagem de outra
+              máquina, ou atendimento pontual que ninguém anotou. Confira
+              antes de remover.
 
-          {% for p, quem in ns.baixos %}
+              Se foi intervenção pontual e deliberada, registre em
+              group_vars/{{ alvo }}.yml para não reaparecer aqui:
+
+                estado_pacotes_pontuais:
+                  - pacote: nome-no-chocolatey
+                    posicoes: ['224']
+                    motivo: 'pedido do prof. Fulano, disciplina X'
+                    data: '2026-09-04'
+
+          {% for p, quem in ns.baixos if p not in pontuais_nomes %}
             {{ "%-38s" | format(p) }}{{ quem | length }}/{{ hosts_ok | length }}   em: {{ quem | join(', ') }}
           {% else %}
             (nenhum)
+          {% endfor %}
+
+          3c. ATENDIMENTOS PONTUAIS REGISTRADOS — nada a decidir.
+              Instalados de propósito, para demanda específica. Constam aqui
+              só para conferência: se a máquina onde estão hoje não for a
+              que está registrada, alguma coisa mudou de lugar.
+
+          {% for reg in pontuais %}
+          {% set nome = reg.pacote | lower %}
+          {% set achado = (ns.altos + ns.baixos) | selectattr(0, 'equalto', nome) | map(attribute=1) | list %}
+          {% set onde = achado | first | default([]) %}
+            {{ "%-38s" | format(reg.pacote) }}registrado em {{ reg.posicoes | join(', ') }}{% if onde %}, encontrado em {{ onde | join(', ') }}{% if onde | sort != reg.posicoes | sort %}   ← DIVERGE{% endif %}{% else %}, NÃO ENCONTRADO{% endif %}
+
+              {{ reg.motivo | default('sem motivo registrado') }}{% if reg.data is defined %} ({{ reg.data }}){% endif %}
+
+          {% else %}
+            (nenhum registrado)
           {% endfor %}
           {% if parciais | length == 0 %}
 
