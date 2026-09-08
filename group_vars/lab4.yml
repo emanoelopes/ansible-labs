@@ -25,9 +25,26 @@ estado_pacotes_extra:
   - bitvise-ssh-client
   - autohotkey.portable
 
+  # DECLARADO EM 08/09/2026 — 25 de 26 máquinas, faltava só na 425.
+  # Justificado pelo mapa de salas: Programação para Web I e Teste de
+  # Software Aplicado, ambas alocadas neste laboratório.
+  - postman
+
   # Subsistema Linux. Estava instalado nas máquinas, e o playbook wsl.yml
   # cuida da ativação do recurso do Windows, que o pacote sozinho não faz.
   - wsl2
+
+  # DECLARADO EM 08/09/2026 — 24 de 26, faltava na 426 e na 437.
+  #
+  # Havia uma incoerência: o laboratório declarava 'wsl2' e não declarava
+  # quem o usa. O Docker Desktop roda sobre o WSL2, então o subsistema
+  # estava garantido e a ferramenta que justifica sua presença, não.
+  #
+  # Mapa de salas: Programação para Web I, Banco de Dados I e Redes de
+  # Computadores. É pacote pesado e exige virtualização habilitada na BIOS
+  # — se falhar em alguma máquina, o relatório de falhas do estado_lab
+  # aponta qual.
+  - docker-desktop
 
   # ── Estatística ───────────────────────────────────────────────────
   - r.project
@@ -53,6 +70,47 @@ estado_pacotes_extra:
 # Declarar os três deixaria interpretadores concorrendo no PATH.
 #  - python3
 #  - python314
+
+# ── HERANÇA DE IMAGEM DA 437 ─────────────────────────────────────────────
+# Registrados como pontuais para o relatório parar de devolvê-los como
+# decisão em aberto. Não foram instalações a pedido: chegaram junto com o
+# disco.
+#
+# A 437 recebeu, em 04/09/2026, uma máquina vinda da posição 141 do lab1
+# (patrimônio 2020004283, Dell OptiPlex 3070). Ficou o SSD que veio com
+# ela, então roda a imagem do lab1 — clone da 143, Windows 11 Pro. O
+# estado.yml instala a lista do lab4 por cima, e 'present' não remove nada.
+#
+# Os quatro abaixo são declarados no lab1, para Inteligência Computacional
+# Aplicada a Jogos I e Ferramentas de Modelagem Tridimensional I. No lab4
+# não têm disciplina que os justifique.
+#
+# A previsão de que apareceriam foi registrada no inventory.ini antes de
+# haver dado; o relatório de 08/09/2026 a confirmou: seção 3b inteira do
+# lab4, quatro pacotes, todos 1/26, todos na 437.
+#
+# Uniformizar de verdade exigiria reimagem — não é coisa que a lista de
+# estado resolva.
+estado_pacotes_pontuais:
+  - pacote: unity-hub
+    posicoes: ['437']
+    motivo: 'Herança da imagem do lab1, que veio no SSD da máquina'
+    data: '2026-09-04'
+
+  - pacote: blender
+    posicoes: ['437']
+    motivo: 'Herança da imagem do lab1, que veio no SSD da máquina'
+    data: '2026-09-04'
+
+  - pacote: epicgameslauncher
+    posicoes: ['437']
+    motivo: 'Herança da imagem do lab1, que veio no SSD da máquina'
+    data: '2026-09-04'
+
+  - pacote: python313
+    posicoes: ['437']
+    motivo: 'Herança da imagem do lab1, que veio no SSD da máquina'
+    data: '2026-09-04'
 
 estado_pacotes_versao: present
 

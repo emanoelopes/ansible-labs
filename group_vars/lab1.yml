@@ -90,6 +90,40 @@ estado_pacotes_extra:
   - wacom-drivers
 
 # 'present' garante presença sem atualizar a cada execução. Trocar para
+# ── O QUE A SEÇÃO 3b DEVOLVEU EM 08/09/2026 ──────────────────────────────
+# Registrado aqui para o relatório parar de perguntar. Nenhum dos três deve
+# ser declarado, e por motivos diferentes.
+estado_pacotes_pontuais:
+  # A 147 é a ÚNICA máquina do lab1 onde o Chrome veio pelo Chocolatey. Nas
+  # outras 25 ele está instalado pelo .exe e aparece na seção 4 do
+  # relatório, registro do Windows. Foi essa inversão — a máquina fora do
+  # padrão sendo a única "conforme" — que denunciou o erro de declarar
+  # 'googlechrome' aqui, corrigido em 04/09/2026.
+  #
+  # NÃO DECLARAR: o Chocolatey não enxerga a instalação por .exe, e exigi-lo
+  # poria uma segunda via em 25 máquinas, em toda execução.
+  - pacote: googlechrome
+    posicoes: ['147']
+    motivo: 'Única máquina com Chrome via Chocolatey; nas demais é instalação .exe'
+    data: '2026-09-04'
+
+  # Instalados pela role smd, não pelo estado declarado: ela usa
+  # package_params '/Password:{{ vault_senha_mysql_root }}' para definir a
+  # senha de root. A 111 foi a máquina piloto do trabalho de agosto/2026.
+  #
+  # NÃO DECLARAR: pelo Chocolatey viria sem o parâmetro de senha, e o banco
+  # ficaria com credencial diferente da que a role configura. É o mesmo
+  # caso do powerbi no lab2.
+  - pacote: mysql
+    posicoes: ['147']
+    motivo: 'Instalado pela role smd, com senha de root via package_params'
+    data: 'Indeterminada'
+
+  - pacote: mysql.workbench
+    posicoes: ['111', '147']
+    motivo: 'Instalado pela role smd junto com o mysql; a 111 foi a máquina piloto'
+    data: 'Indeterminada'
+
 # 'latest' quando houver janela para atualizações não supervisionadas.
 estado_pacotes_versao: present
 
