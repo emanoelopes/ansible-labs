@@ -7,6 +7,29 @@
 #
 # Para reiniciar em vez de desligar:
 #   ansible-playbook desligar.yml -e alvo=lab1 -e acao=reiniciar
+#
+# ── LABORATÓRIO PODE ESTAR EM USO ─────────────────────────────────────────
+#
+# SÓ VERIFICAR, sem desligar nada — mostra quem está logado e há quanto
+# tempo a sessão está ociosa:
+#   ansible-playbook desligar.yml -e alvo=lab2 -t verificar
+#
+# DESLIGAR COM AVISO NA TELA, dando tempo de salvar o trabalho:
+#   ansible-playbook desligar.yml -e alvo=lab2 -e atraso=300
+#
+# O Windows exibe uma caixa de diálogo com a mensagem e a contagem
+# regressiva. Quem estiver na máquina pode abortar com 'shutdown /a' no
+# Executar, e a mensagem padrão diz isso.
+#
+# SOBRE A DETECÇÃO: o autologon mantém o usuário 'aluno' com sessão aberta
+# em TODA estação, ligada ou ociosa. Então "tem usuário logado" não
+# distingue nada. O sinal útil é o TEMPO OCIOSO da sessão: alguns minutos
+# indicam uso recente; horas indicam máquina esquecida ligada. É indício,
+# não prova — quem acabou de sair para o café aparece como ativo, e quem
+# está lendo na tela há vinte minutos aparece como ocioso.
+#
+# Por isso o playbook NÃO decide sozinho pular máquina: ele mostra, e você
+# decide. Automatizar essa escolha seria dar ares de certeza a um palpite.
 
 - name: Desligar estações
   hosts: "{{ alvo | default('nao_definido') }}"
@@ -14,9 +37,13 @@
 
   vars:
     acao: desligar
-    # Segundos até o desligamento. 0 é imediato; um valor maior dá margem para
-    # alguém cancelar com 'shutdown /a' se o comando foi disparado por engano.
+    # Segundos até o desligamento. 0 é imediato; um valor maior exibe a
+    # caixa de aviso na tela e dá margem para cancelar com 'shutdown /a'.
+    # Com laboratório possivelmente em uso, 300 é razoável.
     atraso: 0
+    mensagem: >-
+      Suporte SMD: esta estacao sera desligada. Salve seu trabalho agora.
+      Para cancelar, abra Executar (tecla Windows + R) e digite: shutdown /a
 
   tasks:
     - name: Confirmar que um alvo foi informado
@@ -25,12 +52,63 @@
       when: alvo is not defined
       run_once: true
       delegate_to: localhost
+      tags: always
+
+    # ── Verificação: quem está logado e há quanto tempo está parado ───────
+    #
+    # 'quser' é localizado no cabeçalho e nos rótulos, mas o TEMPO OCIOSO
+    # sai em formato fixo: 'none', minutos, ou 'h:mm'. Extrai-se por posição
+    # e formato, não por nome de coluna — mesma lição do powercfg, onde
+    # procurar texto traduzido quebrou a idempotência da energia.
+    - name: Levantar sessões e tempo ocioso
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+        $saida = quser 2>$null
+        if (-not $saida -or $saida.Count -lt 2) { 'SEM SESSAO'; exit 0 }
+        foreach ($linha in $saida | Select-Object -Skip 1) {
+          $c = ($linha.Trim() -split '\s{2,}')
+          # penúltimo campo é o tempo ocioso; último é o horário de logon
+          if ($c.Count -ge 3) { "{0} | ocioso: {1}" -f $c[0].TrimStart('>'), $c[-2] }
+        }
+      register: sessoes
+      changed_when: false
+      failed_when: false
+      tags: [always, verificar]
+
+    - name: Mostrar as sessões
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ (sessoes.stdout | default('') | trim) | default('sem resposta', true) }}
+      tags: [always, verificar]
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_play
+      when: "'verificar' in ansible_run_tags"
+      tags: [always, verificar]
+
+    - name: Avisar sobre o atraso escolhido
+      ansible.builtin.debug:
+        msg: >-
+          {% if atraso | int == 0 %}
+          ATRASO ZERO — desligamento imediato, sem aviso na tela. Se o
+          laboratório pode estar em uso, cancele agora e repita com
+          '-e atraso=300'.
+          {% else %}
+          Aviso na tela por {{ atraso }} segundos antes de desligar.
+          {% endif %}
+      run_once: true
+      tags: always
 
     # async 1 + poll 0 = dispara e não espera. É obrigatório aqui: a máquina
     # derruba a conexão ao desligar, e sem isso o Ansible interpretaria o
     # sucesso do comando como falha de rede em todas as estações.
+    # /c exibe a mensagem na caixa de aviso do Windows. Só aparece quando há
+    # atraso: com /t 0 a máquina cai antes de qualquer coisa ser desenhada.
     - name: Desligar estação Windows
-      ansible.windows.win_shell: "shutdown /s /f /t {{ atraso }}"
+      ansible.windows.win_shell: >-
+        shutdown /s /f /t {{ atraso }}
+        {% if atraso | int > 0 %}/c "{{ mensagem | trim }}"{% endif %}
       async: 1
       poll: 0
       when:
@@ -38,7 +116,9 @@
         - acao == 'desligar'
 
     - name: Reiniciar estação Windows
-      ansible.windows.win_shell: "shutdown /r /f /t {{ atraso }}"
+      ansible.windows.win_shell: >-
+        shutdown /r /f /t {{ atraso }}
+        {% if atraso | int > 0 %}/c "{{ mensagem | trim }}"{% endif %}
       async: 1
       poll: 0
       when:
