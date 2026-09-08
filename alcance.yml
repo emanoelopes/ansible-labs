@@ -1,0 +1,135 @@
+---
+# Distingue máquina DESLIGADA de máquina LIGADA COM CONEXÃO ERRADA.
+#
+#   ansible-playbook alcance.yml -e alvo=lab1
+#   ansible-playbook alcance.yml -e alvo=lab1 --limit 136
+#
+# Somente leitura, roda do controlador, não toca nas estações. Seguro com
+# aula em andamento.
+#
+# ── POR QUE ISTO EXISTE ───────────────────────────────────────────────────
+#
+# A auditoria e o inventário tratam máquina inalcançável como informação de
+# cobertura, não como alerta — e com razão: estação desligada é o estado
+# normal fora do horário de aula, e alertar sobre isso toda semana
+# transformaria o relatório em ruído.
+#
+# O problema é que "desligada" e "WinRM mal configurado" produzem
+# exatamente o mesmo silêncio. Foi assim que o lab5 inteiro ficou fora da
+# automação por tempo indeterminado: o inventário o declarava na porta 5986
+# com transporte 'basic', o listener HTTPS não existia mais, todas as
+# conexões davam timeout, e nada nunca acusou nada. Descobriu-se por acaso.
+#
+# A distinção é possível sem depender do WinRM: uma máquina LIGADA aceita
+# conexão em alguma porta. Se 445 ou 135 respondem e a 5985 não, a estação
+# está de pé e o problema é de configuração — não de energia.
+#
+# ── POR QUE NÃO USAR PING ─────────────────────────────────────────────────
+# O firewall do Windows bloqueia ICMP echo por padrão em vários perfis.
+# Ausência de ping não prova nada, e presença tampouco distingue. Portas
+# TCP são sinal melhor porque um serviço só responde se o sistema subiu.
+
+- name: Diagnosticar alcance das estações
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Segundos por porta. Baixo de propósito: são cinco portas por máquina,
+    # e o valor alto só faz a checagem de um laboratório inteiro demorar.
+    espera: 2
+    portas:
+      - { numero: 5985, nome: 'WinRM HTTP' }
+      - { numero: 5986, nome: 'WinRM HTTPS' }
+      - { numero: 445,  nome: 'SMB' }
+      - { numero: 135,  nome: 'RPC' }
+      - { numero: 22,   nome: 'SSH' }
+
+  tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook alcance.yml -e alvo=lab1"
+      when: alvo is not defined
+
+    - name: Sondar as portas de cada estação
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[item.0].ansible_host | default(item.0) }}"
+        port: "{{ item.1.numero }}"
+        timeout: "{{ espera }}"
+        state: started
+      loop: "{{ (groups[alvo] | sort) | product(portas) | list }}"
+      loop_control:
+        label: "{{ item.0 }}:{{ item.1.numero }}"
+      register: sonda
+      failed_when: false
+      changed_when: false
+
+    # Reorganiza o resultado plano do loop num mapa host -> portas abertas.
+    - name: Consolidar por máquina
+      ansible.builtin.set_fact:
+        abertas: >-
+          {{ abertas | default({}) | combine({
+               item.item.0: (abertas | default({})).get(item.item.0, [])
+                            + ([item.item.1.numero] if not item.failed else [])
+             }) }}
+      loop: "{{ sonda.results }}"
+      loop_control:
+        label: "{{ item.item.0 }}:{{ item.item.1.numero }}"
+
+    # A classificação vive no template do relatório: em Ansible ela exigiria
+    # quatro set_fact encadeados, e ficaria mais difícil de acompanhar do
+    # que o laço que a produz.
+    - name: Relatório
+      ansible.builtin.debug:
+        msg: "{{ relatorio.split('\n') }}"
+      vars:
+        relatorio: |
+          ══════════════════════════════════════════════════════════════
+          ALCANCE — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+
+          {% set resp = [] %}{% set errada = [] %}{% set liga_sem = [] %}{% set mortas = [] %}
+          {% for h in groups[alvo] | sort %}
+          {% set p = abertas[h] | default([]) %}
+          {% if 5985 in p %}{% set _ = resp.append(h) %}
+          {% elif 5986 in p %}{% set _ = errada.append(h) %}
+          {% elif 445 in p or 135 in p or 22 in p %}{% set _ = liga_sem.append((h, p)) %}
+          {% else %}{% set _ = mortas.append(h) %}{% endif %}
+          {% endfor %}
+          ─── RESPONDEM NO WinRM — nada a fazer ────────────────────────
+            {{ resp | length }} de {{ groups[alvo] | length }}{% if resp %}: {{ resp | join(', ') }}{% endif %}
+
+          ─── LIGADAS, MAS SEM WinRM NA PORTA ESPERADA ─────────────────
+          Estas estão de pé e fora da automação. É o caso que a auditoria
+          NÃO acusa, porque inalcançável passa por desligada.
+          {% for h in errada %}
+            {{ h }}   respondeu na 5986 (WinRM HTTPS)
+                → o inventário aponta para a 5985. Ou a estação está com
+                  listener HTTPS, ou o grupo dela no inventory.ini está
+                  errado. Foi o caso do lab5 inteiro até 01/09/2026.
+          {% endfor %}
+          {% for h, p in liga_sem %}
+            {{ h }}   respondeu em {{ p | join(', ') }}, mas não no WinRM
+                → sistema no ar e serviço WinRM ausente ou parado. Exige
+                  configuração na máquina; não se resolve pelo Ansible.
+          {% endfor %}
+          {% if not errada and not liga_sem %}
+            (nenhuma)
+          {% endif %}
+
+          ─── SEM RESPOSTA EM NENHUMA PORTA ────────────────────────────
+          Provavelmente desligadas. Se uma delas deveria estar ligada,
+          aí sim é defeito ou problema de rede.
+            {{ mortas | length }}{% if mortas %}: {{ mortas | join(', ') }}{% endif %}
+
+          ══════════════════════════════════════════════════════════════
+          {% if errada or liga_sem %}
+          {{ (errada | length) + (liga_sem | length) }} máquina(s) ligadas e invisíveis para a automação.
+
+          Este é o número que importa: estação desligada volta sozinha na
+          próxima aula; estação mal configurada não volta nunca.
+          {% else %}
+          Nenhuma máquina ligada está fora do alcance da automação.
+          {% endif %}
+          ══════════════════════════════════════════════════════════════
