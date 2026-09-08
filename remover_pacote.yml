@@ -1,0 +1,117 @@
+---
+# Remove um pacote Chocolatey das estações de um laboratório.
+#
+#   prévia (não remove nada):
+#     ansible-playbook remover_pacote.yml -e alvo=lab2 -e pacote=androidstudio
+#
+#   remover de verdade:
+#     ansible-playbook remover_pacote.yml -e alvo=lab2 -e pacote=androidstudio -t remover
+#
+#   uma máquina só:
+#     ansible-playbook remover_pacote.yml -e alvo=lab2 -e pacote=androidstudio -t remover --limit 224
+#
+# ── POR QUE PRÉVIA POR PADRÃO ─────────────────────────────────────────────
+# Desinstalar é a operação menos reversível do parque: reinstalar custa
+# tempo de banda e de aula, e software removido por engano só reaparece
+# quando alguém percebe a falta — às vezes no meio de uma aula. Então a
+# ação exige a tag explícita, e o padrão é apenas mostrar onde o pacote
+# está.
+#
+# É o mesmo desenho do autocad_remover.yml.
+#
+# ── A TRAVA DO DECLARADO ──────────────────────────────────────────────────
+# O playbook se RECUSA a remover pacote que esteja em estado_pacotes_base
+# ou estado_pacotes_extra. Não é excesso de zelo: o estado.yml o
+# reinstalaria na execução seguinte, e o resultado seria uma máquina
+# oscilando entre dois estados sem que ninguém entendesse por quê. Tire da
+# lista declarada primeiro, depois remova.
+
+- name: Remover pacote das estações
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  pre_tasks:
+    - name: Confirmar que alvo e pacote foram informados
+      ansible.builtin.fail:
+        msg: |
+          Informe o laboratório e o pacote:
+            ansible-playbook remover_pacote.yml -e alvo=lab2 -e pacote=androidstudio
+      when: alvo is not defined or pacote is not defined
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+    - name: Recusar se o pacote estiver declarado como estado do laboratório
+      ansible.builtin.fail:
+        msg: |
+          '{{ pacote }}' está declarado para o {{ alvo }} e seria reinstalado
+          pelo estado.yml na próxima execução.
+
+          Remova-o antes de group_vars/{{ alvo }}.yml (ou de
+          group_vars/windows.yml, se for do núcleo), e só então rode este
+          playbook.
+      when: pacote | lower in ((estado_pacotes_base | default([])) + (estado_pacotes_extra | default([]))) | map('lower') | list
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+  tasks:
+    # win_chocolatey_facts é a leitura confiável: o registro do Windows
+    # mostraria também instalações feitas por .exe, que este playbook não
+    # remove e cuja presença na prévia seria enganosa.
+    - name: Levantar os pacotes instalados
+      chocolatey.chocolatey.win_chocolatey_facts:
+      tags: always
+
+    - name: Marcar quem tem o pacote
+      ansible.builtin.set_fact:
+        tem_pacote: >-
+          {{ pacote | lower in (ansible_facts.chocolatey.packages
+             | map(attribute='package') | map('lower') | list) }}
+      tags: always
+
+    - name: Prévia — onde o pacote está
+      ansible.builtin.debug:
+        msg: >-
+          {{ pacote }} {{ 'PRESENTE' if tem_pacote else 'ausente' }} em
+          {{ inventory_hostname }}
+      run_once: false
+      tags: always
+
+    - name: Resumo da prévia
+      ansible.builtin.debug:
+        msg: |
+          {{ pacote }} no {{ alvo }}: presente em
+          {{ ansible_play_hosts | map('extract', hostvars, 'tem_pacote') | select | list | length }}
+          de {{ ansible_play_hosts | length }} máquina(s) avaliada(s).
+
+          {% if 'remover' not in ansible_run_tags %}
+          NADA FOI REMOVIDO. Esta é a prévia. Para remover de verdade:
+            ansible-playbook remover_pacote.yml -e alvo={{ alvo }} -e pacote={{ pacote }} -t remover
+          {% endif %}
+      run_once: true
+      tags: always
+
+    - name: Remover o pacote
+      chocolatey.chocolatey.win_chocolatey:
+        name: "{{ pacote }}"
+        state: absent
+        remove_dependencies: false
+      when: tem_pacote
+      register: remocao
+      failed_when: false
+      tags: never,remover
+
+    # Mesma lição do estado_lab: com failed_when:false nada fica marcado
+    # como failed, e falha silenciosa passa despercebida. Filtra-se por rc.
+    - name: Relatar falhas de remoção
+      ansible.builtin.debug:
+        msg: >-
+          {{ pacote }} NÃO foi removido de {{ inventory_hostname }} —
+          rc {{ remocao.rc | default('?') }}:
+          {{ (remocao.msg | default('sem mensagem')) | truncate(200) }}
+      when:
+        - remocao is defined
+        - remocao.rc is defined
+        - remocao.rc != 0
+      tags: never,remover
