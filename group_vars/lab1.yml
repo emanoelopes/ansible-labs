@@ -67,6 +67,20 @@ estado_pacotes_extra:
   - asio4all          # driver de áudio de baixa latência, usado com o Reaper
 
   # ── Eletrônica ────────────────────────────────────────────────────
+  # MANTIDO POR DECISÃO — revisado em 08/09/2026.
+  #
+  # É o único extra do lab1 sem disciplina que o justifique: o mapa de
+  # salas 2026.2 aloca Computação Física no lab2, não aqui. As demais do
+  # lab1 são Inteligência Computacional Aplicada a Jogos I, Ferramentas de
+  # Modelagem Tridimensional I, Oficina de Podcast, Comunicação Visual I,
+  # Sistemas Distribuídos, Linguagem de Programação Script e duas do PPGTE.
+  #
+  # Fica mesmo assim: é leve, não pesa no disco, e ter disponível cobre
+  # demanda eventual sem exigir intervenção. O critério aqui é custo de
+  # manter contra custo de instalar às pressas — diferente do androidstudio
+  # no lab2, que somava vários GB a máquinas que sequer o executam.
+  #
+  # Não reabrir sem motivo novo.
   - arduino
 
   # ── Rede ──────────────────────────────────────────────────────────
