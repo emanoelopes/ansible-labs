@@ -107,6 +107,48 @@
           elas ligadas.
       when: sem_mac | length > 0
 
+    # ── LINHA DE BASE: QUEM JÁ ESTAVA LIGADO ──────────────────────────────
+    #
+    # Sem esta medição o playbook não prova nada. Ele confere se a máquina
+    # responde na 5985 DEPOIS do pacote — o que é verdade também para quem
+    # já estava ligada antes. Laboratório aceso dá 100% de sucesso, e o
+    # relatório afirma que o Wake-on-LAN funciona.
+    #
+    # Aconteceu em 09/09/2026: as 27 do lab4 "responderam" em seis segundos.
+    # Estação desligada leva de 40 a 90 segundos até o WinRM subir — seis
+    # segundos só é possível para quem já estava de pé. O laboratório tinha
+    # acabado de ser ligado à mão.
+    #
+    # A verificação existia justamente para não confiar em "pacote enviado".
+    # Tinha o mesmo vício, uma camada acima: media o estado final e o
+    # atribuía à causa que se queria confirmar.
+    - name: Medir quem já está ligado ANTES de enviar
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[item].ansible_host | default(item) }}"
+        port: 5985
+        timeout: 3
+      loop: "{{ com_mac | sort }}"
+      loop_control:
+        label: "{{ item }}"
+      register: antes
+      failed_when: false
+      changed_when: false
+
+    - name: Separar ligadas de desligadas
+      ansible.builtin.set_fact:
+        ja_ligadas: "{{ antes.results | rejectattr('failed') | map(attribute='item') | list }}"
+        desligadas: "{{ antes.results | selectattr('failed') | map(attribute='item') | list }}"
+
+    - name: Avisar quando não há o que testar
+      ansible.builtin.debug:
+        msg: >-
+          Todas as {{ ja_ligadas | length }} máquinas do {{ alvo }} já estão
+          ligadas. O pacote será enviado, mas o resultado NÃO dirá nada
+          sobre o Wake-on-LAN — só quem estava desligada antes serve de
+          prova. Para testar de verdade, desligue o laboratório primeiro:
+          ansible-playbook desligar.yml -e alvo={{ alvo }}
+      when: desligadas | length == 0
+
     - name: Enviar o pacote mágico
       community.general.wakeonlan:
         mac: "{{ macs[item].mac }}"
@@ -155,21 +197,65 @@
     # apagado.
     - name: Resultado
       ansible.builtin.debug:
-        msg: |
+        msg: "{{ saida.split('\n') }}"
+      vars:
+        # Responderam DEPOIS do pacote.
+        depois: "{{ espera.results | rejectattr('failed') | map(attribute='item') | list }}"
+        # O que interessa: estavam desligadas antes e estão ligadas agora.
+        # É a única evidência de que o pacote mágico teve efeito.
+        acordaram: "{{ desligadas | intersect(depois) }}"
+        nao_acordaram: "{{ desligadas | difference(depois) }}"
+        saida: |
           Wake-on-LAN — {{ alvo }}
 
-          Enviado via:      {{ wol_delegate }} (broadcast {{ wol_broadcast }})
-          Pacotes enviados: {{ com_mac | length }}
-          Responderam:      {{ espera.results | rejectattr('failed') | list | length }}
-          Não responderam:  {{ espera.results | selectattr('failed') | map(attribute='item.item') | list | join(', ') | default('nenhuma', true) }}
+          Enviado via:       {{ wol_delegate }} (broadcast {{ wol_broadcast }})
+          Pacotes enviados:  {{ com_mac | length }}
+
+          Já estavam ligadas: {{ ja_ligadas | length }}{% if ja_ligadas %}  ({{ ja_ligadas | join(', ') }}){% endif %}
+
+          Estavam desligadas: {{ desligadas | length }}
+            acordaram:       {{ acordaram | length }}{% if acordaram %}  ({{ acordaram | join(', ') }}){% endif %}
+
+            não acordaram:   {{ nao_acordaram | length }}{% if nao_acordaram %}  ({{ nao_acordaram | join(', ') }}){% endif %}
+
           {% if sem_mac | length > 0 %}
-          Sem MAC no mapa:  {{ sem_mac | join(', ') }}
+          Sem MAC no mapa:   {{ sem_mac | join(', ') }}
           {% endif %}
 
-          {% if espera.results | rejectattr('failed') | list | length == 0 %}
-          NENHUMA respondeu. Antes de suspeitar das máquinas, verifique:
-            - o broadcast {{ wol_broadcast }} alcança a sub-rede dos labs?
-            - o Wake-on-LAN está habilitado na BIOS e no driver de rede?
-          Os dois são pré-requisitos externos ao Ansible, e o pacote mágico
-          sai sem erro mesmo quando nenhum deles está atendido.
+          {% if desligadas | length == 0 %}
+          ── NADA FOI TESTADO ──────────────────────────────────────────
+          Todas já estavam ligadas. Máquina que já responde continua
+          respondendo, com ou sem Wake-on-LAN. Para testar de verdade,
+          desligue o laboratório antes:
+            ansible-playbook desligar.yml -e alvo={{ alvo }}
+          {% elif acordaram | length == 0 %}
+          ── O WAKE-ON-LAN NÃO FUNCIONOU ───────────────────────────────
+          {{ desligadas | length }} máquina(s) estavam desligadas e nenhuma
+          acordou. Duas causas possíveis, com soluções opostas:
+
+          1. O pacote não chega. Foi enviado de {{ wol_delegate }} com
+             broadcast {{ wol_broadcast }}. Se {{ wol_delegate }} está fora
+             de 10.102.227.0/24, o broadcast dirigido provavelmente é
+             descartado pelo roteador. Repita apontando para um host de
+             dentro da sub-rede:
+               -e wol_delegate=ppgte-server
+
+          2. O pacote chega e a placa ignora. Aí é bancada, máquina a
+             máquina, e nada disso é padrão de fábrica:
+               - BIOS: "Wake on LAN" / "Power On by PCIe" habilitado
+               - BIOS: "Deep Sleep Control" DESABILITADO — ele corta a
+                 alimentação da placa de rede em S5
+               - Driver: "Wake on Magic Packet" ativado, e "Permitir que
+                 este dispositivo desperte o computador" na aba de energia
+
+          Se o item 1 já foi descartado (envio de dentro da sub-rede), é o 2.
+          {% elif nao_acordaram | length > 0 %}
+          ── FUNCIONOU EM PARTE ────────────────────────────────────────
+          {{ acordaram | length }} de {{ desligadas | length }} acordaram, o
+          que descarta problema de rede: o pacote chega. As que não
+          acordaram estão com o Wake-on-LAN desabilitado na BIOS ou no
+          driver — é bancada, só nelas.
+          {% else %}
+          ── FUNCIONOU ─────────────────────────────────────────────────
+          As {{ acordaram | length }} que estavam desligadas acordaram.
           {% endif %}
