@@ -29,8 +29,19 @@
 # Ausência de ping não prova nada, e presença tampouco distingue. Portas
 # TCP são sinal melhor porque um serviço só responde se o sistema subiu.
 
+# ── POR QUE 'hosts: alvo' COM 'connection: local' ─────────────────────────
+# A primeira versão usava 'hosts: localhost' e percorria groups[alvo] por
+# dentro. Funcionava, mas '--limit' passava a não ter efeito nenhum: ele
+# filtra a lista de hosts da play, que era só o localhost — e
+# 'alcance.yml --limit 127,136' terminava com "no hosts matched".
+#
+# Agora a play tem como alvo as próprias estações, mas com connection:
+# local. O Ansible não tenta conectar em nenhuma delas: cada host serve de
+# item de iteração, e as sondagens saem do controlador contra o ansible_host
+# correspondente. Assim '--limit' volta a se comportar como nos demais
+# playbooks, que é o que qualquer um espera.
 - name: Diagnosticar alcance das estações
-  hosts: localhost
+  hosts: "{{ alvo | default('nao_definido') }}"
   connection: local
   gather_facts: false
 
@@ -50,36 +61,35 @@
       ansible.builtin.fail:
         msg: "Informe o laboratório: ansible-playbook alcance.yml -e alvo=lab1"
       when: alvo is not defined
+      run_once: true
 
-    - name: Sondar as portas de cada estação
+    # Cada host da play sonda as próprias portas, do controlador.
+    - name: Sondar as portas
       ansible.builtin.wait_for:
-        host: "{{ hostvars[item.0].ansible_host | default(item.0) }}"
-        port: "{{ item.1.numero }}"
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ item.numero }}"
         timeout: "{{ espera }}"
         state: started
-      loop: "{{ (groups[alvo] | sort) | product(portas) | list }}"
+      loop: "{{ portas }}"
       loop_control:
-        label: "{{ item.0 }}:{{ item.1.numero }}"
+        label: "{{ inventory_hostname }}:{{ item.numero }}"
       register: sonda
       failed_when: false
       changed_when: false
 
-    # Reorganiza o resultado plano do loop num mapa host -> portas abertas.
-    - name: Consolidar por máquina
+    - name: Guardar as portas que responderam
       ansible.builtin.set_fact:
-        abertas: >-
-          {{ abertas | default({}) | combine({
-               item.item.0: (abertas | default({})).get(item.item.0, [])
-                            + ([item.item.1.numero] if not item.failed else [])
-             }) }}
-      loop: "{{ sonda.results }}"
-      loop_control:
-        label: "{{ item.item.0 }}:{{ item.item.1.numero }}"
+        portas_abertas: >-
+          {{ sonda.results | rejectattr('failed')
+             | map(attribute='item.numero') | list }}
 
     # A classificação vive no template do relatório: em Ansible ela exigiria
     # quatro set_fact encadeados, e ficaria mais difícil de acompanhar do
     # que o laço que a produz.
+    # run_once: o relatório é do laboratório inteiro. Sem isto ele seria
+    # impresso uma vez por máquina, idêntico, 27 vezes.
     - name: Relatório
+      run_once: true
       ansible.builtin.debug:
         msg: "{{ relatorio.split('\n') }}"
       vars:
@@ -90,15 +100,15 @@
           ══════════════════════════════════════════════════════════════
 
           {% set resp = [] %}{% set errada = [] %}{% set liga_sem = [] %}{% set mortas = [] %}
-          {% for h in groups[alvo] | sort %}
-          {% set p = abertas[h] | default([]) %}
+          {% for h in ansible_play_hosts | sort %}
+          {% set p = hostvars[h].portas_abertas | default([]) %}
           {% if 5985 in p %}{% set _ = resp.append(h) %}
           {% elif 5986 in p %}{% set _ = errada.append(h) %}
           {% elif 445 in p or 135 in p or 22 in p %}{% set _ = liga_sem.append((h, p)) %}
           {% else %}{% set _ = mortas.append(h) %}{% endif %}
           {% endfor %}
           ─── RESPONDEM NO WinRM — nada a fazer ────────────────────────
-            {{ resp | length }} de {{ groups[alvo] | length }}{% if resp %}: {{ resp | join(', ') }}{% endif %}
+            {{ resp | length }} de {{ ansible_play_hosts | length }}{% if resp %}: {{ resp | join(', ') }}{% endif %}
 
           ─── LIGADAS, MAS SEM WinRM NA PORTA ESPERADA ─────────────────
           Estas estão de pé e fora da automação. É o caso que a auditoria
