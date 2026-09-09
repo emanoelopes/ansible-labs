@@ -1,0 +1,141 @@
+---
+# PostgreSQL, pgAdmin, NetBeans e Tomcat — para qualquer laboratório.
+#
+# Origem: demanda do prof. Leonardo (BD I e Programação para Web I), hoje no
+# Lab 4 — mas a disciplina muda de sala a cada semestre (ver Mapa de Salas),
+# então este playbook NÃO fixa laboratório nenhum. Informe com -e local=:
+#
+#   ansible-playbook postgresql_pgadmin_netbeans_tomcat.yml -e local=lab4
+#   ansible-playbook postgresql_pgadmin_netbeans_tomcat.yml -e local=lab4 --limit '411,412'   (piloto)
+#
+# Trello: https://trello.com/c/b8AkQGFR/2894-java-netbeans-python-postgresql-e-pgadmin-4-lab6
+#
+# Java SDK já vem pelo núcleo comum (estado_pacotes_base -> openjdk, ver
+# group_vars/windows.yml), então não é repetido aqui.
+#
+# O QUE ESTE PLAYBOOK FAZ, com confiança de automação real:
+#   - instala PostgreSQL (mais atual) com a senha do usuário postgres
+#   - instala pgAdmin 4 e NetBeans (mais atuais) e Tomcat (10+, via Chocolatey)
+#   - libera as portas 5432 (PostgreSQL) e 8080 (Tomcat) no firewall
+#   - confere que o serviço do PostgreSQL subiu
+#
+# O QUE ESTE PLAYBOOK **NÃO** FAZ, de propósito:
+#   - registrar o servidor PostgreSQL dentro do pgAdmin
+#   - registrar o Tomcat como servidor padrão dentro do NetBeans
+#
+# Os dois pedidos do prof. Leonardo mexem em configuração INTERNA de cada
+# aplicativo (o arquivo de usuário do pgAdmin, e o j2ee/InstalledServers.xml
+# do NetBeans), cujo formato varia por versão e não está validado neste
+# repositório. Automatizar isso às cegas, em dezenas de máquinas de
+# produção, arrisca quebrar de um jeito difícil de diagnosticar. É trabalho
+# de 1-2 minutos por máquina feito na mão:
+#   pgAdmin  -> botão direito em Servers > Register > Server, host
+#               localhost, porta 5432, usuário postgres, senha do vault.
+#   NetBeans -> Tools > Servers > Add Server > Apache Tomcat, apontar para
+#               a pasta onde o Chocolatey instalou (getado abaixo, tarefa
+#               'Onde o Tomcat foi instalado').
+# Se quiser, posso pesquisar o formato exato de cada arquivo de configuração
+# e converter isto numa tarefa Ansible de verdade — está fora do escopo desta
+# rodada por não ter como validar contra as versões reais instaladas aqui.
+
+- name: PostgreSQL, pgAdmin, NetBeans e Tomcat
+  hosts: "{{ local | default('nao_definido') }}"
+  gather_facts: true
+  serial: '25%'
+  max_fail_percentage: 20
+
+  vars:
+    # Pedido explícito do prof. Leonardo por e-mail (08/09/2026): "a senha do
+    # usuário postgres pode ser ufc123". Conta local de uso didático, sem
+    # exposição fora da rede do laboratório — por isso aqui, e não no vault.
+    # Sobrescreva com -e postgres_senha_postgres=... se outra turma pedir
+    # senha diferente.
+    postgres_senha_postgres: 'ufc123'
+
+  pre_tasks:
+    - name: Avisar quando nenhum laboratório foi informado
+      ansible.builtin.fail:
+        msg: >-
+          Informe o laboratório:
+          ansible-playbook postgresql_pgadmin_netbeans_tomcat.yml -e local=lab4
+      when: local is not defined
+      run_once: true
+      delegate_to: localhost
+
+  tasks:
+    - name: Ensure PostgreSQL is installed
+      chocolatey.chocolatey.win_chocolatey:
+        name: postgresql
+        state: latest
+        package_params: "/Password:{{ postgres_senha_postgres }}"
+      register: postgres_install
+      no_log: true
+
+    - name: Ensure pgAdmin 4 is installed
+      chocolatey.chocolatey.win_chocolatey:
+        name: pgadmin4
+        state: latest
+      register: pgadmin_install
+
+    - name: Ensure NetBeans is installed
+      chocolatey.chocolatey.win_chocolatey:
+        name: netbeans
+        state: latest
+      register: netbeans_install
+
+    - name: Ensure Tomcat (10+) is installed
+      chocolatey.chocolatey.win_chocolatey:
+        name: tomcat
+        state: latest
+      register: tomcat_install
+
+    - name: Reboot if the installers asked for it
+      ansible.windows.win_reboot:
+      when: >
+        (postgres_install.reboot_required | default(false)) or
+        (pgadmin_install.reboot_required | default(false)) or
+        (netbeans_install.reboot_required | default(false)) or
+        (tomcat_install.reboot_required | default(false))
+
+    - name: Allow PostgreSQL (5432) through the firewall
+      community.windows.win_firewall_rule:
+        name: PostgreSQL
+        localport: 5432
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: yes
+
+    - name: Allow Tomcat (8080) through the firewall
+      community.windows.win_firewall_rule:
+        name: Apache Tomcat
+        localport: 8080
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: yes
+
+    - name: Verify the PostgreSQL service is running
+      ansible.windows.win_service_info:
+        name: postgresql*
+      register: postgres_service
+
+    - name: Onde o Tomcat foi instalado (para o registro manual no NetBeans)
+      ansible.windows.win_shell: (Get-ItemProperty 'HKLM:\SOFTWARE\Apache Software Foundation\Tomcat\*' -ErrorAction SilentlyContinue).InstallPath
+      register: tomcat_path
+      changed_when: false
+      failed_when: false
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: |
+          {{ inventory_hostname }}
+          PostgreSQL: {{ postgres_service.services | default([]) | map(attribute='state') | list | join(', ') | default('serviço não encontrado', true) }}
+          Tomcat instalado em: {{ tomcat_path.stdout_lines | default(['(não detectado — confira manualmente)']) | join('') }}
+
+          Pendente NA MÃO nesta máquina:
+            - pgAdmin: registrar servidor localhost:5432, usuário postgres.
+            - NetBeans: Tools > Servers > Add Server > Apache Tomcat, apontando
+              para o caminho acima.

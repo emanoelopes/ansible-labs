@@ -85,3 +85,11 @@ vault_senha_suporte_tecnodocencia: "TROCAR"
 # Conta 'Bolsista' (roles/tecnodocencia/vars/main.yaml).
 # Esta É rotacionada a cada execução da role — pode definir uma senha nova.
 vault_senha_bolsista: "TROCAR"
+
+# Conta 'suporte' NO ppgte-server (10.102.227.245) — CREDENCIAL DE CONEXÃO.
+# Mesmo usuário 'suporte' das estações Windows, mas senha DIFERENTE: são
+# contas distintas em sistemas distintos, não compartilham segredo.
+# Usada em: host_vars/ppgte-server.yml — inclusive quando ppgte-server é
+# usado como wol_delegate em acordar.yml, para o Wake-on-LAN sair de dentro
+# da sub-rede dos laboratórios (10.102.227.0/24).
+vault_senha_suporte_ppgte: "TROCAR"

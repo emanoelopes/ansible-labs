@@ -253,12 +253,26 @@
               só para conferência: se a máquina onde estão hoje não for a
               que está registrada, alguma coisa mudou de lugar.
 
+          {#
+            'em todas' precisa ser testado à parte. A busca abaixo varre só
+            os pacotes PARCIAIS — e um registro pontual que acabou instalado
+            no laboratório inteiro não está entre eles. Sem este teste ele
+            aparecia como NÃO ENCONTRADO, que é o oposto do que houve.
+            Foi o caso de eclipse e androidstudio no lab2, em 08/09/2026.
+          #}
           {% for reg in pontuais %}
           {% set nome = reg.pacote | lower %}
           {% set achado = (ns.altos + ns.baixos) | selectattr(0, 'equalto', nome) | map(attribute=1) | list %}
           {% set onde = achado | first | default([]) %}
+          {% if nome in choco_todas %}
+            {{ "%-38s" | format(reg.pacote) }}registrado em {{ reg.posicoes | join(', ') }}, mas está em TODAS as {{ hosts_ok | length }}   ← DEIXOU DE SER PONTUAL
+                Ou foi propagado por engano, ou virou padrão de fato. Nos
+                dois casos o registro está descrevendo algo que não existe
+                mais: ou declare o pacote, ou desinstale onde não deve estar.
+          {% else %}
             {{ "%-38s" | format(reg.pacote) }}registrado em {{ reg.posicoes | join(', ') }}{% if onde %}, encontrado em {{ onde | join(', ') }}{% if onde | sort != reg.posicoes | sort %}   ← DIVERGE{% endif %}{% else %}, NÃO ENCONTRADO{% endif %}
 
+          {% endif %}
               {{ reg.motivo | default('sem motivo registrado') }}{% if reg.data is defined %} ({{ reg.data }}){% endif %}
 
           {% else %}

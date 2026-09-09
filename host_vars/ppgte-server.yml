@@ -1,0 +1,18 @@
+---
+# Credencial de conexão do ppgte-server (10.102.227.245).
+#
+# Mesmo usuário 'suporte' das estações Windows (group_vars/windows.yml), mas
+# senha DIFERENTE — contas distintas em sistemas distintos, não compartilham
+# segredo. Por isso fica em host_vars aqui, e não em group_vars/windows.yml
+# (ppgte nem é filho de [windows] no inventory.ini: conecta por SSH, não
+# WinRM — ver [ppgte:vars]).
+#
+# Origem da necessidade: usar este host como wol_delegate em acordar.yml,
+# para o pacote mágico de Wake-on-LAN sair de dentro da sub-rede dos
+# laboratórios (10.102.227.0/24) em vez do controlador (10.102.226.x).
+#
+#   ansible-playbook acordar.yml -e alvo=lab4 -e wol_delegate=ppgte-server
+#
+# Sem isto, é preciso passar -e ansible_user=suporte -k toda vez.
+ansible_user: suporte
+ansible_password: "{{ vault_senha_suporte_ppgte }}"

@@ -51,10 +51,19 @@ estado_pacotes_extra:
   # e pesa vários GB em cada uma das 26 estações.
   #  - androidstudio
 
-  # REMOVIDO 03/09/2026 — estava só na 224, junto com eclipse-java-oxygen,
-  # anaconda3, powerbi e dotnet4.5.2. Todo esse bloco é de uma máquina
-  # reinstalada à mão, não do laboratório.
-  #  - eclipse
+  # DECLARADO EM 08/09/2026, depois de ter sido removido em 03/09.
+  #
+  # A remoção partiu de um relatório que o mostrava só na 224. Só que o
+  # estado.yml já o havia propagado para as 25 antes disso — a remoção da
+  # lista não desinstala, então ele ficou em todas e voltou no relatório de
+  # 08/09 na seção 2, "em todas, mas não declarado".
+  #
+  # Diante do fato consumado, declarar é o certo: é o que já existe, e
+  # deixá-lo fora manteria a seção 2 sugerindo-o para sempre.
+  #
+  # A 224 tem também 'eclipse-java-oxygen', versão de 2017, que ninguém
+  # mais tem. Esse continua fora da lista.
+  - eclipse
 
   # ── Desenvolvimento ───────────────────────────────────────────────
   - bitvise-ssh-client
@@ -130,25 +139,56 @@ estado_pacotes_pontuais:
     motivo: 'Instalação a pedido'
     data: 'Indeterminada'
 
-  - pacote: powerbi
+  - pacote: eclipse-java-oxygen
     posicoes: ['224']
     motivo: >-
-      Instalação a pedido. ATENÇÃO: a role maintenance também instala o
-      Power BI, por outro caminho e com conta de usuário própria. Se algum
-      dia se quiser padronizar, é por lá, não pelo Chocolatey.
+      Eclipse de 2017, presente só na 224 — nenhuma outra máquina tem. O
+      'eclipse' atual passou a ser declarado em 08/09/2026; este continua
+      pontual, e significa dois Eclipse nessa máquina.
     data: 'Indeterminada'
 
-  - pacote: eclipse
-    posicoes: ['224']
-    motivo: >-
-      Instalação a pedido. A 224 tem também 'eclipse-java-oxygen', versão
-      de 2017 — são dois Eclipse na mesma máquina.
-    data: 'Indeterminada'
-
-  - pacote: androidstudio
-    posicoes: ['217']
-    motivo: 'Instalação a pedido'
-    data: 'Indeterminada'
+# ── TRÊS QUE DEIXARAM DE SER PONTUAIS (verificado em 08/09/2026) ─────────
+#
+# eclipse, powerbi e androidstudio estavam registrados aqui como instalação
+# numa máquina só. O relatório de 08/09 os encontrou nas 25: entre a decisão
+# de removê-los da lista declarada (03/09) e este registro, o estado.yml já
+# os havia instalado no laboratório inteiro — e remover da lista não
+# desinstala. O registro descrevia um estado que tinha deixado de existir.
+#
+#   eclipse        → promovido a declarado, na seção de IDEs acima.
+#   powerbi        → segue nas 25, fora da lista por decisão. A instalação
+#                    padrão é pela role maintenance, com conta de usuário
+#                    própria; pelo Chocolatey viria uma segunda via sem ela.
+#   androidstudio  → segue nas 25, fora da lista. REMOÇÃO ADIADA para a
+#                    virada do semestre letivo, ou antes se fizer falta o
+#                    espaço em disco. Decisão de 08/09/2026.
+#
+#                    Como chegou aqui: veio num HD remanejado que não foi
+#                    plataformado. Uma máquina passou a tê-lo, o inventário
+#                    o leu como padrão do laboratório — o relatório ainda
+#                    não tinha contagem, então "numa máquina" e "no
+#                    laboratório" eram indistinguíveis — ele entrou na lista
+#                    declarada e o estado.yml o propagou para as 25.
+#
+#                    Por que sai: o mapa de salas de 2026.2 mostra que
+#                    nenhuma disciplina do lab2 o requer (Autoração
+#                    Multimídia II, Design de Interfaces Gráficas,
+#                    Programação II, Computação Física, Estrutura de Dados,
+#                    IHC I, PPGTE Tecnologias Emergentes). Programação para
+#                    Dispositivos Móveis é no lab4, onde ele já é declarado.
+#                    E o hardware daqui — OptiPlex 780, CPU Mark 2290, 4 GB
+#                    — fica abaixo do mínimo do produto: não é só supérfluo,
+#                    é inutilizável.
+#
+#                    Quando for a hora:
+#                      ansible-playbook remover_pacote.yml -e alvo=lab2 \
+#                        -e pacote=androidstudio -t remover
+#
+# Consequência a conhecer: powerbi e androidstudio vão aparecer na seção 2
+# do inventário ("em todas, mas não declarado") em toda revisão, e não há
+# como silenciá-los — o registro de pontuais filtra a seção 3, não a 2. As
+# saídas seriam declará-los ou desinstalá-los. Conviver com o aviso é
+# escolha legítima, desde que consciente.
 
 # 'present' garante presença sem atualizar a cada execução.
 estado_pacotes_versao: present

@@ -24,6 +24,18 @@
 #        10.102.227.255 (muitas redes o mantêm desabilitado por segurança);
 #      - manter uma máquina dentro da sub-rede dos labs e disparar de lá.
 #
+#    Para a segunda saída, use wol_delegate para apontar o envio do pacote
+#    mágico para um host do inventário que já esteja em 10.102.227.0/24
+#    (ex.: ppgte-server, 10.102.227.245, SSH):
+#
+#      ansible-playbook acordar.yml -e alvo=lab4 -e wol_delegate=ppgte-server
+#
+#    O pacote sai de dentro da própria sub-rede dos labs, então o broadcast
+#    255.255.255.255 já basta ali — não precisa do direcionado 10.102.227.255
+#    que o controlador usa. Por isso wol_broadcast muda de padrão junto:
+#    fica 10.102.227.255 quando delegado a localhost, e 255.255.255.255
+#    quando delegado a outro host (pode sempre ser sobrescrito com -e).
+#
 # Enquanto (2) e (3) não estiverem resolvidos, este playbook roda sem erro e
 # nada acontece — o pacote sai e não chega. Por isso ele CONFERE se as
 # máquinas acordaram, em vez de apenas informar que enviou.
@@ -34,9 +46,18 @@
   gather_facts: false
 
   vars:
-    # Endereço de broadcast da sub-rede das estações. O padrão do módulo é
-    # 255.255.255.255, que não sai do segmento local do controlador.
-    wol_broadcast: '10.102.227.255'
+    # Host de onde o pacote mágico é efetivamente enviado. 'localhost' é o
+    # controlador (10.102.226.x, fora da sub-rede dos labs). Para disparar
+    # de dentro da sub-rede dos labs, passe -e wol_delegate=ppgte-server
+    # (ou outro host do inventário já presente em 10.102.227.0/24).
+    wol_delegate: localhost
+
+    # Endereço de broadcast da sub-rede das estações. Direcionado
+    # (10.102.227.255) quando o envio parte do controlador, porque o padrão
+    # do módulo (255.255.255.255) não sai do segmento local dele. Quando o
+    # envio é delegado a um host já dentro de 10.102.227.0/24, o broadcast
+    # local basta. Sempre pode ser sobrescrito com -e wol_broadcast=....
+    wol_broadcast: "{{ '255.255.255.255' if wol_delegate != 'localhost' else '10.102.227.255' }}"
     wol_porta: 9
     # Quanto esperar por uma máquina depois do pacote. Estação desligada
     # leva de 40 a 90 segundos até o WinRM responder.
@@ -69,8 +90,12 @@
         file: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
 
     - name: Separar quem tem MAC de quem não tem
+      # O play roda em hosts: localhost, então ansible_play_hosts_all é
+      # sempre ['localhost'] — nunca 'undefined'. Um default() em cima dela
+      # nunca dispara. O universo certo de máquinas do laboratório é
+      # groups[alvo], direto.
       ansible.builtin.set_fact:
-        com_mac: "{{ macs.keys() | list | intersect(ansible_play_hosts_all | default(groups[alvo])) }}"
+        com_mac: "{{ macs.keys() | list | intersect(groups[alvo]) }}"
         sem_mac: "{{ groups[alvo] | difference(macs.keys() | list) }}"
 
     - name: Avisar sobre máquinas sem MAC coletado
@@ -87,11 +112,17 @@
         mac: "{{ macs[item].mac }}"
         broadcast: "{{ wol_broadcast }}"
         port: "{{ wol_porta }}"
+      delegate_to: "{{ wol_delegate }}"
       loop: "{{ com_mac | sort }}"
       loop_control:
         label: "{{ item }} ({{ macs[item].mac }})"
 
-    - name: Aguardar as estações responderem
+    # Disparado em paralelo (async + poll: 0): um wait_for por máquina, todos
+    # de uma vez. Rodar em loop comum (poll padrão) é SERIAL — cada máquina
+    # que ainda não respondeu consome o wol_espera inteiro antes da próxima
+    # nem começar a ser checada. Com 25+ máquinas isso soma facilmente mais
+    # de meia hora, mesmo quando quase todas já ligaram em segundos.
+    - name: Disparar a espera de cada estação em paralelo
       ansible.builtin.wait_for:
         host: "{{ hostvars[item].ansible_host | default(item) }}"
         port: 5985
@@ -99,7 +130,23 @@
       loop: "{{ com_mac | sort }}"
       loop_control:
         label: "{{ item }}"
+      async: "{{ wol_espera | int + 10 }}"
+      poll: 0
+      register: espera_async
+
+    # Recolhe cada espera dispara acima. 'until'/'retries'/'delay' fazem o
+    # polling — o tempo total de parede fica perto de wol_espera (o maior
+    # atraso entre as 25+ estações), não a soma de todos.
+    - name: Recolher o resultado de cada espera
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ espera_async.results }}"
+      loop_control:
+        label: "{{ item.item }}"
       register: espera
+      until: espera.finished
+      retries: "{{ (wol_espera | int / 5) | round(0, 'ceil') | int }}"
+      delay: 5
       failed_when: false
 
     # A conferência é o que distingue 'enviei o pacote' de 'a máquina ligou'.
@@ -111,9 +158,10 @@
         msg: |
           Wake-on-LAN — {{ alvo }}
 
+          Enviado via:      {{ wol_delegate }} (broadcast {{ wol_broadcast }})
           Pacotes enviados: {{ com_mac | length }}
           Responderam:      {{ espera.results | rejectattr('failed') | list | length }}
-          Não responderam:  {{ espera.results | selectattr('failed') | map(attribute='item') | list | join(', ') | default('nenhuma', true) }}
+          Não responderam:  {{ espera.results | selectattr('failed') | map(attribute='item.item') | list | join(', ') | default('nenhuma', true) }}
           {% if sem_mac | length > 0 %}
           Sem MAC no mapa:  {{ sem_mac | join(', ') }}
           {% endif %}
