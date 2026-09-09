@@ -46,11 +46,24 @@
   gather_facts: false
 
   vars:
-    # Host de onde o pacote mágico é efetivamente enviado. 'localhost' é o
-    # controlador (10.102.226.x, fora da sub-rede dos labs). Para disparar
-    # de dentro da sub-rede dos labs, passe -e wol_delegate=ppgte-server
-    # (ou outro host do inventário já presente em 10.102.227.0/24).
-    wol_delegate: localhost
+    # Host de onde o pacote mágico é efetivamente enviado.
+    #
+    # PADRÃO É O ppgte-server DESDE 09/09/2026, e não o controlador.
+    #
+    # O controlador está em 10.102.226.x, fora da sub-rede das estações. Dali
+    # o pacote precisa de broadcast dirigido para 10.102.227.255, que a
+    # maioria dos roteadores descarta — e foi o que aconteceu na primeira
+    # tentativa no lab4, em 08/09/2026: nenhuma máquina acordou.
+    #
+    # O ppgte-server está em 10.102.227.245, dentro do segmento. Dali o
+    # broadcast local basta. No teste de 09/09/2026 no lab4, 23 de 27
+    # estações desligadas acordaram; as 4 restantes estavam com o
+    # Wake-on-LAN desabilitado na BIOS, três já corrigidas na hora.
+    #
+    # A dependência: se o ppgte-server estiver fora do ar, o Wake-on-LAN
+    # para. É preço menor que depender de mudança na configuração da rede.
+    # Para voltar a enviar do controlador: -e wol_delegate=localhost
+    wol_delegate: ppgte-server
 
     # Endereço de broadcast da sub-rede das estações. Direcionado
     # (10.102.227.255) quando o envio parte do controlador, porque o padrão
