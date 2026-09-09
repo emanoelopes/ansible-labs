@@ -147,9 +147,93 @@
       register: disco_raw
       changed_when: false
 
+    # ── ONDE O ESPAÇO ESTÁ DE FATO ────────────────────────────────────────
+    #
+    # A tarefa acima olha lugares CONHECIDOS de acúmulo. Isso responde
+    # "quanto há nos suspeitos de sempre", não "onde estão os 200 GB".
+    #
+    # Na 122, em 09/09/2026, a diferença ficou gritante: 203 GB em uso e
+    # apenas 2.6 GB explicados. Limpar aquilo levaria o livre de 18 para 21
+    # GB — melhora que não resolve e volta em duas semanas. O que ocupava o
+    # disco não estava em nenhuma pasta da lista fixa.
+    #
+    # Esta varredura não presume nada: soma os diretórios de primeiro nível
+    # de C: e devolve os maiores. É cara — percorre o disco inteiro, leva
+    # minutos — e por isso só roda com -e detalhado=true.
+    #
+    # Tarefa separada, e não um 'if' dentro do script: a condição é do
+    # Ansible, e resolvê-la com 'when' deixa claro na saída quando a
+    # varredura rodou e quando foi pulada.
+    - name: "Varrer C: para achar onde o espaço está"
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        function TamanhoGB($caminho) {
+          if (-not (Test-Path $caminho)) { return 0 }
+          $b = (Get-ChildItem $caminho -Recurse -Force -File |
+                Measure-Object -Property Length -Sum).Sum
+          return [math]::Round($b / 1GB, 2)
+        }
+
+        # A raiz vem do Get-PSDrive, e não escrita como literal.
+        #
+        # NÃO escreva a raiz como literal entre aspas. Uma CONTRABARRA
+        # IMEDIATAMENTE ANTES DA ASPA DE FECHAMENTO é lida pelo divisor de
+        # argumentos do Ansible como aspa escapada: a string nunca fecha e o
+        # playbook falha ao CARREGAR, com "failed at splitting arguments,
+        # either an unbalanced jinja2 block or quotes".
+        #
+        # A mensagem culpa o Jinja primeiro, o que despista — aqui não há
+        # Jinja nenhum. E o cuidado vale inclusive para COMENTÁRIOS: o
+        # Ansible analisa a string inteira, comentário do PowerShell
+        # incluído. A primeira versão deste aviso citava o literal problema
+        # e reintroduzia o defeito que descrevia.
+        #
+        # Literais como 'C:\Windows\Temp' são seguros: o que quebra é
+        # terminar em contrabarra.
+        $raiz = (Get-PSDrive C).Root
+
+        # ReparsePoint fica de fora pelo motivo de sempre: 'C:\Users\Todos os
+        # Usuários' é junção para o ProgramData, e contá-la faria o mesmo
+        # espaço aparecer duas vezes.
+        $maiores = @()
+        Get-ChildItem $raiz -Directory -Force |
+          Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } |
+          ForEach-Object {
+            $maiores += [pscustomobject]@{ caminho = $_.FullName; gb = (TamanhoGB $_.FullName) }
+          }
+
+        # Abre o maior de todos mais um nível, que costuma bastar para
+        # identificar o culpado sem varrer a árvore inteira de novo.
+        $topo = $maiores | Sort-Object gb -Descending | Select-Object -First 1
+        if ($topo -and $topo.gb -gt 5) {
+          Get-ChildItem $topo.caminho -Directory -Force |
+            Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } |
+            ForEach-Object {
+              $maiores += [pscustomobject]@{ caminho = $_.FullName; gb = (TamanhoGB $_.FullName) }
+            }
+        }
+
+        # ConvertTo-Json do PowerShell 5.1 devolve OBJETO quando a lista tem
+        # um item só, e nada quando está vazia — não existe -AsArray aqui.
+        # Quem consome do lado do Ansible teria de adivinhar o formato. Então
+        # a lista é montada à mão, e a saída é sempre um array JSON.
+        $lista = @($maiores | Where-Object { $_.gb -ge 1 } | Sort-Object gb -Descending)
+        if ($lista.Count -eq 0) { '[]' }
+        elseif ($lista.Count -eq 1) { '[' + ($lista[0] | ConvertTo-Json -Compress) + ']' }
+        else { $lista | ConvertTo-Json -Depth 3 -Compress }
+      args:
+        no_profile: yes
+      register: maiores_raw
+      changed_when: false
+      when: detalhado | default(false) | bool
+
     - name: Interpretar
       ansible.builtin.set_fact:
         disco: "{{ disco_raw.stdout | from_json }}"
+        # A tarefa acima é pulada sem -e detalhado=true, e aí 'stdout' nem
+        # existe. O default('[]') cobre esse caso e o de saída vazia.
+        maiores: "{{ maiores_raw.stdout | default('[]', true) | trim | from_json }}"
 
 - name: Relatório de disco
   hosts: "{{ alvo | default('nao_definido') }}"
@@ -211,6 +295,32 @@
             {{ "%-26s %2s versões  libera %6s MB" | format(f.familia, f.qtd, f.liberavel_mb) }}
           {% endif %}
           {% endfor %}
+          {% endif %}
+          {% endfor %}
+
+          ─── ONDE O ESPAÇO ESTÁ ───────────────────────────────────────
+          {% for h in ansible_play_hosts | sort %}
+          {% set d = hostvars[h].disco %}
+          {% set usado = (d.total_gb | float) - (d.livre_gb | float) %}
+          {% set explicado = (d.pastas | sum(attribute='gb')) + (d.perfis | sum(attribute='gb')) + (d.hiberfil | float) %}
+
+          {{ h }} — {{ usado | round(1) }} GB em uso, {{ explicado | round(1) }} GB explicados pelas seções acima
+          {% set mai = hostvars[h].maiores | default([]) %}
+          {% if mai | length > 0 %}
+          {% for m in mai[:12] %}
+            {{ "%-46s %6s GB" | format(m.caminho, m.gb) }}
+          {% endfor %}
+          {% elif usado - explicado > 20 %}
+            {{ (usado - explicado) | round(1) }} GB NÃO EXPLICADOS.
+
+            As seções acima olham lugares conhecidos de acúmulo. Quando a
+            diferença é grande, o que ocupa o disco não está em nenhum
+            deles, e limpar temporários não vai resolver. Repita com a
+            varredura completa, que percorre C: inteiro e leva minutos:
+
+              ansible-playbook disco.yml -e alvo={{ alvo }} --limit {{ h }} -e detalhado=true
+          {% else %}
+            (diferença pequena — as seções acima dão conta)
           {% endif %}
           {% endfor %}
           ══════════════════════════════════════════════════════════════
