@@ -45,12 +45,24 @@
   max_fail_percentage: 20
 
   vars:
-    # Pedido explícito do prof. Leonardo por e-mail (08/09/2026): "a senha do
-    # usuário postgres pode ser ufc123". Conta local de uso didático, sem
-    # exposição fora da rede do laboratório — por isso aqui, e não no vault.
-    # Sobrescreva com -e postgres_senha_postgres=... se outra turma pedir
-    # senha diferente.
-    postgres_senha_postgres: 'ufc123'
+    # Senha do superusuário 'postgres'.
+    #
+    # VEM DO VAULT, não escrita aqui. Este repositório é PÚBLICO
+    # (github.com/emanoelopes/ansible-labs), e o literal iria para o GitHub
+    # em texto claro. A variável vault_senha_postgres já existia — foi criada
+    # para o postgres.yml — então usar outra fonte também deixaria duas
+    # senhas concorrentes para o mesmo serviço.
+    #
+    # O prof. Leonardo pediu por e-mail (08/09/2026) que fosse 'ufc123'. É o
+    # VALOR que vai no vault, não no playbook:
+    #   ansible-vault edit group_vars/all/vault.yml
+    #
+    # Que a senha seja de uso didático e sem exposição fora da rede do
+    # laboratório justifica ela ser simples — não justifica publicá-la.
+    #
+    # Para uma turma que peça senha diferente, sem alterar o vault:
+    #   -e postgres_senha_postgres=...
+    postgres_senha_postgres: "{{ vault_senha_postgres }}"
 
   pre_tasks:
     - name: Avisar quando nenhum laboratório foi informado

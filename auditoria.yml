@@ -189,6 +189,25 @@
     # esta auditoria existir.
     auditoria_alvos: ['lab1', 'lab2', 'lab4', 'lab5', 'lab6']
 
+    # ── PRÓXIMO PASSO POSSÍVEL: ACORDAR ANTES DE AUDITAR ─────────────────
+    #
+    # A auditoria só avalia quem está ligado, e por isso o horário é quarta
+    # às 14h — para pegar o laboratório em uso. É um palpite sobre quando há
+    # aula, e a cobertura varia conforme o calendário.
+    #
+    # Desde 09/09/2026 o Wake-on-LAN funciona, enviando pelo ppgte-server:
+    # no lab4, 23 de 27 estações desligadas acordaram. Isso permitiria
+    # acrescentar ao ansible-auditoria.service, antes de cada laboratório:
+    #
+    #   ExecStartPre=/usr/bin/ansible-playbook {{ playbook_dir }}/acordar.yml -e alvo=<lab>
+    #
+    # e um desligar.yml ao final, para não deixar o parque aceso à toa.
+    #
+    # NÃO FOI FEITO AINDA, por decisão de 09/09/2026: observar algumas
+    # execuções manuais primeiro. Automatizar o acordar significa o serviço
+    # ligar 155 máquinas sozinho toda quarta — se algo estiver errado, erra
+    # em escala e sem ninguém olhando. O ganho é real, mas não é urgente.
+
   pre_tasks:
     # O serviço do systemd NÃO herda o ambiente do seu shell. Sem estas
     # verificações, a primeira execução agendada falharia por falta da senha
