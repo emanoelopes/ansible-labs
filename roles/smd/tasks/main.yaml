@@ -320,7 +320,11 @@
 - name: Add firewall rule to provide access to Netbeans
   win_firewall_rule:
     name: netbeans
-    program: c:\program files\netbeans-27\netbeans\bin\netbeans64.exe
+    # Caminho derivado de apache_netbeans_versao, em vez de fixo. Estava
+    # 'netbeans-27' enquanto a URL já instalava a 28: a regra liberava um
+    # executável inexistente, e ninguém percebia porque criar regra de
+    # firewall para caminho que não existe não dá erro.
+    program: "{{ apache_netbeans_dir }}\\netbeans\\bin\\netbeans64.exe"
     state: present
     enabled: yes
     action: allow

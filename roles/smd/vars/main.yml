@@ -1,6 +1,21 @@
 appdata: 'c:\Users\aluno\appdata\Roaming\Microsoft\Windows\Start Menu\Programs\Startup'
-apache_netbeans_url: 'https://downloads.apache.org/netbeans/netbeans-installers/28/Apache-NetBeans-28-bin-windows-x64.exe'
-apache_netbeans_jdk_url: 'https://github.com/Friends-of-Apache-NetBeans/netbeans-installers/releases/download/v27-build1/Apache-NetBeans-27.exe' # Keeping as fallback or check if v28 exists, but main URL updated
+# Versão do Apache NetBeans, em UM lugar só.
+#
+# Antes a versão aparecia repetida na URL e no caminho da regra de firewall,
+# e as duas saíram de sincronia: a URL foi para a 28 e a regra continuou
+# apontando para 'c:\program files\netbeans-27\...', liberando um executável
+# que não existia mais. Derivar as duas daqui impede que isso se repita.
+#
+# Ao trocar de versão, confira que a URL responde antes de aplicar no
+# laboratório inteiro — a Apache remove as versões antigas do downloads.
+# quando lança novas, e aí o win_package falha em todas as máquinas.
+apache_netbeans_versao: '28'
+apache_netbeans_url: "https://downloads.apache.org/netbeans/netbeans-installers/{{ apache_netbeans_versao }}/Apache-NetBeans-{{ apache_netbeans_versao }}-bin-windows-x64.exe"
+apache_netbeans_dir: "c:\\program files\\netbeans-{{ apache_netbeans_versao }}"
+
+# Instalador que traz o NetBeans junto com um JDK. Alternativa para máquina
+# sem Java — não é o caso do parque, onde o núcleo já declara 'openjdk'.
+apache_netbeans_jdk_url: 'https://github.com/Friends-of-Apache-NetBeans/netbeans-installers/releases/download/v27-build1/Apache-NetBeans-27.exe'
 bginfo_url: 'https://download.sysinternals.com/files/BGInfo.zip'
 fontforge_url: 'https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe'
 tomcat_url: 'https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.50/bin/apache-tomcat-10.1.50.zip'
