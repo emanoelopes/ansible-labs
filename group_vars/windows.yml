@@ -37,6 +37,20 @@ ansible_password: "{{ vault_senha_suporte }}"
 # Vale para todos os laboratórios. Para argumentos específicos de um lab,
 # defina estado_pacotes_args em group_vars/<lab>.yml — mas atenção, a
 # variável é substituída inteira, não mesclada; repita as entradas comuns.
+# Papel de parede padrão das estações — logo do SMD sobre fundo ardósia.
+#
+# A imagem vive no Samba, em windows_instaladores/, e chega às estações pelo
+# espelho HTTP do controlador (repo_local.yml). Não é versionada aqui: o
+# .gitignore bloqueia *.jpg, e com razão, sendo o repositório público.
+#
+# Antes desta mudança nenhum playbook copiava o arquivo — todos assumiam que
+# já estava na máquina. Onde não estivesse, o registro apontava para o nada e
+# a área de trabalho ficava no padrão do Windows, sem aviso. Era a segunda
+# causa da falta de uniformidade; a primeira era a escrita ir para o perfil
+# do 'suporte' em vez do 'aluno'.
+estado_wallpaper_arquivo: 'wallpapersmd.jpg'
+estado_wallpaper: 'C:\Windows\Web\Wallpaper\Windows\wallpapersmd.jpg'
+
 # ── PACOTES MANTIDOS SEMPRE NA ÚLTIMA VERSÃO ─────────────────────────────
 #
 # O padrão do parque é 'present': garante presença e não mexe na versão,

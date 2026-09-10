@@ -188,6 +188,101 @@
   when: estado_moz_svc.services | default([]) | selectattr('state', 'equalto', 'started') | list | length == 0
   tags: navegadores
 
+# --- Aparência ----------------------------------------------------------------
+
+# ── POR QUE O PAPEL DE PAREDE NUNCA PEGAVA ───────────────────────────────
+#
+# O wallpaper.yaml e a role smd escrevem em HKCU — a chave do usuário QUE
+# ESTÁ EXECUTANDO. O Ansible conecta como 'suporte', então o papel de parede
+# era definido para o suporte, e o aluno nunca via diferença. Mesmo defeito
+# do Arduino indo parar no perfil errado.
+#
+# Não há saída por HKLM: a personalização da área de trabalho é por usuário
+# por design do Windows, e não existe chave de máquina equivalente. É
+# preciso escrever na chave do aluno, o que exige resolver o SID dele.
+#
+# Com o autologon, o aluno costuma estar logado e sua chave já montada em
+# HKU. Quando não está, carrega-se o ntuser.dat e descarrega-se depois.
+#
+# Também se escreve em HKU\.DEFAULT, que é o modelo herdado por perfil novo:
+# sem isso, uma máquina reimageada volta ao padrão do Windows.
+# A imagem vem do espelho HTTP do controlador, que serve a pasta
+# 'windows_instaladores' do Samba. Não pode ser versionada aqui: o
+# .gitignore bloqueia *.jpg, e o repositório é público.
+#
+# Requer o espelho no ar:  ansible-playbook repo_local.yml
+#
+# force: false porque a imagem não muda; checksum evitaria baixar de novo,
+# mas exigiria mantê-lo em dia a cada troca de arte. Se um dia o papel de
+# parede mudar, apague o arquivo das estações ou troque o nome.
+- name: Trazer a imagem do papel de parede do espelho local
+  ansible.windows.win_get_url:
+    url: "{{ repo_interno_url }}/{{ estado_wallpaper_arquivo }}"
+    dest: "{{ estado_wallpaper }}"
+    force: false
+  register: wallpaper_download
+  when: estado_wallpaper is defined
+  tags: aparencia
+
+- name: Garantir o papel de parede do aluno
+  ansible.windows.win_shell: |
+    $ErrorActionPreference = 'Stop'
+    $img = $env:WP_IMAGEM
+    $usuario = $env:WP_USUARIO
+
+    if (-not (Test-Path $img)) {
+      # Apontar o registro para arquivo inexistente deixa a área de trabalho
+      # no padrão do Windows sem qualquer aviso — exatamente o sintoma que se
+      # quer corrigir. Melhor falhar dizendo o que falta.
+      throw "Imagem nao encontrada: $img. Copie-a para as estacoes antes."
+    }
+
+    $sid = (New-Object System.Security.Principal.NTAccount($usuario)).Translate(
+             [System.Security.Principal.SecurityIdentifier]).Value
+
+    if (-not (Get-PSDrive HKU -ErrorAction SilentlyContinue)) {
+      New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS | Out-Null
+    }
+
+    $carregou = $false
+    if (-not (Test-Path "HKU:\$sid")) {
+      $dat = Join-Path (Split-Path $env:PUBLIC -Parent) "$usuario\ntuser.dat"
+      if (-not (Test-Path $dat)) { throw "Perfil de $usuario nao encontrado: $dat" }
+      reg load "HKU\$sid" $dat | Out-Null
+      $carregou = $true
+    }
+
+    $mudou = $false
+    # HKU\.DEFAULT é o modelo de perfil novo; a chave do SID é o aluno de hoje.
+    foreach ($base in @("HKU:\$sid", 'HKU:\.DEFAULT')) {
+      $desk = Join-Path $base 'Control Panel\Desktop'
+      if (-not (Test-Path $desk)) { continue }
+      foreach ($par in @(@('Wallpaper', $img), @('WallpaperStyle', '10'), @('TileWallpaper', '0'))) {
+        $atual = (Get-ItemProperty -Path $desk -Name $par[0] -ErrorAction SilentlyContinue).($par[0])
+        if ($atual -ne $par[1]) {
+          Set-ItemProperty -Path $desk -Name $par[0] -Value $par[1] -Type String
+          $mudou = $true
+        }
+      }
+    }
+
+    if ($carregou) {
+      [gc]::Collect()   # sem isto o reg unload falha por handle aberto
+      reg unload "HKU\$sid" | Out-Null
+    }
+
+    if ($mudou) { 'ALTERADO' } else { 'ja conforme' }
+  environment:
+    # Passado por ambiente, e não interpolado no script: mantém o PowerShell
+    # livre de Jinja e de literais com contrabarra, que já quebraram o
+    # carregamento de playbook neste repositório.
+    WP_IMAGEM: "{{ estado_wallpaper }}"
+    WP_USUARIO: "{{ estado_autologon_usuario }}"
+  register: wallpaper
+  changed_when: "'ALTERADO' in wallpaper.stdout"
+  when: estado_wallpaper is defined and estado_autologon_usuario is not none
+  tags: aparencia
+
 # --- Energia ------------------------------------------------------------------
 
 - name: Garantir o plano de energia
