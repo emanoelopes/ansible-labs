@@ -25,6 +25,24 @@ ansible_password: "{{ vault_senha_suporte }}"
 # no seu group_vars/<lab>.yml. A role estado_lab soma as duas listas.
 #
 # Alterar aqui vale para os cinco laboratórios — confira antes.
+# ── ARGUMENTOS DE INSTALAÇÃO POR PACOTE ──────────────────────────────────
+#
+# Pacote -> argumentos passados ao INSTALADOR (não ao Chocolatey).
+#
+# Serve para os programas que, por padrão, instalam no perfil de quem
+# executa. Como o Ansible conecta como 'suporte', eles ficariam invisíveis
+# para o 'aluno', que é quem usa a máquina. Não há variável de ambiente que
+# resolva isso: o instalador resolve o perfil pelo token de segurança.
+#
+# Vale para todos os laboratórios. Para argumentos específicos de um lab,
+# defina estado_pacotes_args em group_vars/<lab>.yml — mas atenção, a
+# variável é substituída inteira, não mesclada; repita as entradas comuns.
+estado_pacotes_args:
+  # Arduino IDE 2.x: sem isto vai para %LOCALAPPDATA%\Programs\Arduino IDE
+  # do usuário que instalou. Com /ALLUSERS vai para %PROGRAMFILES%.
+  # /S é o modo silencioso do instalador NSIS.
+  arduino: '/ALLUSERS /S'
+
 estado_pacotes_base:
   - audacity
   - foxitreader

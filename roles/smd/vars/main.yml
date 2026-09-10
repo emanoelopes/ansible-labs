@@ -9,8 +9,32 @@ appdata: 'c:\Users\aluno\appdata\Roaming\Microsoft\Windows\Start Menu\Programs\S
 # Ao trocar de versão, confira que a URL responde antes de aplicar no
 # laboratório inteiro — a Apache remove as versões antigas do downloads.
 # quando lança novas, e aí o win_package falha em todas as máquinas.
-apache_netbeans_versao: '28'
-apache_netbeans_url: "https://downloads.apache.org/netbeans/netbeans-installers/{{ apache_netbeans_versao }}/Apache-NetBeans-{{ apache_netbeans_versao }}-bin-windows-x64.exe"
+#
+# ── A ORIGEM É O archive.apache.org, NÃO O downloads/dlcdn ───────────────
+#
+# Em 09/09/2026 as duas URLs deste arquivo devolveram 404 na 411 do lab4:
+# NetBeans 28 e Tomcat 10.1.50. Não foi erro de digitação — a Apache REMOVE
+# as versões antigas de downloads.apache.org e dlcdn.apache.org assim que
+# lança novas. Esses servidores só servem o que é corrente.
+#
+# O archive.apache.org guarda tudo, permanentemente. Fixar a versão só faz
+# sentido apontando para lá; caso contrário o playbook quebra sozinho a cada
+# release da Apache, sem ninguém ter mexido em nada.
+#
+# Melhor ainda seria servir do espelho local (pasta 'windows_instaladores'
+# no Samba, exposta por repo_local.yml): baixa-se uma vez, e as 27 estações
+# puxam da rede interna em vez de cada uma buscar na internet. Vale quando
+# houver folga para mover os instaladores para lá.
+# 25 é a mais recente publicada — verificado no archive em 09/09/2026.
+# A URL anterior apontava para a 28, que NUNCA EXISTIU: o número foi
+# elevado sem conferir, e o comentário que acompanhava a linha admitia a
+# dúvida ("check if v28 exists"). Ficou assim até alguém tentar instalar.
+#
+# Ao trocar de versão, confira que o arquivo responde antes de aplicar no
+# laboratório inteiro:
+#   curl -sI https://archive.apache.org/dist/netbeans/netbeans-installers/<v>/Apache-NetBeans-<v>-bin-windows-x64.exe | head -1
+apache_netbeans_versao: '25'
+apache_netbeans_url: "https://archive.apache.org/dist/netbeans/netbeans-installers/{{ apache_netbeans_versao }}/Apache-NetBeans-{{ apache_netbeans_versao }}-bin-windows-x64.exe"
 apache_netbeans_dir: "c:\\program files\\netbeans-{{ apache_netbeans_versao }}"
 
 # Instalador que traz o NetBeans junto com um JDK. Alternativa para máquina
@@ -18,8 +42,18 @@ apache_netbeans_dir: "c:\\program files\\netbeans-{{ apache_netbeans_versao }}"
 apache_netbeans_jdk_url: 'https://github.com/Friends-of-Apache-NetBeans/netbeans-installers/releases/download/v27-build1/Apache-NetBeans-27.exe'
 bginfo_url: 'https://download.sysinternals.com/files/BGInfo.zip'
 fontforge_url: 'https://github.com/fontforge/fontforge/releases/download/20230101/FontForge-2023-01-01-Windows.exe'
-tomcat_url: 'https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.50/bin/apache-tomcat-10.1.50.zip'
-tomcat_zip_file: 'apache-tomcat-10.1.50.zip'
+# Tomcat: mesma história do NetBeans acima. O dlcdn.apache.org devolveu 404
+# para a 10.1.50 em 09/09/2026, porque já não é a corrente. A versão fica em
+# uma variável só, e a URL e o nome do zip derivam dela — antes os dois
+# repetiam o número, e bastava atualizar um deles para o unzip procurar um
+# arquivo que o download não tinha criado.
+tomcat_versao: '10.1.50'
+tomcat_url: "https://archive.apache.org/dist/tomcat/tomcat-10/v{{ tomcat_versao }}/bin/apache-tomcat-{{ tomcat_versao }}.zip"
+tomcat_zip_file: "apache-tomcat-{{ tomcat_versao }}.zip"
+# Onde o unzip deixa o Tomcat. É o caminho que o NetBeans precisa saber ao
+# registrar o servidor, e é igual em todas as estações — mesmo usuário,
+# mesma versão.
+tomcat_dir: "{{ aluno_documents_folder }}\\apache-tomcat-{{ tomcat_versao }}"
 user_temp_folder: 'C:\Temp'
 downloads: 'c:\Users\aluno\Downloads'
 aluno_documents_folder: 'c:\Users\aluno\Documents'  

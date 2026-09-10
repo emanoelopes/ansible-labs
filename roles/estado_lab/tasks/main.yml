@@ -40,10 +40,36 @@
 
 # Um pacote por iteração, e não uma lista única: assim a falha de um pacote
 # identifica qual falhou e não derruba os demais.
+#
+# ── ARGUMENTOS POR PACOTE ─────────────────────────────────────────────────
+#
+# estado_pacotes_args mapeia pacote -> argumentos do INSTALADOR. Existe por
+# causa de um problema que nenhuma variável de ambiente resolve.
+#
+# O Ansible conecta como 'suporte'. Instalador que grava no perfil do
+# usuário grava no perfil do SUPORTE — e o aluno, que é quem usa a máquina,
+# não enxerga nada. Não adianta apontar %APPDATA% para o aluno: o instalador
+# resolve o perfil pelo TOKEN DE SEGURANÇA com que roda, e quem usa
+# SHGetKnownFolderPath ignora a variável.
+#
+# A saída é instalar para todos os usuários, quando o instalador permite. O
+# Arduino IDE 2.x é o caso típico: por padrão vai para
+# %LOCALAPPDATA%\Programs\Arduino IDE, e com /ALLUSERS /S vai para
+# %PROGRAMFILES%\Arduino IDE.
+#
+# Constatado no lab4 em 09/09/2026: o colega conseguiu instalar e nós não —
+# a diferença não estava no comando, e sim em quem o executava. Ele estava
+# sentado na máquina, na sessão do aluno (autologon).
+#
+# NEM TODO PROGRAMA SE RESOLVE ASSIM. O NetBeans, por exemplo, já instala em
+# Program Files para todos; o que fica por usuário é a CONFIGURAÇÃO, no
+# userdir %APPDATA%\NetBeans\<versão>. Argumento de instalador não alcança
+# isso — ver o playbook de distribuição do userdir.
 - name: Garantir que os pacotes declarados estão instalados
   chocolatey.chocolatey.win_chocolatey:
     name: "{{ item }}"
     state: "{{ estado_pacotes_versao }}"
+    install_args: "{{ estado_pacotes_args[item] | default(omit) }}"
   loop: "{{ estado_pacotes }}"
   register: estado_choco
   failed_when: false
