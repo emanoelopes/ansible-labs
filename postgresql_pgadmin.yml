@@ -1,0 +1,117 @@
+---
+# PostgreSQL e pgAdmin 4 — para qualquer laboratório.
+#
+#   ansible-playbook postgresql_pgadmin.yml -e local=lab4
+#   ansible-playbook postgresql_pgadmin.yml -e local=lab4 --limit 411   (piloto)
+#
+# Origem: demanda do prof. Leonardo (Banco de Dados I e Programação para
+# Web I), em 2026.2 no Lab 4 — mas a disciplina muda de sala a cada semestre
+# (ver Mapa de Salas), então este playbook não fixa laboratório nenhum.
+#
+# Trello: https://trello.com/c/b8AkQGFR
+#
+# ── O QUE NÃO ESTÁ AQUI, E POR QUÊ ────────────────────────────────────────
+#
+# NetBeans e Tomcat saem pela role smd, que já os instala e já cria as
+# regras de firewall:
+#
+#   ansible-playbook site.yaml -e local=lab4 -t apache_netbeans
+#   ansible-playbook site.yaml -e local=lab4 -t tomcat
+#
+# Uma primeira versão deste playbook instalava os quatro pelo Chocolatey.
+# Não funcionou para o NetBeans: o pacote 'netbeans' do Chocolatey baixa o
+# Apache-NetBeans-XX.exe e apenas cria um shim para ele — o instalador nunca
+# é executado. O Chocolatey reporta sucesso e não há produto na máquina.
+# A role usa win_package apontando direto para o instalador do Apache, com
+# --silent, e é o caminho validado em produção há vários semestres.
+#
+# ── O QUE CONTINUA MANUAL ─────────────────────────────────────────────────
+#
+# Registrar o servidor PostgreSQL dentro do pgAdmin, e registrar o Tomcat
+# como servidor no NetBeans. Ambos mexem em configuração interna do
+# aplicativo, no perfil do usuário, em formato que varia por versão.
+#
+#   pgAdmin  -> botão direito em Servers > Register > Server;
+#               host localhost, porta 5432, usuário postgres, senha do vault
+#   NetBeans -> Tools > Servers > Add Server > Apache Tomcat
+
+- name: PostgreSQL e pgAdmin 4
+  hosts: "{{ local | default('nao_definido') }}"
+  gather_facts: true
+  serial: '25%'
+  max_fail_percentage: 20
+
+  vars:
+    # Senha do superusuário 'postgres'.
+    #
+    # VEM DO VAULT, não escrita aqui. Este repositório é PÚBLICO
+    # (github.com/emanoelopes/ansible-labs), e o literal iria para o GitHub
+    # em texto claro. A variável vault_senha_postgres já existia, criada
+    # para o postgres.yml — escrever a senha aqui também deixaria duas
+    # fontes concorrentes para o mesmo serviço.
+    #
+    # O prof. Leonardo pediu que fosse 'ufc123'. Esse é o VALOR que vai no
+    # vault, não no playbook:
+    #   ansible-vault edit group_vars/all/vault.yml
+    #
+    # Ser senha didática, sem exposição fora da rede do laboratório,
+    # justifica ela ser simples — não justifica publicá-la.
+    postgres_senha_postgres: "{{ vault_senha_postgres }}"
+
+  pre_tasks:
+    - name: Avisar quando nenhum laboratório foi informado
+      ansible.builtin.fail:
+        msg: >-
+          Informe o laboratório:
+          ansible-playbook postgresql_pgadmin.yml -e local=lab4
+      when: local is not defined
+      run_once: true
+      delegate_to: localhost
+
+  tasks:
+    - name: Ensure PostgreSQL is installed
+      chocolatey.chocolatey.win_chocolatey:
+        name: postgresql
+        state: latest
+        package_params: "/Password:{{ postgres_senha_postgres }}"
+      register: postgres_install
+      no_log: true
+
+    - name: Ensure pgAdmin 4 is installed
+      chocolatey.chocolatey.win_chocolatey:
+        name: pgadmin4
+        state: latest
+      register: pgadmin_install
+
+    - name: Reboot if the installers asked for it
+      ansible.windows.win_reboot:
+      when: >
+        (postgres_install.reboot_required | default(false)) or
+        (pgadmin_install.reboot_required | default(false))
+
+    # A regra libera o PostgreSQL de cada estação para a rede do
+    # laboratório. Se os alunos acessam o banco em localhost, ela é
+    # desnecessária — só faz falta quando o exercício é conectar no banco da
+    # máquina do colega. Remova esta tarefa se não for o caso.
+    - name: Allow PostgreSQL (5432) through the firewall
+      community.windows.win_firewall_rule:
+        name: PostgreSQL
+        localport: 5432
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+
+    - name: Verify the PostgreSQL service is running
+      ansible.windows.win_service_info:
+        name: postgresql*
+      register: postgres_service
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} — PostgreSQL:
+          {{ postgres_service.services | default([]) | map(attribute='state')
+             | list | join(', ') | default('serviço não encontrado', true) }}.
+          Pendente na mão: registrar o servidor localhost:5432 no pgAdmin.

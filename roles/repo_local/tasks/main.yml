@@ -110,9 +110,19 @@
     - remontar | default(false) | bool
     - repo_mount_dir in repo_montado.stdout
 
+# ── NÃO REGISTRE AQUI EM 'repo_montado' ──────────────────────────────────
+#
+# Esta tarefa é condicional, e tarefa PULADA também escreve no registro: o
+# Ansible grava um dicionário {'skipped': true, ...}, sem 'stdout'. Reusar o
+# nome da checagem original a destruía sempre que 'remontar' fosse falso — e
+# a tarefa seguinte, ao ler .stdout, falhava com "object of type 'dict' has
+# no attribute 'stdout'".
+#
+# O efeito: o repo_local só funcionava com -e remontar=true. No caminho
+# normal, que é o de todo dia, quebrava. Constatado em 10/09/2026.
 - name: Reavaliar a montagem após o umount
   ansible.builtin.command: "findmnt --noheadings --target {{ repo_mount_dir }}"
-  register: repo_montado
+  register: repo_montado_pos
   changed_when: false
   failed_when: false
   when: remontar | default(false) | bool
@@ -128,7 +138,13 @@
   failed_when:
     - repo_mount_rc.rc != 0
     - "'already mounted' not in repo_mount_rc.stderr"
-  when: repo_mount_dir not in repo_montado.stdout
+  # default() SEM o segundo argumento, de propósito: ele substitui apenas
+  # quando a variável é indefinida — o caso da tarefa acima ter sido pulada.
+  # Com 'default(x, true)' ele também substituiria quando a saída fosse
+  # VAZIA, que é exatamente o resultado de um umount bem-sucedido: cairia de
+  # volta na leitura antiga, que dizia "montado", e o playbook pularia a
+  # remontagem justo depois de desmontar.
+  when: repo_mount_dir not in (repo_montado_pos.stdout | default(repo_montado.stdout))
 
 - name: Confirmar que a subpasta de instaladores existe
   ansible.builtin.stat:
