@@ -37,6 +37,32 @@ ansible_password: "{{ vault_senha_suporte }}"
 # Vale para todos os laboratórios. Para argumentos específicos de um lab,
 # defina estado_pacotes_args em group_vars/<lab>.yml — mas atenção, a
 # variável é substituída inteira, não mesclada; repita as entradas comuns.
+# ── PACOTES MANTIDOS SEMPRE NA ÚLTIMA VERSÃO ─────────────────────────────
+#
+# O padrão do parque é 'present': garante presença e não mexe na versão,
+# para que uma turma não encontre software diferente do da aula anterior.
+#
+# Navegador é a exceção, e por um motivo concreto: ele se atualiza sozinho e,
+# quando não consegue, PEDE ELEVAÇÃO. No lab4, em 10/09/2026, o Firefox
+# passou a exibir na inicialização um diálogo pedindo a senha do 'suporte' —
+# a um aluno, que não a tem e não deve ter.
+#
+# Manter em 'latest' não abre mão de reprodutibilidade: transfere a
+# atualização do navegador de cada estação, por conta própria e em momentos
+# diferentes, para o Ansible, que a faz em todas de uma vez.
+#
+# CONSEQUÊNCIA NA AUDITORIA: a cada versão nova do Firefox, o --check semanal
+# vai apontar divergência nas máquinas ainda não atualizadas. É ruído útil —
+# significa "há atualização pendente", e some com um estado.yml.
+estado_pacotes_latest:
+  - firefox
+
+# O Chrome NÃO entra na lista: nas 155 máquinas ele foi instalado por .exe,
+# não pelo Chocolatey (aparece na seção 4 dos relatórios, registro do
+# Windows), e se atualiza pelo serviço do Google Update, que roda como
+# SYSTEM e não pede elevação a ninguém. Declará-lo aqui não teria efeito
+# sobre a instalação existente — ver a nota em group_vars/lab1.yml.
+
 estado_pacotes_args:
   # Arduino IDE 2.x: sem isto vai para %LOCALAPPDATA%\Programs\Arduino IDE
   # do usuário que instalou. Com /ALLUSERS vai para %PROGRAMFILES%.

@@ -68,7 +68,17 @@
 - name: Garantir que os pacotes declarados estão instalados
   chocolatey.chocolatey.win_chocolatey:
     name: "{{ item }}"
-    state: "{{ estado_pacotes_versao }}"
+    # 'present' garante presença sem mexer na versão — é o padrão, e existe
+    # para que uma turma não encontre software diferente do da aula anterior.
+    #
+    # Para os pacotes de estado_pacotes_latest vale o contrário: navegador
+    # desatualizado se atualiza sozinho, e quando não consegue, PEDE
+    # ELEVAÇÃO. Foi o que apareceu no lab4 em 10/09/2026 — diálogo do Firefox
+    # pedindo a senha do 'suporte' a um aluno que não a tem nem deve ter.
+    #
+    # Reprodutibilidade não se perde: quem atualiza passa a ser o Ansible,
+    # em todas as máquinas ao mesmo tempo, e não cada estação por conta.
+    state: "{{ 'latest' if item in (estado_pacotes_latest | default([])) else estado_pacotes_versao }}"
     install_args: "{{ estado_pacotes_args[item] | default(omit) }}"
   loop: "{{ estado_pacotes }}"
   register: estado_choco
@@ -119,6 +129,64 @@
     - estado_falhas | length > 0
     - not ansible_check_mode
   tags: pacotes
+
+# --- Navegadores --------------------------------------------------------------
+
+# Desligar o atualizador interno do Firefox NÃO é abandonar a atualização —
+# é decidir quem a faz. Sem isto, as duas partes disputam: o Chocolatey
+# instala a versão nova pelo estado, e o Firefox tenta a dele por conta,
+# esbarra na permissão de escrever em Program Files e pede elevação.
+#
+# O diálogo pedindo a senha do 'suporte' a um aluno é o pior resultado
+# possível: ou ele não tem a senha, e a mensagem reaparece toda inicialização,
+# ou alguém acaba contando a senha administrativa a uma turma inteira.
+#
+# Política oficial de empresa da Mozilla, lida do registro na inicialização:
+# HKLM\SOFTWARE\Policies\Mozilla\Firefox\DisableAppUpdate.
+#
+# NOTA: existe também o "Mozilla Maintenance Service", que o inventário
+# encontrou em TODAS as máquinas do lab2. Ele serve exatamente para o Firefox
+# se atualizar sem elevação. Se o diálogo aparecia mesmo com ele instalado, o
+# serviço está parado ou quebrado — vale conferir, mas não muda esta decisão:
+# com o estado declarado, quem atualiza é o Ansible.
+- name: Desativar o atualizador interno do Firefox
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Mozilla\Firefox
+    name: DisableAppUpdate
+    data: 1
+    type: dword
+    state: present
+  tags: navegadores
+
+# Sem isto o Firefox pergunta, a cada perfil novo, se deve ser o navegador
+# padrão — outra caixa de diálogo na cara do aluno, sem utilidade num
+# laboratório onde ninguém escolhe nada.
+- name: Não perguntar sobre navegador padrão
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Mozilla\Firefox
+    name: DontCheckDefaultBrowser
+    data: 1
+    type: dword
+    state: present
+  tags: navegadores
+
+- name: Conferir o Mozilla Maintenance Service
+  ansible.windows.win_service_info:
+    name: MozillaMaintenance
+  register: estado_moz_svc
+  failed_when: false
+  tags: navegadores
+
+- name: Relatar o estado do Mozilla Maintenance Service
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: MozillaMaintenance
+      {{ (estado_moz_svc.services | default([]) | map(attribute='state') | list | join(', '))
+         | default('AUSENTE', true) }}.
+      Com o atualizador interno desligado ele deixa de ser necessário, mas um
+      serviço parado aqui explica por que o Firefox pedia elevação antes.
+  when: estado_moz_svc.services | default([]) | selectattr('state', 'equalto', 'started') | list | length == 0
+  tags: navegadores
 
 # --- Energia ------------------------------------------------------------------
 
