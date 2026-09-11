@@ -1,0 +1,52 @@
+---
+# Estado desejado do laboratório 3 (macOS, 24 iMacs).
+#
+# Migrado de dentro do lab3.yaml em 11/09/2026 — era o modelo que os labs
+# Windows tinham antes do estado_lab: pacotes escritos como 'vars:' do
+# próprio playbook, em vez de declarados em group_vars.
+#
+# Elevado ao nível dos labs Windows no mesmo dia: existe agora um
+# equivalente do estado_lab para macOS (roles/estado_lab_macos, Homebrew +
+# mas em vez de Chocolatey), e o lab3 passou a caber no mesmo estado.yml —
+# ver o 'when: os_family' ali. O lab3.yaml deixou de instalar pacotes
+# (removidos os roles Galaxy geerlingguy.mac.*) e voltou a ser só o que não
+# é estado declarado: bootstrap do Homebrew, checagens pontuais, etc.
+#
+# Também não há núcleo compartilhado (windows.yml faz esse papel lá): lab3
+# é o único lab macOS, então tudo dele é "extra" por definição.
+#
+# Sem inventário de software do lab3 (inventario/auditoria-lab3.*) para
+# conferir cobertura — ao contrário dos labs Windows, a lista abaixo não
+# foi revisada contra o parque real, só transcrita do que já estava
+# declarado no playbook.
+#
+#   auditar:  ansible-playbook estado.yml -e alvo=lab3 --check --diff
+#   piloto:   ansible-playbook estado.yml -e alvo=lab3 --limit 311
+#   aplicar:  ansible-playbook estado.yml -e alvo=lab3
+
+# IntelliJ IDEA CE só entra pelo estado declarado a partir da posição 331
+# (filas 3 e 4). Nas filas 1 e 2 (311-316, 321-326) o Peterson já instalou
+# manualmente, fora do Homebrew — sem receipt no Caskroom, o módulo
+# homebrew_cask tende a recusar (.app já existe em /Applications) em vez de
+# reconhecer como conforme. Piloto sugerido: 331, não 311.
+homebrew_cask_apps: >-
+  {{
+    ['processing', 'blender', 'krita', 'firefox']
+    + (['intellij-idea-ce'] if inventory_hostname | int >= 331 else [])
+  }}
+
+homebrew_installed_packages:
+  - tmux
+  #- node
+  - mas
+  #- fontforge
+
+mas_installed_apps:
+  - { id: 421131143, name: "MPlayerX" }
+  - { id: 571213070, name: "DaVinci Resolve" }
+
+# Mesma decisão dos labs Windows ("navegadores: Ansible passa a ser quem
+# atualiza o Firefox", 2026-09) — sem isto, o app tenta se autoatualizar e
+# esbarra em permissão de escrita em /Applications, sem sudo do aluno.
+estado_homebrew_cask_latest:
+  - firefox

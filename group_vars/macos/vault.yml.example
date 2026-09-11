@@ -1,0 +1,18 @@
+---
+# MODELO. O arquivo real é group_vars/macos/vault.yml, que está no .gitignore.
+#
+# PRIMEIRA VEZ (o vault ainda não existe):
+#   cp group_vars/macos/vault.yml.example group_vars/macos/vault.yml
+#   nano group_vars/macos/vault.yml          # preencher os valores
+#   ansible-vault encrypt group_vars/macos/vault.yml
+#
+# DEPOIS (o vault já existe e está cifrado) — NÃO rodar 'encrypt' de novo:
+#   ansible-vault edit group_vars/macos/vault.yml     # decifra, abre, recifra
+#   ansible-vault view group_vars/macos/vault.yml     # só consultar
+#
+# A senha do vault vem de ANSIBLE_VAULT_PASSWORD_FILE (ver ansible.cfg).
+# Sem ela definida, acrescente --ask-vault-pass aos comandos.
+
+# Conta 'suporte' nos iMacs do lab3 — CREDENCIAL DE CONEXÃO (SSH + sudo).
+# Usada em: group_vars/macos/main.yml
+vault_macos_password: "SENHA_ATUAL_EM_USO"

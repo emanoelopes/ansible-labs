@@ -25,8 +25,17 @@
   serial: "{{ estado_serial | default('25%') }}"
   max_fail_percentage: 20
 
+  # Um role por família de SO. O 'when' no nível do role faz cada tarefa
+  # interna ser pulada nos hosts que não combinam — lab3 (Darwin) pula
+  # estado_lab por inteiro, os cinco labs Windows pulam estado_lab_macos.
+  # Unificado em 11/09/2026: lab3 passou a caber no mesmo comando
+  # (ansible-playbook estado.yml -e alvo=lab3) que os labs Windows, em vez
+  # de ter playbook e nível de robustez próprios em lab3.yaml.
   roles:
-    - estado_lab
+    - role: estado_lab
+      when: ansible_facts['os_family'] == 'Windows'
+    - role: estado_lab_macos
+      when: ansible_facts['os_family'] == 'Darwin'
 
   pre_tasks:
     - name: Avisar quando nenhum alvo foi informado

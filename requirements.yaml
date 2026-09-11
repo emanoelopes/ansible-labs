@@ -23,5 +23,6 @@ collections:
   - name: ansible.posix
     version: ">=1.6.0"
 
-  # Gerenciamento de hosts macOS — geerlingguy.mac.homebrew, geerlingguy.mac.mas
-  - name: geerlingguy.mac
+  # community.general já cobre homebrew/homebrew_cask (roles/estado_lab_macos).
+  # O role Galaxy geerlingguy.mac (homebrew/mas em lote, sem isolar falha por
+  # item) foi removido em 11/09/2026 — ver group_vars/lab3.yml.

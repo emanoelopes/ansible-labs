@@ -1,0 +1,46 @@
+---
+# Estado desejado de uma estação macOS de laboratório — equivalente ao
+# roles/estado_lab, mas com Homebrew/mas no lugar do Chocolatey.
+#
+# Escopo elevado ao nível dos labs Windows em 11/09/2026: pacotes e energia
+# (suspensão, monitor, desligamento diário agendado). Fora do escopo, por
+# decisão deliberada: sessão/autologin — no macOS isso grava a senha em
+# texto claro (kcpassword) ou exige o MDM da Apple, mecanismo bem menos
+# seguro que o win_auto_logon do Windows (que ao menos cifra no registro).
+#
+# Só existe hoje o lab3, então não há núcleo compartilhado como
+# group_vars/windows.yml — group_vars/lab3.yml declara tudo diretamente.
+
+# --- Software -----------------------------------------------------------------
+homebrew_installed_packages: []
+homebrew_cask_apps: []
+mas_installed_apps: []
+
+# state: latest atualiza a cada execução; present só garante presença.
+# 'present' é o default por ser menos intrusivo em máquina de aula — mesmo
+# raciocínio do estado_lab Windows.
+estado_pacotes_versao: present
+
+# Casks que devem sempre acompanhar a versão mais nova, mesmo com
+# estado_pacotes_versao: present. Caso de uso: navegador — ver
+# roles/estado_lab/tasks/main.yml, seção "Navegadores", para o motivo de o
+# Ansible (e não o próprio app) ser quem atualiza.
+estado_homebrew_cask_latest: []
+
+# --- Energia ------------------------------------------------------------------
+# Tempo em MINUTOS até a ação, com a máquina na tomada (pmset -a). 0 desativa.
+# Mesma política do estado_lab Windows: suspensão desligada por padrão,
+# porque máquina suspensa não responde a SSH e a auditoria a reportaria como
+# inalcançável, sem distinguir de desligada.
+estado_suspender_apos_min: 0        # 0 = nunca suspende (pmset sleep 0)
+estado_desligar_monitor_min: 15     # pmset displaysleep
+
+# Desligamento automático diário, via 'pmset repeat shutdown'. Defina
+# estado_desligar_hora como null para não agendar (não remove um agendamento
+# já existente — mesma semântica do estado_desligar_hora do Windows).
+estado_desligar_hora: '23:00'
+estado_desligar_dias: 'MTWRFSU'     # todos os dias
+
+# --- Controle de execução -------------------------------------------------
+# Quando true, a role só relata divergências sem corrigir.
+estado_somente_auditar: false

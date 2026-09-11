@@ -183,11 +183,16 @@
     # Laboratórios auditados pelo agendamento. Acrescente conforme forem
     # ganhando group_vars declarado.
     #
-    # Os cinco desde 01/09/2026. O lab5 é o mais importante da lista: passou
-    # tempo indeterminado inacessível por erro de transporte no inventário,
-    # divergindo em silêncio, e ninguém percebeu — é o caso que justificou
-    # esta auditoria existir.
-    auditoria_alvos: ['lab1', 'lab2', 'lab4', 'lab5', 'lab6']
+    # Os cinco Windows desde 01/09/2026. O lab5 é o mais importante da
+    # lista: passou tempo indeterminado inacessível por erro de transporte
+    # no inventário, divergindo em silêncio, e ninguém percebeu — é o caso
+    # que justificou esta auditoria existir.
+    #
+    # lab3 (macOS) entrou em 11/09/2026, junto com roles/estado_lab_macos.
+    # Ao contrário dos cinco Windows, a parte de energia dele (pmset) não
+    # tem fidelidade de --check — só a seção de pacotes (Homebrew) é
+    # auditada de verdade. Ver o cabeçalho de roles/estado_lab_macos/tasks.
+    auditoria_alvos: ['lab1', 'lab2', 'lab4', 'lab5', 'lab6', 'lab3']
 
     # ── PRÓXIMO PASSO POSSÍVEL: ACORDAR ANTES DE AUDITAR ─────────────────
     #

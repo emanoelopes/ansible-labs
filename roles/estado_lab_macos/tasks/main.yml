@@ -1,0 +1,335 @@
+---
+# Converge a estação macOS para o estado declarado em group_vars/lab3.yml.
+# Equivalente ao roles/estado_lab (Windows/Chocolatey) — ver o cabeçalho de
+# defaults/main.yml para o que está e o que não está no escopo.
+#
+# Mesmas tags do estado_lab, para que estado.yml -t pacotes / -t energia
+# funcione igual nos dois sistemas operacionais:
+#   pacotes  -> Homebrew (formula + cask) e Mac App Store (mas)
+#   energia  -> suspensão, monitor, desligamento diário agendado
+#
+# LIMITAÇÃO DE --check CONHECIDA: ao contrário do win_chocolatey (que
+# suporta check mode nativamente), 'mas' e 'pmset' são invocados via
+# ansible.builtin.command/shell, que a Ansible pula inteiramente sob
+# --check. Ou seja, o pacotes-via-mas e a seção de energia não aparecem na
+# auditoria de desvio (--check --diff) — mesma limitação que o próprio
+# win_shell de energia já tem no estado_lab Windows (ver o comentário
+# "NÃO VOLTE A LER A SAÍDA DO 'powercfg /query'" lá). Homebrew formula e
+# cask, por outro lado, têm fidelidade total: usam módulos de verdade
+# (community.general.homebrew / homebrew_cask), com check_mode explícito.
+
+- name: Validar que o estado foi declarado para este host
+  ansible.builtin.assert:
+    that:
+      - (homebrew_installed_packages | length) + (homebrew_cask_apps | length) + (mas_installed_apps | length) > 0
+    fail_msg: >-
+      Nenhum pacote declarado para {{ inventory_hostname }} (grupo(s):
+      {{ group_names | join(', ') }}). Defina homebrew_installed_packages,
+      homebrew_cask_apps e/ou mas_installed_apps em group_vars/lab3.yml.
+    success_msg: >-
+      {{ homebrew_installed_packages | length }} pacote(s) Homebrew,
+      {{ homebrew_cask_apps | length }} cask(s) e
+      {{ mas_installed_apps | length }} app(s) mas.
+    quiet: true
+  tags: always
+
+# --- Software: Homebrew --------------------------------------------------------
+
+# ── AUTOCORREÇÃO DE POSSE (achado em 11/09/2026, piloto na 311) ───────────
+#
+# O Homebrew se recusa a rodar como root (ver comentário mais abaixo) — mas
+# em pelo menos 13 das 23 máquinas testadas do lab3, o prefixo do Homebrew
+# (/usr/local/Homebrew, Cellar, Caskroom etc.) pertence a root, não a
+# 'suporte'. Provavelmente foi instalado com sudo em algum momento, talvez
+# até pelo antigo lab3.yaml, que já rodava com become:true de play. Nas
+# outras 10, o dono já é 'suporte:staff' e funciona sem esta tarefa.
+#
+# Resultado: nessas 13, rodar como root falha (Homebrew recusa), e rodar
+# como 'suporte' também falharia (sem permissão de escrita no próprio
+# prefixo) — um impasse que só um chown resolve. Idempotente: só entra
+# quando o dono está errado, e não mexe nas 10 que já estão corretas.
+- name: Verificar dono do prefixo do Homebrew
+  ansible.builtin.stat:
+    path: /usr/local/Homebrew
+  register: estado_homebrew_prefix
+  tags: pacotes
+
+- name: Corrigir posse do Homebrew quando pertence a root
+  ansible.builtin.shell: |
+    set -e
+    for d in /usr/local/Homebrew /usr/local/Cellar /usr/local/Caskroom /usr/local/opt \
+             /usr/local/Frameworks /usr/local/etc /usr/local/share /usr/local/lib \
+             /usr/local/include /usr/local/sbin /usr/local/bin /usr/local/var/homebrew; do
+      [ -e "$d" ] && chown -R "$DONO:staff" "$d"
+    done
+  environment:
+    DONO: "{{ ansible_user }}"
+  become: true
+  when:
+    - estado_homebrew_prefix.stat.exists
+    - estado_homebrew_prefix.stat.pw_name != ansible_user
+  register: estado_homebrew_chown
+  changed_when: true
+  tags: pacotes
+
+# Um pacote por iteração, e não uma lista única — mesmo motivo do
+# win_chocolatey no estado_lab: a falha de um não deve derrubar os demais,
+# e precisamos saber QUAL falhou.
+#
+# ignore_errors (não failed_when: false) de propósito: os módulos homebrew
+# não expõem 'rc' de forma confiável como o win_chocolatey expõe, mas
+# preservam 'failed' quando não sobrescrito. ignore_errors mantém esse
+# 'failed' de verdade no resultado registrado, só evitando que a falha
+# interrompa a lista — e é nele que o filtro abaixo se apoia.
+#
+# NÃO RODAR COMO ROOT — E "become: false" NÃO BASTA (achado em 11/09/2026,
+# piloto na 311). O Homebrew se recusa a rodar como root, ponto — não só
+# para instalar: "brew list"/"brew info", que os módulos usam só para
+# CONSULTAR o estado atual, batem no mesmo bloqueio.
+#
+# A armadilha: group_vars/macos/main.yml declara ansible_become:true como
+# VARIÁVEL (para dseditgroup, softwareupdate, pmset -a etc.). A keyword
+# 'become: false' na TAREFA parece a forma óbvia de desligar isso aqui, mas
+# testado ao vivo na 311: não funciona — 'whoami' ainda voltava "root". Para
+# variáveis de conexão (become, remote_user...) definidas em inventário, o
+# Ansible dá precedência à VARIÁVEL sobre a keyword de play/task; só um
+# 'vars:' de tarefa reescrevendo a mesma variável (ansible_become, não a
+# keyword become) consegue sobrepor. Documentado como pegadinha conhecida do
+# Ansible — não é bug deste projeto, mas custou uma investigação inteira
+# para confirmar.
+- name: Garantir os pacotes Homebrew (formula) declarados
+  community.general.homebrew:
+    name: "{{ item }}"
+    state: "{{ estado_pacotes_versao }}"
+  loop: "{{ homebrew_installed_packages }}"
+  vars:
+    ansible_become: false
+  register: estado_brew
+  ignore_errors: true
+  check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
+  tags: pacotes
+
+- name: Garantir os casks Homebrew declarados
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: "{{ 'latest' if item in (estado_homebrew_cask_latest | default([])) else estado_pacotes_versao }}"
+  loop: "{{ homebrew_cask_apps }}"
+  vars:
+    ansible_become: false
+  register: estado_brew_cask
+  ignore_errors: true
+  check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
+  tags: pacotes
+
+- name: Relatar pacotes Homebrew que não instalaram
+  ansible.builtin.debug:
+    msg: |
+      Falharam em {{ inventory_hostname }}:
+      {% for r in estado_brew_falhas %}
+        {{ r.item }} — {{ (r.msg | default('sem mensagem')) | truncate(160) }}
+      {% endfor %}
+  vars:
+    estado_brew_falhas: >-
+      {{ (estado_brew.results | default([]) + estado_brew_cask.results | default([]))
+         | selectattr('failed', 'defined') | selectattr('failed', 'equalto', true) | list }}
+  when: estado_brew_falhas | length > 0
+  tags: pacotes
+
+- name: Falhar o host quando algum pacote Homebrew não instalou
+  ansible.builtin.fail:
+    msg: >-
+      {{ estado_brew_falhas | length }} pacote(s) Homebrew não instalaram em
+      {{ inventory_hostname }}: {{ estado_brew_falhas | map(attribute='item') | join(', ') }}
+  vars:
+    estado_brew_falhas: >-
+      {{ (estado_brew.results | default([]) + estado_brew_cask.results | default([]))
+         | selectattr('failed', 'defined') | selectattr('failed', 'equalto', true) | list }}
+  when:
+    - estado_brew_falhas | length > 0
+    - not ansible_check_mode
+  tags: pacotes
+
+# --- Software: Mac App Store (mas) ----------------------------------------------
+#
+# Não existe módulo Ansible para 'mas' nas coleções deste projeto (só o role
+# Galaxy geerlingguy.mac.mas, que este repositório parou de usar para poder
+# isolar falha por item — ver group_vars/lab3.yml). command/shell não
+# suportam check mode: sob --check estas tarefas são puladas por inteiro,
+# não aparecem como 'changed' nem são executadas de verdade.
+#
+# vars: ansible_become:false pelo mesmo motivo do Homebrew logo acima (a
+# keyword 'become: false' sozinha não vence o ansible_become:true de
+# group_vars/macos/ — ver o comentário lá em cima): 'mas' fala com o App
+# Store amarrado à sessão do usuário logado (Apple ID via CommerceKit) —
+# como root não há sessão nenhuma para usar.
+
+- name: Listar apps instalados via mas
+  ansible.builtin.command: mas list
+  vars:
+    ansible_become: false
+  register: estado_mas_list
+  changed_when: false
+  failed_when: false
+  when: mas_installed_apps | length > 0
+  tags: pacotes
+
+- name: Verificar login no Mac App Store
+  ansible.builtin.command: mas account
+  vars:
+    ansible_become: false
+  register: estado_mas_account
+  changed_when: false
+  failed_when: false
+  when: mas_installed_apps | length > 0
+  tags: pacotes
+
+# Aviso, não falha (decisão de 11/09/2026: ignorar por hora). Sem sessão no
+# Mac App Store não tem contorno por Ansible — 'mas' fala com o CommerceKit
+# via Apple ID logado interativamente, é login manual por máquina (ou por
+# imagem). Antes esta tarefa dava 'fail' e travava o host ANTES da seção de
+# energia, que vem depois no arquivo — ou seja, uma máquina sem login no App
+# Store nem chegava a ter suspensão/monitor/desligamento aplicados, por causa
+# de um problema completamente à parte. Agora só avisa e segue: os pacotes
+# Homebrew já rodaram acima, e a seção de energia roda do mesmo jeito. A
+# tarefa "Garantir os apps mas declarados" abaixo já pula sozinha quando não
+# há login (via estado_mas_account.rc), então nada tenta instalar às cegas.
+- name: Avisar quando há apps mas declarados sem login no Mac App Store
+  ansible.builtin.debug:
+    msg: >-
+      {{ mas_installed_apps | length }} app(s) mas declarados mas
+      {{ inventory_hostname }} não está logado no Mac App Store ('mas
+      account' retornou {{ estado_mas_account.rc | default('?') }}). Pulando
+      a instalação via mas nesta máquina — requer login manual.
+  when:
+    - mas_installed_apps | length > 0
+    - estado_mas_account.rc | default(1) != 0
+  tags: pacotes
+
+- name: Garantir os apps mas declarados
+  ansible.builtin.command: "mas install {{ item.id }}"
+  vars:
+    ansible_become: false
+  loop: "{{ mas_installed_apps }}"
+  loop_control:
+    label: "{{ item.name }} ({{ item.id }})"
+  when:
+    - estado_mas_account.rc | default(1) == 0
+    - not (estado_mas_list.stdout | default('') is search('^' ~ (item.id | string) ~ ' ', multiline=True))
+  register: estado_mas
+  failed_when: false
+  changed_when: true
+  tags: pacotes
+
+- name: Relatar apps mas que não instalaram
+  ansible.builtin.debug:
+    msg: |
+      Falharam em {{ inventory_hostname }}:
+      {% for r in estado_mas_falhas %}
+        {{ r.item.name }} ({{ r.item.id }}) — rc {{ r.rc | default('?') }}: {{ (r.stderr | default(r.msg | default('sem mensagem'))) | truncate(160) }}
+      {% endfor %}
+  vars:
+    estado_mas_falhas: >-
+      {{ estado_mas.results | default([])
+         | rejectattr('rc', 'undefined') | rejectattr('rc', 'equalto', 0) | list }}
+  when: estado_mas_falhas | length > 0
+  tags: pacotes
+
+- name: Falhar o host quando algum app mas não instalou
+  ansible.builtin.fail:
+    msg: >-
+      {{ estado_mas_falhas | length }} app(s) mas não instalaram em
+      {{ inventory_hostname }}: {{ estado_mas_falhas | map(attribute='item') | map(attribute='name') | join(', ') }}
+  vars:
+    estado_mas_falhas: >-
+      {{ estado_mas.results | default([])
+         | rejectattr('rc', 'undefined') | rejectattr('rc', 'equalto', 0) | list }}
+  when:
+    - estado_mas_falhas | length > 0
+    - not ansible_check_mode
+  tags: pacotes
+
+# --- Energia ---------------------------------------------------------------
+
+- name: Ler o plano de energia atual (pmset)
+  ansible.builtin.command: pmset -g custom
+  register: estado_pmset_custom
+  changed_when: false
+  failed_when: false
+  tags: energia
+
+# Idempotência à mão, como o powercfg do Windows: lê o valor atual, compara
+# com o desejado, só aplica quando difere. 'pmset -g custom' não é
+# localizado (ao contrário do powercfg em português do Windows) — os nomes
+# das chaves ('sleep', 'displaysleep') são fixos em qualquer idioma do
+# sistema, então o awk abaixo não tem o mesmo risco de quebra por locale.
+- name: Ajustar suspensão e desligamento do monitor
+  ansible.builtin.shell: |
+    set -e
+    atual_sleep=$(printf '%s\n' "$PMSET_CUSTOM" | awk '/^[[:space:]]*sleep[[:space:]]/{print $2; exit}')
+    atual_disp=$(printf '%s\n' "$PMSET_CUSTOM" | awk '/^[[:space:]]*displaysleep[[:space:]]/{print $2; exit}')
+    mudou=false
+    if [ "$atual_sleep" != "$ALVO_SLEEP" ]; then
+      pmset -a sleep "$ALVO_SLEEP"
+      mudou=true
+    fi
+    if [ "$atual_disp" != "$ALVO_DISP" ]; then
+      pmset -a displaysleep "$ALVO_DISP"
+      mudou=true
+    fi
+    if [ "$mudou" = true ]; then echo ALTERADO; else echo 'ja conforme'; fi
+  environment:
+    PMSET_CUSTOM: "{{ estado_pmset_custom.stdout }}"
+    ALVO_SLEEP: "{{ estado_suspender_apos_min }}"
+    ALVO_DISP: "{{ estado_desligar_monitor_min }}"
+  become: true
+  register: estado_pmset_energia
+  changed_when: "'ALTERADO' in estado_pmset_energia.stdout"
+  tags: energia
+
+- name: Ler o agendamento de energia atual (pmset)
+  ansible.builtin.command: pmset -g sched
+  register: estado_pmset_sched
+  changed_when: false
+  failed_when: false
+  when: estado_desligar_hora is not none
+  tags: energia
+
+# A saída do 'pmset -g sched' escreve a hora em 12h com AM/PM (ex.: "shutdown
+# at 11:00PM every day"), e o formato exato de zero à esquerda não é
+# documentado de forma confiável — arriscado reconstruir a MESMA string para
+# comparar (foi exatamente esse tipo de detalhe que quebrou o powercfg no
+# Windows). Em vez de comparar strings, este script INTERPRETA a hora atual
+# de volta para 24h e compara números — não importa como o pmset formata.
+- name: Agendar o desligamento diário
+  ansible.builtin.shell: |
+    set -e
+    python3 - "$PMSET_DIAS" "$HORA_DESEJADA" <<'PY'
+    import re, subprocess, sys, os
+
+    dias, hora_desejada = sys.argv[1], sys.argv[2]
+    h, m = (int(x) for x in hora_desejada.split(':'))
+    alvo_min = h * 60 + m
+
+    atual = os.environ.get('PMSET_SCHED_ATUAL', '')
+    encontrado = re.search(r'shutdown at (\d{1,2}):(\d{2})(AM|PM)', atual)
+    atual_min = None
+    if encontrado:
+        hh, mm, ap = int(encontrado.group(1)), int(encontrado.group(2)), encontrado.group(3)
+        hh = (0 if hh == 12 else hh) if ap == 'AM' else (12 if hh == 12 else hh + 12)
+        atual_min = hh * 60 + mm
+
+    if atual_min == alvo_min:
+        print('ja conforme')
+    else:
+        subprocess.run(['pmset', 'repeat', 'shutdown', dias, f'{hora_desejada}:00'], check=True)
+        print('ALTERADO')
+    PY
+  environment:
+    PMSET_SCHED_ATUAL: "{{ estado_pmset_sched.stdout | default('') }}"
+    HORA_DESEJADA: "{{ estado_desligar_hora }}"
+    PMSET_DIAS: "{{ estado_desligar_dias }}"
+  become: true
+  when: estado_desligar_hora is not none
+  register: estado_pmset_desligar
+  changed_when: "'ALTERADO' in estado_pmset_desligar.stdout"
+  tags: energia
