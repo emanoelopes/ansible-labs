@@ -490,29 +490,36 @@
     name: julia
     state: latest
   tags: never,julia
-- name: Ensure wallpaper is set correctly
-  block:
-    - name: Select the smd wallpaper file
-      win_regedit:
-        path: HKEY_CURRENT_USER\Control Panel\Desktop
-        name: Wallpaper
-        data: "{{ wallpaper_path }}"
-        type: string
-    - name: Select the style
-      win_regedit:
-        path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
-        name: WallpaperStyle
-        data: 2
-        type: string
-    # Era 'win_shell: {commands: [...]}' — sintaxe inexistente. O módulo recebe
-    # o comando como texto livre. Mesmo defeito que havia no wallpaper.yaml.
-    - name: Update wallpaper configurations to apply the changes
-      win_shell: RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
-      changed_when: true
-  rescue:
-    - name: Print when errors
-      debug:
-        msg: 'An error ocurred trying to define the wallpaper on SMD role.'
+# ── PAPEL DE PAREDE SAIU DAQUI EM 10/09/2026 ─────────────────────────────
+#
+# As tarefas que existiam neste ponto escreviam em HKCU — a chave do usuário
+# QUE EXECUTA. Como o Ansible conecta como 'suporte', o papel de parede era
+# definido para o suporte, e o 'aluno', que é quem usa a máquina, nunca via
+# diferença. Foi por isso que o parque nunca ficou uniforme, apesar de a
+# tarefa reportar sucesso a cada execução.
+#
+# Também não copiavam a imagem: assumiam que wallpapersmd.jpg já estava em
+# C:\Windows\Web\Wallpaper\Windows. Onde faltasse, o registro apontava para
+# o nada e a área de trabalho voltava ao padrão do Windows, sem aviso.
+#
+# A versão correta está em roles/estado_lab/tasks/main.yml, tag 'aparencia':
+# traz a imagem do espelho HTTP local, resolve o SID do aluno e escreve na
+# chave DELE, mais em HKU\.DEFAULT para os perfis novos.
+#
+#   ansible-playbook estado.yml -e alvo=lab4 -t aparencia
+#
+# Esta tarefa foi deixada como aviso, e não apagada, porque a tag 'wallpaper'
+# pode estar em algum roteiro ou cartão antigo. Quem a invocar agora recebe
+# a instrução em vez de desfazer o que foi corrigido.
+- name: Wallpaper — esta tag foi substituída
+  ansible.builtin.debug:
+    msg: |
+      A tag 'wallpaper' da role smd não faz mais nada.
+
+      Ela escrevia no perfil do 'suporte', não no do 'aluno', e não copiava a
+      imagem. Use:
+
+        ansible-playbook estado.yml -e alvo={{ local | default('<lab>') }} -t aparencia
   tags: never,wallpaper
 
 - name: Internet On/Off change state

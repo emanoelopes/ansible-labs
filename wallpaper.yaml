@@ -1,45 +1,55 @@
 ---
-# Define o papel de parede padrão das estações.
+# ┌────────────────────────────────────────────────────────────────────────┐
+# │ ESTE PLAYBOOK FOI SUBSTITUÍDO EM 10/09/2026 — NÃO FAZ MAIS NADA        │
+# └────────────────────────────────────────────────────────────────────────┘
 #
-#   ansible-playbook wallpaper.yaml -e alvo=lab1
+# Use:
 #
-# Correções em relação à versão anterior deste arquivo:
+#   ansible-playbook estado.yml -e alvo=lab4 -t aparencia
 #
-#   - usava 'win_reg', módulo que não existe. O correto é win_regedit.
-#   - definia wallpaper_path localmente como 'C:\Caminho\Para\Sua\Imagem.jpg',
-#     um placeholder, sobrescrevendo o valor real que já existe em
-#     roles/smd/vars/main.yml. Agora usa a variável do projeto.
-#   - o win_shell usava 'commands:', sintaxe inexistente — o módulo recebe o
-#     comando como texto livre.
+# ── POR QUE SAIU ──────────────────────────────────────────────────────────
+#
+# A versão anterior escrevia em HKCU — a chave do usuário QUE EXECUTA. Como
+# o Ansible conecta como 'suporte', o papel de parede era definido para o
+# suporte, e o 'aluno', que é quem usa a máquina, nunca via diferença.
+#
+# O playbook reportava sucesso a cada execução. Não havia como perceber o
+# erro pela saída: ele fazia exatamente o que dizia, na chave errada.
+#
+# Não há saída por HKLM — a personalização da área de trabalho é por usuário
+# por design do Windows, e não existe chave de máquina equivalente. É preciso
+# resolver o SID do aluno e escrever na chave dele, mais em HKU\.DEFAULT,
+# que é o modelo herdado por perfil novo. É o que a tag 'aparencia' faz.
+#
+# Havia um segundo defeito: nenhum playbook copiava a imagem. Todos assumiam
+# que wallpapersmd.jpg já estava em C:\Windows\Web\Wallpaper\Windows. Onde
+# faltasse, o registro apontava para um arquivo inexistente e a área de
+# trabalho voltava ao padrão do Windows, em silêncio. Agora a imagem vem do
+# espelho HTTP do controlador, que serve a pasta windows_instaladores do
+# Samba — e a tarefa falha dizendo qual máquina não a tem, em vez de
+# configurar um caminho vazio.
+#
+# O arquivo foi mantido, e não apagado, porque o nome aparece em roteiros e
+# cartões antigos. Quem o executar agora recebe a instrução em vez de
+# desfazer a correção.
 
-- name: Papel de parede padrão
-  hosts: "{{ alvo | default('nao_definido') }}"
+- name: Papel de parede — este playbook foi substituído
+  hosts: localhost
+  connection: local
   gather_facts: false
 
-  vars:
-    # Mesmo valor de roles/smd/vars/main.yml. Sobrescreva com -e se precisar.
-    wallpaper_path: 'C:\Windows\Web\Wallpaper\Windows\wallpapersmd.jpg'
-
   tasks:
-    - name: Definir o caminho do papel de parede
-      ansible.windows.win_regedit:
-        path: HKCU:\Control Panel\Desktop
-        name: Wallpaper
-        data: "{{ wallpaper_path }}"
-        type: string
-      register: wallpaper_registro
+    - name: Apontar o caminho certo
+      ansible.builtin.fail:
+        msg: |
+          wallpaper.yaml não faz mais nada.
 
-    - name: Definir o estilo do papel de parede como Preencher
-      ansible.windows.win_regedit:
-        path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System
-        name: WallpaperStyle
-        data: "2"
-        type: string
-      register: wallpaper_estilo
+          Ele escrevia no perfil do 'suporte' em vez do 'aluno', e não
+          copiava a imagem para a máquina. As duas coisas estão corrigidas
+          no estado declarado:
 
-    # Só recarrega quando algo mudou de fato — evita reportar 'changed' a cada
-    # execução, o que tornaria o --check inútil neste playbook.
-    - name: Aplicar a mudança na sessão atual
-      ansible.windows.win_shell: >-
-        RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters ,1 ,True
-      when: wallpaper_registro.changed or wallpaper_estilo.changed
+            ansible-playbook estado.yml -e alvo=lab4 -t aparencia
+
+          Requer o espelho local no ar:
+
+            ansible-playbook repo_local.yml
