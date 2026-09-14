@@ -4,15 +4,51 @@
 #   ansible-playbook acordar.yml -e alvo=lab6
 #   ansible-playbook acordar.yml -e alvo=lab6 --limit '611,612'
 #
+# ── O QUE SE APRENDEU NA PRÁTICA (setembro/2026) ──────────────────────────
+#
+# O WoL FUNCIONA aqui, mas com uma condição que não estava óbvia:
+#
+#   09/09 — lab4 desligado por software minutos antes: 23 de 27 acordaram.
+#   14/09 — lab4 desligado desde sexta-feira: NENHUMA acordou, incluindo os
+#           24 Dell OptiPlex 7010 que tinham acordado na quarta.
+#
+# Mesmas máquinas, mesmo comando, resultados opostos. A diferença provável é
+# ALIMENTAÇÃO EM STANDBY: a placa de rede só responde ao pacote mágico se
+# continuar energizada depois do desligamento. Desligamento por software
+# preserva isso; corte de energia — disjuntor, queda, régua desligada no fim
+# de semana — não. A máquina fica eletricamente morta até alguém apertar o
+# botão uma vez.
+#
+# CONSEQUÊNCIA PARA A AUDITORIA SEMANAL: o WoL só é confiável para máquinas
+# desligadas pelo playbook ou pela tarefa agendada das 23h. Depois de um fim
+# de semana com corte de energia, é preciso ir ao laboratório de qualquer
+# forma. Não dá para prometer cobertura total sem tocar nas máquinas.
+#
 # ── PRÉ-REQUISITOS ────────────────────────────────────────────────────────
 #
 # 1. MAC de cada máquina, coletado com elas ligadas:
-#      ansible-playbook site.yaml -e local=lab6 -t collect_macaddress
+#      ansible-playbook coletar_macs.yml -e alvo=lab6
 #    Grava inventario/macs-lab6.yml.
 #
 # 2. Wake-on-LAN habilitado na BIOS e no driver de rede de cada estação.
 #    Não é o padrão de fábrica na maioria dos modelos, e habilitar exige ir
 #    máquina a máquina — uma vez só, mas presencialmente.
+#
+#    O LENOVO 32091M5 é o caso de maior volume: 42 estações, quase um terço
+#    do parque. Nele são três ajustes, nenhum padrão de fábrica:
+#      - Wake on LAN            -> Enabled   (Power / Power Management)
+#      - Deep Sleep Control     -> Disabled  (corta a energia da placa em S5)
+#      - After Power Loss       -> Power On, se quiser que volte após queda
+#
+#    Onde estão, para quem for a campo (levantado da planilha em 14/09/2026):
+#      lab6 (22): 611 612 613 614 616 617 621 622 623 625 626
+#                 631 632 635 636 641 642 643 644 645 646 647
+#      lab5 (13): 524 526 527 531 532 535 536 537 541 544 545 546 547
+#      lab2  (6): 233 234 235 236 237 243
+#      lab4  (1): 421
+#
+#    O lab6 é quase inteiro desse modelo — fazer os 22 numa sessão rende
+#    mais que voltar a cada falha. Trabalho iniciado em 14/09/2026.
 #
 # 3. O pacote mágico precisa alcançar a sub-rede das estações. Este é o
 #    obstáculo mais provável aqui: o controlador está em 10.102.226.x e os
