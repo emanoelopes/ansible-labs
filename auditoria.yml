@@ -112,9 +112,47 @@
           Auditoria de desvio — {{ alvo }}
           {{ ansible_date_time.date }} {{ ansible_date_time.time }}
 
-          Máquinas avaliadas: {{ avaliadas }} de {{ resultado.stats | default({}) | length }}
+          {% set total = resultado.stats | default({}) | length %}
+          {% set cobertura = ((avaliadas | int) * 100 / total) | round | int if total > 0 else 0 %}
+          Máquinas avaliadas: {{ avaliadas }} de {{ total }} ({{ cobertura }}%)
           {% if inalcancaveis | default([]) | length > 0 %}
           Não avaliadas (desligadas): {{ inalcancaveis | length }} — {{ inalcancaveis | join(', ') }}
+          {% endif %}
+          {#
+            Cobertura baixa é o modo de falha SILENCIOSO desta auditoria: ela
+            roda, não encontra ninguém, e reporta "0 divergências" — que lido
+            de relance parece boa notícia.
+
+            O horário de cada laboratório foi escolhido a partir do Mapa de
+            Salas, para cair dentro de uma aula. Quando o semestre vira, o
+            mapa é refeito e as disciplinas trocam de sala; o agendamento
+            continua rodando no horário velho, agora vazio. Nada dá erro.
+
+            Por isso o aviso aparece no corpo do relatório e não só nos
+            números: quem lê precisa saber que a ausência de divergência,
+            aqui, não significa que está tudo certo.
+          #}
+          {% if cobertura < 50 %}
+
+          ── ATENÇÃO: COBERTURA DE {{ cobertura }}% ────────────────────────
+          Só {{ avaliadas }} de {{ total }} máquinas responderam. Com tão
+          poucas avaliadas, "nenhuma divergência" abaixo não quer dizer que o
+          laboratório esteja conforme — quer dizer que quase ninguém foi
+          verificado.
+
+          A causa mais provável é o AGENDAMENTO TER CADUCADO. O horário desta
+          auditoria foi escolhido para coincidir com uma aula, segundo o Mapa
+          de Salas do semestre. Se as disciplinas mudaram de laboratório, ele
+          agora roda com a sala vazia.
+
+          Confira o Mapa de Salas do semestre corrente e ajuste
+          'auditoria_agenda' em auditoria.yml, depois:
+            ansible-playbook auditoria.yml -t instalar_agendamento -K
+
+          Se o horário ainda tem aula, então é outra coisa: máquinas
+          desligadas por corte de energia no fim de semana não voltam nem por
+          Wake-on-LAN. Verifique com:
+            ansible-playbook alcance.yml -e alvo={{ alvo }}
           {% endif %}
 
           ── FORA DO ESTADO DECLARADO: {{ divergencias | default([]) | length }} ──
