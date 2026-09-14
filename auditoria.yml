@@ -192,7 +192,63 @@
     # Ao contrário dos cinco Windows, a parte de energia dele (pmset) não
     # tem fidelidade de --check — só a seção de pacotes (Homebrew) é
     # auditada de verdade. Ver o cabeçalho de roles/estado_lab_macos/tasks.
-    auditoria_alvos: ['lab1', 'lab2', 'lab4', 'lab5', 'lab6', 'lab3']
+    # ── QUANDO AUDITAR CADA LABORATÓRIO ──────────────────────────────────
+    #
+    # A auditoria só avalia quem está ligado. O agendamento anterior — todos
+    # na quarta às 14h — era um palpite sobre quando haveria aula, e o
+    # relatório de 09/09/2026 mostrou o preço do palpite:
+    #
+    #   lab5  23 de 25  tinha aula       lab1  4 de 27  SEM aula
+    #   lab4  18 de 27  tinha aula       lab6  2 de 26  SEM aula
+    #   lab2   6 de 26  tinha aula
+    #
+    # Os dois piores eram exatamente os dois sem aula no horário. Cobertura
+    # total: 53 de 131.
+    #
+    # Agora cada laboratório é auditado numa janela em que o Mapa de Salas
+    # registra aula. Não depende de Wake-on-LAN, de BIOS nem de ida ao
+    # laboratório — e é imune ao corte de energia que derruba o WoL.
+    #
+    # ATENÇÃO: ISTO CADUCA A CADA SEMESTRE. O Mapa de Salas é refeito e as
+    # disciplinas trocam de laboratório. Conferir na virada, com a skill
+    # 'mapa-de-salas'. Um horário que ficou vazio NÃO dá erro: a auditoria
+    # roda, encontra tudo desligado e reporta cobertura baixa — mesmo sintoma
+    # silencioso de antes.
+    #
+    # Base: Mapa de Salas 2026.2, conferido em 14/09/2026.
+    auditoria_agenda:
+      - nome: 'terca'
+        quando: 'Tue *-*-* 15:00:00'
+        labs: ['lab2', 'lab6']
+        motivo: 'Programação II; Análise e Projeto de Sistemas'
+
+      # O lab1 fica sozinho porque não tem aula em nenhuma tarde de terça ou
+      # quarta. Suas janelas são segunda 14-22h, quarta 8-12h, quinta 14-22h
+      # e sexta 14-22h. A de quarta pela manhã mantém a auditoria concentrada
+      # em dois dias.
+      - nome: 'quarta-manha'
+        quando: 'Wed *-*-* 10:00:00'
+        labs: ['lab1']
+        motivo: 'Inteligência Computacional Aplicada a Jogos I'
+
+      - nome: 'quarta-tarde'
+        quando: 'Wed *-*-* 15:00:00'
+        labs: ['lab4', 'lab5']
+        motivo: 'Prog. Dispositivos Móveis; Gestão de Projetos Multimídia'
+
+    # ── O LAB3 NÃO ENTRA, E NÃO É ESQUECIMENTO ───────────────────────────
+    #
+    # Ele foi acrescentado aos alvos em algum momento e retirado em
+    # 14/09/2026. A auditoria roda o estado.yml em --check, e o estado_lab é
+    # inteiramente Chocolatey e WinRM. O lab3 são 24 iMacs por SSH, sem
+    # estado declarado, e sem nem o grupo [macos:children] no inventário —
+    # group_vars/macos.yml nunca é carregado e ansible_user lá ainda é
+    # 'seu_usuario'.
+    #
+    # Incluí-lo produz 24 falhas por execução, toda semana, sem informação
+    # nenhuma. Ele entra quando tiver o equivalente Homebrew do estado_lab —
+    # ver as notas em inventory.ini e group_vars/macos.yml.
+    auditoria_alvos: "{{ auditoria_agenda | map(attribute='labs') | flatten }}"
 
     # ── PRÓXIMO PASSO POSSÍVEL: ACORDAR ANTES DE AUDITAR ─────────────────
     #
@@ -243,13 +299,32 @@
         quiet: true
 
   tasks:
-    - name: Criar a unidade de serviço
+    # O agendamento único de quarta às 14h foi substituído pelo de
+    # auditoria_agenda. Remover as unidades antigas evita que as duas
+    # programações convivam e ninguém entenda por que a auditoria roda duas
+    # vezes — ou por que roda num horário que não está em lugar nenhum.
+    - name: Desativar o agendamento único antigo
+      ansible.builtin.systemd_service:
+        name: ansible-auditoria.timer
+        enabled: false
+        state: stopped
+      become: true
+      failed_when: false
+
+    - name: Remover as unidades antigas
+      ansible.builtin.file:
+        path: "/etc/systemd/system/ansible-auditoria.{{ item }}"
+        state: absent
+      loop: [service, timer]
+      become: true
+
+    - name: Criar as unidades de serviço
       ansible.builtin.copy:
-        dest: /etc/systemd/system/ansible-auditoria.service
+        dest: "/etc/systemd/system/ansible-auditoria-{{ item.nome }}.service"
         mode: "0644"
         content: |
           [Unit]
-          Description=Auditoria de desvio dos laboratórios (ansible-labs)
+          Description=Auditoria de desvio — {{ item.labs | join(', ') }} ({{ item.motivo }})
           After=network-online.target
           Wants=network-online.target
 
@@ -264,41 +339,46 @@
 
           # Um ExecStart por laboratório. Type=oneshot os executa em sequência
           # e considera o serviço com falha se qualquer um falhar.
-          {% for lab in auditoria_alvos %}
+          {% for lab in item.labs %}
           ExecStart=/usr/bin/ansible-playbook {{ playbook_dir }}/auditoria.yml -e alvo={{ lab }}
           {% endfor %}
+      loop: "{{ auditoria_agenda }}"
+      loop_control:
+        label: "{{ item.nome }} — {{ item.labs | join(', ') }}"
       become: true
 
-    # Semanal, e não diária, e no meio da tarde: as estações são ligadas sob
-    # demanda, então às 6h quase nenhuma responderia e a auditoria avaliaria
-    # um punhado de máquinas. Quarta à tarde tende a pegar o laboratório em
-    # uso, o que dá cobertura útil.
-    #
-    # Para mudar o dia ou a hora, edite OnCalendar e rode de novo:
-    #   Mon Tue Wed Thu Fri Sat Sun  |  formato: DIA *-*-* HH:MM:SS
-    - name: Criar o timer semanal
+    - name: Criar os timers
       ansible.builtin.copy:
-        dest: /etc/systemd/system/ansible-auditoria.timer
+        dest: "/etc/systemd/system/ansible-auditoria-{{ item.nome }}.timer"
         mode: "0644"
         content: |
           [Unit]
-          Description=Auditoria semanal de desvio dos laboratórios
+          Description=Auditoria semanal — {{ item.labs | join(', ') }}
 
           [Timer]
-          OnCalendar=Wed *-*-* 14:00:00
+          OnCalendar={{ item.quando }}
           Persistent=true
-          RandomizedDelaySec=600
+          # Sem atraso aleatório: o horário foi escolhido para cair DENTRO de
+          # uma aula, e um deslocamento de dez minutos pode jogá-lo para fora
+          # da janela. O antigo tinha 600s porque o horário era palpite.
+          RandomizedDelaySec=120
 
           [Install]
           WantedBy=timers.target
+      loop: "{{ auditoria_agenda }}"
+      loop_control:
+        label: "{{ item.nome }} — {{ item.quando }}"
       become: true
 
-    - name: Ativar o timer
+    - name: Ativar os timers
       ansible.builtin.systemd_service:
-        name: ansible-auditoria.timer
+        name: "ansible-auditoria-{{ item.nome }}.timer"
         enabled: true
         state: started
         daemon_reload: true
+      loop: "{{ auditoria_agenda }}"
+      loop_control:
+        label: "{{ item.nome }}"
       become: true
 
     # Uma execução de verdade agora, pelo systemd, com o ambiente que ele
