@@ -161,6 +161,55 @@
           {% else %}
             (nenhuma)
           {% endfor %}
+          {#
+            O QUE divergiu, e não só QUEM.
+
+            O bloco 'stats' do callback json traz um resumo por host: quantas
+            tarefas mudariam. Serve para listar máquinas, e é o que o
+            relatório fazia — mas quem recebe o e-mail fica sabendo que a 224
+            está fora do estado, sem saber do quê.
+
+            Nas duas vezes em que a auditoria acusou algo foi preciso abrir o
+            JSON à mão para descobrir a causa: o anaconda3 no lab2, em
+            03/09/2026, e o googlechrome no lab1, em 04/09. Nos dois casos a
+            causa era o que interessava — e nos dois o problema estava na
+            lista declarada, não nas máquinas.
+
+            A causa está em plays[].tasks[].hosts[], que o callback também
+            grava. Para a tarefa de pacotes, que roda em laço, o nome do
+            pacote está em results[].item.
+          #}
+          {% set ns = namespace(pares=[]) %}
+          {% for p in resultado.plays | default([]) %}
+          {% for t in p.tasks | default([]) %}
+          {% for h, r in (t.hosts | default({})).items() %}
+          {% if r.changed | default(false) %}
+          {% if r.results is defined %}
+          {% for sub in r.results %}
+          {% if sub.changed | default(false) %}
+          {% set _ = ns.pares.append([sub.item | string, h]) %}
+          {% endif %}
+          {% endfor %}
+          {% else %}
+          {% set _ = ns.pares.append([t.task.name | default('?'), h]) %}
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+          {% endfor %}
+          {% endfor %}
+          {% if ns.pares | length > 0 %}
+
+          ── O QUE DIVERGIU ────────────────────────────────────────────
+          {% for chave, grupo in ns.pares | sort | groupby(0) %}
+          {% set onde = grupo | map(attribute=1) | list | unique | sort %}
+            {{ "%-30s" | format(chave | truncate(29, true)) }}{{ onde | length }}: {{ onde | join(', ') }}
+          {% endfor %}
+
+          Se o mesmo item aparecer em QUASE TODAS as máquinas, desconfie da
+          lista declarada antes das estações: pacote que ninguém tem pode
+          ter entrado em group_vars por engano. Se aparecer em uma ou duas,
+          é desvio real.
+          {% endif %}
 
           ── ERRO NA VERIFICAÇÃO: {{ com_falha | default([]) | length }} ──
           {% for h in com_falha | default([]) %}
