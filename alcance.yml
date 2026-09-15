@@ -63,13 +63,28 @@
       when: alvo is not defined
       run_once: true
 
-    # Cada host da play sonda as próprias portas, do controlador.
+    # ── delegate_to É OBRIGATÓRIO AQUI ────────────────────────────────────
+    #
+    # 'connection: local' na play NÃO basta: a variável ansible_connection,
+    # definida em [lab3:vars] e [labN:vars] no inventário, tem precedência
+    # MAIOR que a palavra-chave da play. Sem delegação, o Ansible tenta
+    # conectar de verdade em cada estação — por SSH no lab3, por WinRM nos
+    # demais — e falha com UNREACHABLE exatamente nas máquinas que este
+    # playbook existe para diagnosticar.
+    #
+    # Constatado em 15/09/2026 na 325 do lab3: as cinco sondagens abortaram
+    # com "No route to host" na porta 22, sem chegar a sondar porta nenhuma.
+    #
+    # delegate_to: localhost decide onde a tarefa RODA, e não é afetado por
+    # ansible_connection do alvo. O host da play vira só o item de iteração,
+    # que é o que se queria desde o início.
     - name: Sondar as portas
       ansible.builtin.wait_for:
         host: "{{ ansible_host | default(inventory_hostname) }}"
         port: "{{ item.numero }}"
         timeout: "{{ espera }}"
         state: started
+      delegate_to: localhost
       loop: "{{ portas }}"
       loop_control:
         label: "{{ inventory_hostname }}:{{ item.numero }}"
