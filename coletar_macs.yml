@@ -29,7 +29,24 @@
     #
     # Escolhe-se a placa com default_gateway definido: é a que fala com a
     # rede. Máquinas com Wi-Fi, VPN ou adaptadores virtuais têm várias.
+    # ── macOS e Linux: o fato é outro ─────────────────────────────────────
+    #
+    # 'ansible_interfaces' tem formatos DIFERENTES por sistema:
+    #   Windows -> lista de dicionários, com default_gateway, macaddress etc.
+    #   macOS   -> lista de NOMES de interface (texto puro: en0, en1, lo0)
+    #
+    # O selectattr da tarefa seguinte espera dicionário e quebraria no lab3.
+    # Nesses sistemas o caminho certo é ansible_default_ipv4.macaddress — o
+    # mesmo fato que, no Windows, NÃO existe e fez a primeira coleta sair
+    # vazia em 01/09/2026. O erro de então, invertido.
+    - name: Identificar a placa de rede ativa (macOS e Linux)
+      ansible.builtin.set_fact:
+        mac_ativo: "{{ ansible_default_ipv4.macaddress | default('') }}"
+        nome_placa: "{{ ansible_default_ipv4.interface | default('?') }}"
+      when: ansible_os_family | default('') != 'Windows'
+
     - name: Identificar a placa de rede ativa
+      when: ansible_os_family | default('') == 'Windows'
       ansible.builtin.set_fact:
         mac_ativo: >-
           {{ (ansible_interfaces
@@ -59,6 +76,62 @@
   gather_facts: false
 
   tasks:
+    # ── A COLETA SOMA, NÃO SUBSTITUI ──────────────────────────────────────
+    #
+    # Sem isto, coletar com '--limit 127,136,147' reescreveria o arquivo
+    # inteiro a partir dos três hosts da execução, e o mapa do lab1 cairia
+    # de 24 MACs para 3. O mesmo valeria para uma coleta em que só parte do
+    # laboratório estivesse ligada — o caso normal.
+    #
+    # É a mesma classe do defeito de 01/09/2026, quando 'serial: 25%' com
+    # 'run_once' fazia cada leva sobrescrever a anterior e só a última
+    # sobrevivia. Ali a perda era visível na hora; aqui seria silenciosa.
+    #
+    # MAC de máquina não muda, então o valor antigo continua bom até a placa
+    # ser trocada. Quando isso acontecer, a coleta nova sobrepõe a antiga —
+    # a ordem do combine abaixo garante que o recém-lido vence.
+    - name: Ler o mapa anterior, se existir
+      ansible.builtin.stat:
+        path: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
+      register: mapa_antigo
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Carregar o mapa anterior
+      ansible.builtin.include_vars:
+        file: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
+        name: anterior
+      when: mapa_antigo.stat.exists
+      run_once: true
+
+    # Parte-se do mapa anterior. Em tarefa separada da acumulação porque
+    # chaves definidas num mesmo set_fact não enxergam umas às outras.
+    - name: Partir do mapa anterior
+      ansible.builtin.set_fact:
+        macs_final: "{{ anterior.macs | default({}) }}"
+      run_once: true
+
+    # Um combine por máquina. Poderia ser uma expressão única com zip e
+    # dict, mas ficaria ilegível — e este arquivo já custou caro em
+    # expressões espertas demais.
+    - name: Acrescentar o que foi coletado agora
+      ansible.builtin.set_fact:
+        macs_final: >-
+          {{ macs_final | combine({
+               item: {
+                 'mac': hostvars[item].mac_ativo | lower,
+                 'placa': hostvars[item].nome_placa | default('?'),
+                 'hostname': hostvars[item].ansible_hostname | default('?') | lower,
+                 'ip': hostvars[item].ansible_host | default('?')
+               }
+             }) }}
+      loop: "{{ ansible_play_hosts | sort }}"
+      loop_control:
+        label: "{{ item }}"
+      when: hostvars[item].mac_ativo | default('') | length > 0
+      run_once: true
+
     - name: Gravar macs-{{ alvo }}.yml
       ansible.builtin.copy:
         dest: "{{ inventario_dir }}/macs-{{ alvo }}.yml"
@@ -67,26 +140,23 @@
           ---
           # Gerado por coletar_macs.yml em {{ '%Y-%m-%d %H:%M' | strftime }}
           #
-          # Só constam as máquinas que responderam. As ausentes precisam de
-          # nova coleta com elas ligadas.
+          # ACUMULATIVO: entradas de coletas anteriores são preservadas. Uma
+          # coleta parcial (--limit, ou laboratório meio desligado) acrescenta
+          # e atualiza, nunca apaga.
           #
-          # Analisadas: {{ ansible_play_hosts | length }} de {{ groups[alvo] | length }}
+          # Nesta execução responderam {{ ansible_play_hosts | length }} de
+          # {{ groups[alvo] | length }} máquina(s) do {{ alvo }}.
           macs:
-          {% for h in ansible_play_hosts | sort %}
-          {% if hostvars[h].mac_ativo | default('') | length > 0 %}
+          {% for h in macs_final.keys() | sort %}
             "{{ h }}":
-              mac: "{{ hostvars[h].mac_ativo | lower }}"
-              placa: "{{ hostvars[h].nome_placa | default('?') }}"
-              hostname: "{{ hostvars[h].ansible_hostname | default('?') | lower }}"
-              ip: "{{ hostvars[h].ansible_host | default('?') }}"
-          {% endif %}
+              mac: "{{ macs_final[h].mac }}"
+              placa: "{{ macs_final[h].placa | default('?') }}"
+              hostname: "{{ macs_final[h].hostname | default('?') }}"
+              ip: "{{ macs_final[h].ip | default('?') }}"
           {% endfor %}
-          {% set sem = ansible_play_hosts | rejectattr('undefined') | list %}
           {% for h in groups[alvo] | sort %}
-          {% if h not in ansible_play_hosts %}
-          # {{ h }}: não respondeu na coleta
-          {% elif hostvars[h].mac_ativo | default('') | length == 0 %}
-          # {{ h }}: respondeu mas nenhum MAC foi identificado
+          {% if h not in macs_final %}
+          # {{ h }}: sem MAC — nunca respondeu a uma coleta
           {% endif %}
           {% endfor %}
       delegate_to: localhost
@@ -95,10 +165,27 @@
 
     - name: Resumo
       ansible.builtin.debug:
-        msg: >-
-          {{ ansible_play_hosts
-             | map('extract', hostvars, 'mac_ativo')
-             | select('defined') | select('length') | list | length }}
-          MAC(s) coletado(s) de {{ groups[alvo] | length }} máquina(s) do {{ alvo }}.
+        msg: |
+          {{ alvo }} — mapa de MACs
+
+          {#
+            'select(\"length\")' NÃO existe — nem como teste do Jinja nem do
+            Ansible, e 'length' é filtro. A expressão anterior usava isso e
+            teria falhado em tempo de execução. Aqui se usa selectattr e
+            rejectattr, que são padrão.
+          #}
+          {% set coletados = ansible_play_hosts | map('extract', hostvars)
+             | selectattr('mac_ativo', 'defined')
+             | rejectattr('mac_ativo', 'equalto', '') | list | length %}
+          Coletados nesta execução: {{ coletados }} de {{ ansible_play_hosts | length }} máquina(s) alcançada(s)
+          No mapa, somando com coletas anteriores: {{ macs_final | length }} de {{ groups[alvo] | length }}
+          {% set faltam = groups[alvo] | reject('in', macs_final) | list %}
+          {% if faltam | length > 0 %}
+
+          Ainda sem MAC: {{ faltam | join(', ') }}
+          Repita com essas máquinas ligadas — a coleta é acumulativa, nada
+          se perde ao rodar de novo.
+          {% endif %}
+
           Arquivo: {{ inventario_dir }}/macs-{{ alvo }}.yml
       run_once: true
