@@ -1,0 +1,190 @@
+---
+# Distribui — e opcionalmente instala — o Figma Desktop num laboratório.
+#
+#   1. só distribuir o instalador (padrão):
+#        ansible-playbook figma.yml -e local=lab1
+#
+#   2. distribuir E instalar na sessão do aluno:
+#        ansible-playbook figma.yml -e local=lab1 -t instalar
+#
+#   piloto antes de espalhar:
+#        ansible-playbook figma.yml -e local=lab1 --limit 111 -t instalar
+#
+# Requer o espelho HTTP no ar:  ansible-playbook repo_local.yml
+#
+# ── O PROBLEMA: O FIGMA INSTALA NO PERFIL DE QUEM EXECUTA ─────────────────
+#
+# O instalador padrão grava em %LOCALAPPDATA%\Figma. O Ansible conecta como
+# 'suporte', então uma instalação comum ficaria no perfil do suporte e o
+# aluno não veria nada — descoberto só quando a turma sentasse na máquina.
+#
+# É a terceira vez que isto aparece: Arduino em %LOCALAPPDATA%\Programs,
+# papel de parede em HKCU, e agora o Figma. O Ansible conecta como
+# 'suporte'; o laboratório é usado pelo 'aluno'.
+#
+# Existe um MSI empresarial da Figma que instala em Program Files para
+# todos, mas ele exige conta empresarial — que não temos.
+#
+# ── A SAÍDA: EXECUTAR NA SESSÃO DO ALUNO ──────────────────────────────────
+#
+# O autologon mantém o 'aluno' logado em todas as estações. Uma tarefa
+# agendada com logon_type=interactive_token roda DENTRO dessa sessão, com o
+# token dele — e o instalador grava no perfil certo, como se ele próprio
+# tivesse clicado.
+#
+# É a mesma coisa que o colega faria máquina a máquina, feita de uma vez.
+# Se não funcionar, a distribuição (etapa 1, sempre executada) deixa o
+# instalador pronto em cada estação e a instalação manual fica rápida:
+# abrir C:\Temp e dar duplo clique, sem baixar nada.
+#
+# ── ANTES DE RODAR ────────────────────────────────────────────────────────
+#
+# O instalador NÃO está no repositório — é binário grande e o repositório é
+# público. Baixe de https://www.figma.com/downloads/ e copie para a pasta
+# 'windows_instaladores' do Samba (//10.44.24.130/smd), de onde o
+# repo_local.yml o serve por HTTP. Confirme o nome e ajuste abaixo, ou use
+#   -e figma_arquivo=FigmaSetup.exe
+
+- name: Figma Desktop
+  hosts: "{{ local | default('nao_definido') }}"
+  gather_facts: false
+  serial: '25%'
+  max_fail_percentage: 20
+
+  vars:
+    figma_arquivo: 'FigmaSetup.exe'
+    figma_destino: 'C:\Temp\{{ figma_arquivo }}'
+    figma_usuario: "{{ estado_autologon_usuario | default('aluno') }}"
+    # Onde o instalador por usuário deixa o executável.
+    figma_exe: 'C:\Users\{{ figma_usuario }}\AppData\Local\Figma\Figma.exe'
+    # Quanto esperar a tarefa agendada terminar, por máquina.
+    figma_espera: 180
+
+  pre_tasks:
+    - name: Avisar quando nenhum laboratório foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook figma.yml -e local=lab1"
+      when: local is not defined
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+  tasks:
+    # ── ETAPA 1: DISTRIBUIR ───────────────────────────────────────────────
+    # Sempre roda. Mesmo que a instalação automática falhe, o instalador
+    # fica em C:\Temp de cada máquina e a alternativa manual não exige
+    # baixar nada — é abrir a pasta e dar duplo clique.
+    - name: Garantir a pasta temporária
+      ansible.windows.win_file:
+        path: 'C:\Temp'
+        state: directory
+      tags: always
+
+    - name: Distribuir o instalador do espelho local
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ figma_arquivo }}"
+        dest: "{{ figma_destino }}"
+        force: false
+      register: figma_download
+      tags: always
+
+    - name: Confirmar que o instalador chegou
+      ansible.windows.win_stat:
+        path: "{{ figma_destino }}"
+      register: figma_arq
+      tags: always
+
+    - name: Falhar se o instalador não chegou
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }}: {{ figma_destino }} não existe. Confira
+          se {{ figma_arquivo }} está na pasta windows_instaladores do Samba
+          e se o espelho está no ar (ansible-playbook repo_local.yml).
+      when: not figma_arq.stat.exists
+      tags: always
+
+    # ── ETAPA 2: INSTALAR NA SESSÃO DO ALUNO ──────────────────────────────
+    # Só com -t instalar. É a parte experimental: depende de o aluno estar
+    # com sessão ativa, o que o autologon garante em máquina ligada e não
+    # bloqueada.
+    - name: Ver se o Figma já está no perfil do aluno
+      ansible.windows.win_stat:
+        path: "{{ figma_exe }}"
+      register: figma_antes
+      tags: never,instalar
+
+    - name: Criar a tarefa que instala na sessão do aluno
+      community.windows.win_scheduled_task:
+        name: 'Instalar Figma (temporaria)'
+        description: 'Criada pelo ansible-labs; removida ao final do playbook'
+        actions:
+          - path: "{{ figma_destino }}"
+        username: "{{ figma_usuario }}"
+        # interactive_token: roda com o token da sessão ATIVA do usuário.
+        # É o que faz o instalador gravar no perfil dele em vez do perfil
+        # do 'suporte', com que o Ansible está conectado. Exige que ele
+        # esteja logado — o autologon cuida disso.
+        logon_type: interactive_token
+        state: present
+        enabled: true
+      when: not figma_antes.stat.exists
+      tags: never,instalar
+
+    - name: Executar a tarefa agendada
+      ansible.windows.win_shell: schtasks /run /tn "Instalar Figma (temporaria)"
+      when: not figma_antes.stat.exists
+      changed_when: true
+      tags: never,instalar
+
+    - name: Aguardar o Figma aparecer no perfil do aluno
+      ansible.windows.win_stat:
+        path: "{{ figma_exe }}"
+      register: figma_depois
+      until: figma_depois.stat.exists
+      retries: "{{ (figma_espera | int / 10) | round(0, 'ceil') | int }}"
+      delay: 10
+      # Sem esta guarda a espera roda mesmo quando nada foi instalado,
+      # gastando uma consulta por máquina em 27 estações sem necessidade.
+      when: not figma_antes.stat.exists
+      # ignore_errors, e não failed_when: false. Aqui a diferença não muda o
+      # resultado, porque a conclusão é tirada de stat.exists e não de
+      # 'failed' — mas 'failed_when: false' apaga o campo failed e já
+      # produziu três defeitos neste repositório. Não vale manter o hábito.
+      ignore_errors: true
+      tags: never,instalar
+
+    # A tarefa agendada é andaime: fica só o tempo da instalação. Deixá-la
+    # na máquina seria mais uma coisa a explicar para quem abrir o
+    # Agendador de Tarefas daqui a seis meses.
+    # Só onde a tarefa chegou a ser criada. Remover andaime que não existe
+    # funciona, mas gasta uma chamada por máquina sem motivo.
+    - name: Remover a tarefa agendada
+      community.windows.win_scheduled_task:
+        name: 'Instalar Figma (temporaria)'
+        state: absent
+      when: not figma_antes.stat.exists
+      tags: never,instalar
+
+    - name: Resultado da instalação
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if figma_antes.stat.exists %}
+          Figma já estava no perfil do {{ figma_usuario }}.
+          {% elif figma_depois.stat.exists | default(false) %}
+          Figma INSTALADO no perfil do {{ figma_usuario }}.
+          {% else %}
+          NÃO instalou. O instalador está em {{ figma_destino }} — dá para
+          instalar à mão nesta máquina sem baixar nada. Causa provável: o
+          aluno não está com sessão ativa (máquina bloqueada, ou autologon
+          não ocorreu nesta inicialização).
+          {% endif %}
+      tags: never,instalar
+
+    - name: Onde ficou o instalador
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: instalador em {{ figma_destino }}.
+          Para instalar na sessão do aluno: -t instalar
+      when: "'instalar' not in ansible_run_tags"
+      tags: always
