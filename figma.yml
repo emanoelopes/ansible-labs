@@ -78,7 +78,7 @@
       ansible.windows.win_file:
         path: 'C:\Temp'
         state: directory
-      tags: always
+      tags: distribuir,instalar
 
     - name: Distribuir o instalador do espelho local
       ansible.windows.win_get_url:
@@ -86,13 +86,13 @@
         dest: "{{ figma_destino }}"
         force: false
       register: figma_download
-      tags: always
+      tags: distribuir,instalar
 
     - name: Confirmar que o instalador chegou
       ansible.windows.win_stat:
         path: "{{ figma_destino }}"
       register: figma_arq
-      tags: always
+      tags: distribuir,instalar
 
     - name: Falhar se o instalador não chegou
       ansible.builtin.fail:
@@ -101,17 +101,22 @@
           se {{ figma_arquivo }} está na pasta windows_instaladores do Samba
           e se o espelho está no ar (ansible-playbook repo_local.yml).
       when: not figma_arq.stat.exists
-      tags: always
+      tags: distribuir,instalar
 
     # ── ETAPA 2: INSTALAR NA SESSÃO DO ALUNO ──────────────────────────────
     # Só com -t instalar. É a parte experimental: depende de o aluno estar
     # com sessão ativa, o que o autologon garante em máquina ligada e não
     # bloqueada.
+    # Também serve de levantamento puro:
+    #   ansible-playbook figma.yml -e local=lab1 -t levantar
+    # Só lê, não distribui nem instala. Existe como tarefa de playbook, e
+    # não como comando ad-hoc, porque o caminho tem contrabarras e aspas —
+    # combinação que já quebrou o carregamento de playbook aqui duas vezes.
     - name: Ver se o Figma já está no perfil do aluno
       ansible.windows.win_stat:
         path: "{{ figma_exe }}"
       register: figma_antes
-      tags: never,instalar
+      tags: never,instalar,levantar
 
     - name: Criar a tarefa que instala na sessão do aluno
       community.windows.win_scheduled_task:
@@ -165,21 +170,23 @@
       when: not figma_antes.stat.exists
       tags: never,instalar
 
-    - name: Resultado da instalação
+    - name: Resultado
       ansible.builtin.debug:
         msg: >-
           {{ inventory_hostname }}:
           {% if figma_antes.stat.exists %}
-          Figma já estava no perfil do {{ figma_usuario }}.
+          Figma PRESENTE no perfil do {{ figma_usuario }}.
+          {% elif 'instalar' not in ansible_run_tags %}
+          Figma AUSENTE. Para instalar: -t instalar
           {% elif figma_depois.stat.exists | default(false) %}
-          Figma INSTALADO no perfil do {{ figma_usuario }}.
+          Figma INSTALADO agora no perfil do {{ figma_usuario }}.
           {% else %}
           NÃO instalou. O instalador está em {{ figma_destino }} — dá para
           instalar à mão nesta máquina sem baixar nada. Causa provável: o
           aluno não está com sessão ativa (máquina bloqueada, ou autologon
           não ocorreu nesta inicialização).
           {% endif %}
-      tags: never,instalar
+      tags: never,instalar,levantar
 
     - name: Onde ficou o instalador
       ansible.builtin.debug:
@@ -187,4 +194,4 @@
           {{ inventory_hostname }}: instalador em {{ figma_destino }}.
           Para instalar na sessão do aluno: -t instalar
       when: "'instalar' not in ansible_run_tags"
-      tags: always
+      tags: distribuir,instalar
