@@ -127,6 +127,54 @@
           {{ groups[alvo] | select('in', ansible_play_hosts) | list }}
       run_once: true
 
+    # ── POSIÇÕES COMENTADAS NO inventory.ini ──────────────────────────────
+    #
+    # 'groups[alvo]' traz só os hosts ativos: linha comentada simplesmente
+    # não existe para o Ansible. Isso é útil, e cria um ponto cego — uma
+    # máquina em operação, comentada por engano ou sem explicação, não
+    # aparece como falha em lugar nenhum. Aparece como ausência, e ausência
+    # não gera alerta.
+    #
+    # Dois casos assim já ocorreram, com máquina EM OPERAÇÃO invisível:
+    #   - o lab5 inteiro, declarado na porta 5986 com transporte basic,
+    #     inacessível por tempo indeterminado (até 01/09/2026);
+    #   - a 127, no grupo [avell] conectando por SSH, quando já era um Dell
+    #     AIO com Windows (até 04/09/2026).
+    #
+    # E um terceiro, de natureza diferente: a 347 do lab3 estava comentada
+    # por DEFEITO — motivo legítimo —, mas o comentário não dizia isso.
+    # Vinha como '#347 227.113', sem motivo nem data. Quando a máquina
+    # voltou do conserto, ninguém tinha como saber que a ausência já não se
+    # justificava.
+    #
+    # Daí a checagem mostrar o TEXTO do comentário, e não só a posição: o
+    # problema raramente é a linha estar comentada, é não se saber por quê.
+    #
+    # Não se tenta adivinhar se o comentário "explica" — 'RECOLHIDA' e
+    # 'POSIÇÃO VAZIA' são convenções nossas, não garantia. Mostra-se o texto
+    # e a decisão fica com quem conhece o laboratório.
+    - name: Ler o inventory.ini para achar posições comentadas
+      ansible.builtin.set_fact:
+        inv_texto: "{{ lookup('file', playbook_dir ~ '/inventory.ini') }}"
+      run_once: true
+      delegate_to: localhost
+      become: false
+
+    - name: Extrair as posições comentadas deste laboratório
+      ansible.builtin.set_fact:
+        comentadas: >-
+          {{ comentadas | default([]) + [{
+               'posicao': (item | regex_replace('^#\s*(\d{3}).*$', '\\1')),
+               'texto': (item | regex_replace('^#\s*\d{3}\s*', '') | truncate(70, true))
+             }] }}
+      loop: "{{ inv_texto.split('\n') }}"
+      loop_control:
+        label: "{{ item | truncate(40, true) }}"
+      when:
+        - item is match('^#\s*\d{3}\b')
+        - (item | regex_replace('^#\s*(\d{3}).*$', '\\1')) in (registros | map(attribute='posicao') | list)
+      run_once: true
+
     - name: Montar o relatório
       ansible.builtin.set_fact:
         relatorio: |
@@ -181,7 +229,25 @@
             (nenhuma)
           {% endfor %}
 
-          ─── 5. PATRIMÔNIO EM MAIS DE UMA POSIÇÃO ─────────────────────
+          ─── 5. COMENTADAS NO INVENTÁRIO, COM EQUIPAMENTO NA PLANILHA ─
+          Linha comentada não existe para o Ansible: a máquina some da
+          automação sem gerar falha. Se a planilha diz que há equipamento
+          ali, confira se a ausência está justificada.
+          {% set com = comentadas | default([]) | selectattr('posicao', 'in', planilha_com_equip) | list %}
+          {% for c in com | sort(attribute='posicao') %}
+            {{ c.posicao }}  {{ c.texto | default('(sem explicação no comentário)', true) }}
+          {% else %}
+            (nenhuma)
+          {% endfor %}
+          {% if com | length > 0 %}
+
+          Comentário sem motivo nem data é o caso a vigiar: quando a máquina
+          voltar do conserto, ninguém terá como saber que a ausência já não
+          se justifica. Aconteceu com a 347 do lab3, fora do inventário por
+          defeito e sem que o registro dissesse isso.
+          {% endif %}
+
+          ─── 6. PATRIMÔNIO EM MAIS DE UMA POSIÇÃO ─────────────────────
           Um equipamento não pode estar em dois lugares. Ou uma das linhas
           está desatualizada — máquina remanejada e o registro antigo não
           foi apagado — ou houve erro de digitação num dos números.
