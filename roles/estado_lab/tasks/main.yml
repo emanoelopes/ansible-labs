@@ -215,13 +215,56 @@
 # force: false porque a imagem não muda; checksum evitaria baixar de novo,
 # mas exigiria mantê-lo em dia a cada troca de arte. Se um dia o papel de
 # parede mudar, apague o arquivo das estações ou troque o nome.
+- name: Ver se a imagem do papel de parede já está na máquina
+  ansible.windows.win_stat:
+    path: "{{ estado_wallpaper }}"
+  register: wallpaper_img
+  when: estado_wallpaper is defined
+  tags: aparencia
+
+# ── O ESPELHO SÓ É CONSULTADO QUANDO A IMAGEM FALTA ──────────────────────
+#
+# A versão anterior baixava a cada execução, com force:false. Isso pôs uma
+# dependência do espelho HTTP dentro do estado declarado — e o espelho é uma
+# unidade TRANSITÓRIA do systemd, iniciada à mão pelo repo_local.yml, que
+# morre no reboot do controlador.
+#
+# A auditoria semanal roda sem operador e exercita o estado inteiro. Em
+# 16/09/2026 as 53 máquinas avaliadas falharam todas com "Impossível
+# conectar-se ao servidor remoto", e o relatório passou a dizer "0
+# divergências" com 25 erros de verificação — o mesmo falso conforto que a
+# cobertura baixa produzia.
+#
+# Agora o espelho só é consultado onde a imagem falta. Depois de
+# distribuída, a auditoria nunca mais o toca.
+#
+# ignore_errors, e não failed_when: espelho fora do ar não é desvio de
+# configuração da estação, e não deve marcar o host como falho. A tarefa
+# seguinte relata o caso em uma linha.
 - name: Trazer a imagem do papel de parede do espelho local
   ansible.windows.win_get_url:
     url: "{{ repo_interno_url }}/{{ estado_wallpaper_arquivo }}"
     dest: "{{ estado_wallpaper }}"
     force: false
   register: wallpaper_download
-  when: estado_wallpaper is defined
+  when:
+    - estado_wallpaper is defined
+    - not wallpaper_img.stat.exists | default(false)
+  ignore_errors: true
+  tags: aparencia
+
+- name: Avisar quando a imagem não pôde ser obtida
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: papel de parede NÃO aplicado — a imagem não
+      está na máquina e o espelho não respondeu em {{ repo_interno_url }}.
+      Suba-o com 'ansible-playbook repo_local.yml' e rode
+      'ansible-playbook estado.yml -e alvo={{ alvo | default(local | default('<lab>')) }} -t aparencia'.
+      Não é desvio de configuração da estação.
+  when:
+    - estado_wallpaper is defined
+    - not wallpaper_img.stat.exists | default(false)
+    - wallpaper_download is failed
   tags: aparencia
 
 - name: Garantir o papel de parede do aluno
@@ -280,7 +323,13 @@
     WP_USUARIO: "{{ estado_autologon_usuario }}"
   register: wallpaper
   changed_when: "'ALTERADO' in wallpaper.stdout"
-  when: estado_wallpaper is defined and estado_autologon_usuario is not none
+  # Sem a imagem na máquina, esta tarefa lançaria exceção e marcaria o host
+  # como falho — mais uma falsa divergência no relatório semanal. A tarefa
+  # acima já avisou o que falta; aqui só se pula.
+  when:
+    - estado_wallpaper is defined
+    - estado_autologon_usuario is not none
+    - wallpaper_img.stat.exists | default(false) or (wallpaper_download is defined and wallpaper_download is not failed)
   tags: aparencia
 
 # --- Energia ------------------------------------------------------------------

@@ -89,7 +89,20 @@
       loop_control:
         label: "{{ inventory_hostname }}:{{ item.numero }}"
       register: sonda
-      failed_when: false
+      # ignore_errors, e NÃO failed_when: false.
+      #
+      # 'failed_when: false' sobrescreve o campo 'failed' de TODO item para
+      # falso — inclusive dos que falharam. O rejectattr abaixo então mantém
+      # tudo, e cada porta sondada aparece como aberta. Foi o que fez a 325
+      # do lab3, que não responde a nada, ser classificada como respondendo
+      # nas cinco portas, em 15/09/2026.
+      #
+      # 'ignore_errors' não aborta a execução e PRESERVA o failed de cada
+      # item, que é o que a classificação precisa ler.
+      #
+      # Mesmo erro que o relatório de falhas do estado_lab tinha, corrigido
+      # em 09/09/2026 — e reintroduzido aqui por descuido.
+      ignore_errors: true
       changed_when: false
 
     - name: Guardar as portas que responderam
@@ -97,6 +110,10 @@
         portas_abertas: >-
           {{ sonda.results | rejectattr('failed')
              | map(attribute='item.numero') | list }}
+        # Porta pela qual a automação fala com ESTA máquina: 5985 nos labs
+        # Windows, 22 no lab3 e nos hosts SSH. Vem do inventário, então o
+        # relatório deixa de presumir WinRM em laboratório de iMac.
+        porta_gerencia: "{{ ansible_port | default(5985) | int }}"
 
     # A classificação vive no template do relatório: em Ansible ela exigiria
     # quatro set_fact encadeados, e ficaria mais difícil de acompanhar do
@@ -117,27 +134,35 @@
           {% set resp = [] %}{% set errada = [] %}{% set liga_sem = [] %}{% set mortas = [] %}
           {% for h in ansible_play_hosts | sort %}
           {% set p = hostvars[h].portas_abertas | default([]) %}
-          {% if 5985 in p %}{% set _ = resp.append(h) %}
-          {% elif 5986 in p %}{% set _ = errada.append(h) %}
-          {% elif 445 in p or 135 in p or 22 in p %}{% set _ = liga_sem.append((h, p)) %}
+          {% set pg = hostvars[h].porta_gerencia | default(5985) | int %}
+          {#
+            A porta que importa vem do inventário (ansible_port), e não é
+            fixa: 5985 nos labs Windows, 22 no lab3 de iMacs. Antes o
+            relatório dizia "responde no WinRM" para máquina macOS.
+          #}
+          {% if pg in p %}{% set _ = resp.append(h) %}
+          {% elif pg == 5985 and 5986 in p %}{% set _ = errada.append(h) %}
+          {% elif p | length > 0 %}{% set _ = liga_sem.append((h, p)) %}
           {% else %}{% set _ = mortas.append(h) %}{% endif %}
           {% endfor %}
-          ─── RESPONDEM NO WinRM — nada a fazer ────────────────────────
+          ─── RESPONDEM NA PORTA DE GERÊNCIA — nada a fazer ────────────
             {{ resp | length }} de {{ ansible_play_hosts | length }}{% if resp %}: {{ resp | join(', ') }}{% endif %}
 
-          ─── LIGADAS, MAS SEM WinRM NA PORTA ESPERADA ─────────────────
-          Estas estão de pé e fora da automação. É o caso que a auditoria
-          NÃO acusa, porque inalcançável passa por desligada.
+          ─── LIGADAS, MAS FORA DO ALCANCE DA AUTOMAÇÃO ────────────────
+          Estas estão de pé e a automação não as alcança. É o caso que a
+          auditoria NÃO acusa, porque inalcançável passa por desligada.
           {% for h in errada %}
-            {{ h }}   respondeu na 5986 (WinRM HTTPS)
-                → o inventário aponta para a 5985. Ou a estação está com
-                  listener HTTPS, ou o grupo dela no inventory.ini está
-                  errado. Foi o caso do lab5 inteiro até 01/09/2026.
+            {{ h }}   respondeu na 5986 (WinRM HTTPS), e o inventário
+                aponta para a 5985
+                → ou a estação está com listener HTTPS, ou o grupo dela no
+                  inventory.ini está errado. Foi o caso do lab5 inteiro até
+                  01/09/2026, e ninguém percebeu por tempo indeterminado.
           {% endfor %}
           {% for h, p in liga_sem %}
-            {{ h }}   respondeu em {{ p | join(', ') }}, mas não no WinRM
-                → sistema no ar e serviço WinRM ausente ou parado. Exige
-                  configuração na máquina; não se resolve pelo Ansible.
+            {{ h }}   respondeu em {{ p | join(', ') }}, mas não na
+                {{ hostvars[h].porta_gerencia | default('?') }}, que é por onde a automação fala com ela
+                → sistema no ar e serviço de gerência ausente ou parado.
+                  Exige configuração na máquina; não se resolve pelo Ansible.
           {% endfor %}
           {% if not errada and not liga_sem %}
             (nenhuma)

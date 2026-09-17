@@ -188,6 +188,79 @@
           {% endif %}
       tags: never,instalar,levantar
 
+    # ── RELATÓRIO CONSOLIDADO ─────────────────────────────────────────────
+    #
+    # As linhas por máquina acima rolam na tela e somem — em 27 estações,
+    # ninguém lê. Os demais playbooks deste repositório salvam relatório em
+    # inventario/; este não salvava, e a pergunta "onde vejo o resultado?"
+    # não tinha resposta.
+    - name: Consolidar
+      ansible.builtin.set_fact:
+        figma_relatorio: |
+          ══════════════════════════════════════════════════════════════
+          FIGMA — {{ local | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+          {% set ns = namespace(tem=[], novo=[], falhou=[]) %}
+          {% for h in ansible_play_hosts | sort %}
+          {% set v = hostvars[h] %}
+          {% if v.figma_antes.stat.exists | default(false) %}
+          {% set _ = ns.tem.append(h) %}
+          {% elif v.figma_depois.stat.exists | default(false) %}
+          {% set _ = ns.novo.append(h) %}
+          {% else %}
+          {% set _ = ns.falhou.append(h) %}
+          {% endif %}
+          {% endfor %}
+          Alcançadas nesta execução: {{ ansible_play_hosts | length }} de {{ groups[local] | length }}
+          {% set fora = groups[local] | difference(ansible_play_hosts) %}
+          {% if fora | length > 0 %}
+          Não alcançadas: {{ fora | join(', ') }}
+          {% endif %}
+
+          ─── JÁ TINHAM: {{ ns.tem | length }} ─────────────────────────────────────
+            {{ ns.tem | join(', ') | default('(nenhuma)', true) }}
+
+          ─── INSTALADAS AGORA: {{ ns.novo | length }} ─────────────────────────────
+            {{ ns.novo | join(', ') | default('(nenhuma)', true) }}
+
+          ─── NÃO INSTALARAM: {{ ns.falhou | length }} ─────────────────────────────
+            {{ ns.falhou | join(', ') | default('(nenhuma)', true) }}
+          {% if ns.falhou | length > 0 %}
+
+          O instalador está em {{ figma_destino }} em cada uma delas — a
+          instalação manual não precisa baixar nada.
+
+          Causa provável: o aluno sem sessão ativa (máquina bloqueada, ou
+          autologon não ocorreu na inicialização). A tarefa agendada com
+          interactive_token só funciona com a sessão dele aberta.
+          {% endif %}
+          {% if ns.novo | length > 0 %}
+
+          A instalação na sessão do aluno FUNCIONOU em {{ ns.novo | length }} máquina(s).
+          A mesma técnica serve para o Arduino e para o registro do Tomcat no
+          NetBeans — tudo que grava no perfil do usuário.
+          {% endif %}
+          ══════════════════════════════════════════════════════════════
+      run_once: true
+      tags: never,instalar,levantar
+
+    - name: Exibir o relatório
+      ansible.builtin.debug:
+        msg: "{{ figma_relatorio.split('\n') }}"
+      run_once: true
+      tags: never,instalar,levantar
+
+    - name: Salvar o relatório
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/figma-{{ local }}.txt"
+        mode: "0640"
+        content: "{{ figma_relatorio }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      tags: never,instalar,levantar
+
     - name: Onde ficou o instalador
       ansible.builtin.debug:
         msg: >-
