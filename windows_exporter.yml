@@ -195,12 +195,58 @@
       ignore_errors: true
       when: we_depois.services | default([]) | length == 0
 
+    # ignore_errors: serviço que não inicia é informação, não motivo para
+    # abortar o host — e abortando, o relatório nunca é composto e o
+    # operador fica sem saber POR QUE não iniciou. Foi o que aconteceu com
+    # a 113 do lab1 em 18/09/2026: o host morreu na tarefa e as seguintes,
+    # inclusive o diagnóstico, não rodaram.
     - name: Garantir que o serviço está rodando e é automático
       ansible.windows.win_service:
         name: windows_exporter
         state: started
         start_mode: auto
+      register: we_start
+      ignore_errors: true
       when: we_depois.services | default([]) | length > 0
+
+    # O motivo de um serviço não iniciar está no Log de Eventos, não no
+    # retorno do comando que tentou iniciá-lo. Sem isto, "falha ao iniciar"
+    # é tudo o que se sabe — e é justamente o que não ajuda.
+    - name: Ler por que o serviço não iniciou
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        'ESTADO DO SERVIÇO'
+        Get-CimInstance Win32_Service -Filter "Name='windows_exporter'" |
+          Select-Object State, StartMode, PathName, ExitCode |
+          Format-List | Out-String
+
+        'PORTA 9182 JÁ EM USO?'
+        $emUso = Get-NetTCPConnection -LocalPort 9182 -State Listen -ErrorAction SilentlyContinue
+        if ($emUso) {
+          foreach ($c in $emUso) {
+            $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
+            'ocupada por: ' + $p.ProcessName + ' (PID ' + $c.OwningProcess + ')'
+          }
+        } else { 'livre' }
+
+        'ÚLTIMOS EVENTOS'
+        Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-15)} |
+          Where-Object { $_.ProviderName -like '*exporter*' -or $_.Message -like '*exporter*' } |
+          Select-Object -First 5 |
+          ForEach-Object { $_.TimeCreated.ToString('HH:mm:ss') + ' ' + ($_.Message -split "`n")[0] }
+
+        Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Service Control Manager'; StartTime=(Get-Date).AddMinutes(-15)} |
+          Where-Object { $_.Message -like '*exporter*' } |
+          Select-Object -First 5 |
+          ForEach-Object { $_.TimeCreated.ToString('HH:mm:ss') + ' ' + ($_.Message -split "`n")[0] }
+      register: we_diag
+      changed_when: false
+      ignore_errors: true
+      when:
+        - we_depois.services | default([]) | length > 0
+        - we_start is defined
+        - we_start is failed
 
     # Serviço rodando não prova que a porta responde: o coletor pode falhar
     # na inicialização e o serviço ficar de pé sem servir métricas.
@@ -228,10 +274,17 @@
           Algo foi registrado mas sem serviço: o MSI é mesmo o do
           windows_exporter, versão amd64?
           {% endif %}
+          {% elif we_start is defined and we_start is failed %}
+          serviço instalado, mas NÃO INICIA.
+          {{ we_diag.stdout | default('(sem diagnóstico)') | trim }}
+          Se a porta aparece ocupada acima, outro exporter ou uma instalação
+          anterior ainda está de pé — pare-a antes de reinstalar. Se o log
+          cita um coletor, tire-o de we_coletores.
           {% elif we_porta_ok is failed %}
-          serviço instalado, mas a porta {{ we_porta }} NÃO responde. Provável
-          coletor inválido em we_coletores — o serviço sobe e morre ao
-          inicializar. Veja o Log de Eventos, origem windows_exporter.
+          serviço instalado e iniciado, mas a porta {{ we_porta }} NÃO
+          responde. Provável coletor inválido em we_coletores — o serviço sobe
+          e morre ao inicializar. Veja o Log de Eventos, origem
+          windows_exporter.
           {% else %}
           OK — http://{{ ansible_host | default(inventory_hostname) }}:{{ we_porta }}/metrics
           {% endif %}
