@@ -25,6 +25,26 @@
   serial: "{{ estado_serial | default('25%') }}"
   max_fail_percentage: 20
 
+  # ── SEM ISTO, UMA LEVA APAGADA DERRUBA A EXECUÇÃO INTEIRA ─────────────
+  #
+  # Quando TODOS os hosts de uma leva ficam inalcançáveis, o Ansible encerra
+  # a play — não apenas aquela leva. Com serial de 25%, uma leva inteira
+  # desligada é bem possível num parque ligado sob demanda, e as levas
+  # seguintes nem seriam tentadas, incluindo máquinas ligadas.
+  #
+  # Este playbook escapou até 18/09/2026 por sorte: a auditoria o roda com
+  # estado_serial=100%, uma leva só, e nunca houve um laboratório
+  # inteiramente apagado no horário. O windows_exporter.yml, com o mesmo
+  # desenho, parou na primeira leva do lab1 — seis de seis inalcançáveis.
+  #
+  # Estação apagada é o estado normal fora do horário de aula: é ausência,
+  # não erro. 'max_fail_percentage' segue valendo para falha de verdade,
+  # que é o que ele existe para conter.
+  #
+  # Os hosts inalcançáveis continuam registrados como tal nas estatísticas,
+  # então a auditoria não perde a informação de cobertura.
+  ignore_unreachable: true
+
   # Um role por família de SO. O 'when' no nível do role faz cada tarefa
   # interna ser pulada nos hosts que não combinam — lab3 (Darwin) pula
   # estado_lab por inteiro, os cinco labs Windows pulam estado_lab_macos.

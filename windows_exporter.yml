@@ -42,6 +42,19 @@
   serial: '25%'
   max_fail_percentage: 20
 
+  # ── OBRIGATÓRIO NUM PARQUE LIGADO SOB DEMANDA ─────────────────────────
+  #
+  # Sem isto, máquina desligada conta como FALHA, e 'max_fail_percentage'
+  # aborta a execução. Em 18/09/2026 a primeira leva do lab1 caiu inteira —
+  # seis de seis inalcançáveis, 100% acima do limite de 20% — e o playbook
+  # parou ali. As outras 21 nem foram tentadas, incluindo as ligadas.
+  #
+  # Estação apagada é o estado NORMAL aqui fora do horário de aula. Ela não
+  # é erro: é ausência, e deve ser pulada. 'max_fail_percentage' continua
+  # valendo para falha de verdade — instalador que quebra, serviço que não
+  # sobe —, que é o que ele existe para conter.
+  ignore_unreachable: true
+
   vars:
     we_arquivo: 'windows_exporter-0.31.8-amd64.msi'
     we_destino: 'C:\Temp\{{ we_arquivo }}'
@@ -112,12 +125,22 @@
     # ENABLED_COLLECTORS e LISTEN_PORT são propriedades públicas do MSI do
     # windows_exporter: ele as grava na configuração do serviço na hora da
     # instalação. Mudar depois exige reinstalar ou editar o serviço à mão.
+    # SÓ PROPRIEDADES EM 'arguments' — nada de /quiet, /qn ou /passive.
+    #
+    # O win_package já passa '/qn /norestart' ao msiexec por conta própria.
+    # Acrescentar '/quiet' põe dois flags de interface na mesma linha, e o
+    # msiexec a rejeita com o erro 1639 (invalid command line) — sem que o
+    # win_package traduza isso em falha. O resultado é instalação relatada
+    # como bem-sucedida e nenhum serviço na máquina.
+    #
+    # Foi o que aconteceu no lab1 em 18/09/2026, nas seis primeiras
+    # estações. Mesma assinatura do pacote 'netbeans' do Chocolatey: sucesso
+    # declarado, produto ausente.
     - name: Instalar o windows_exporter
       ansible.windows.win_package:
         path: "{{ we_destino }}"
         state: present
         arguments: >-
-          /quiet
           ENABLED_COLLECTORS={{ we_coletores }}
           LISTEN_PORT={{ we_porta }}
       register: we_install
@@ -149,6 +172,29 @@
       register: we_depois
       failed_when: false
 
+    # Quando o serviço não aparece, é preciso saber se o MSI chegou a
+    # instalar ALGUMA coisa. Entrada no registro sem serviço aponta para
+    # produto errado ou instalação parcial; nenhuma entrada aponta para o
+    # msiexec ter recusado a linha de comando — que foi o caso de 18/09.
+    - name: Levantar o que o MSI registrou
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+        $chaves = @(
+          'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+          'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        )
+        $achado = Get-ItemProperty $chaves |
+                  Where-Object { $_.DisplayName -like '*xporter*' }
+        if ($achado) {
+          $achado | ForEach-Object { 'REGISTRADO: ' + $_.DisplayName + ' ' + $_.DisplayVersion }
+        } else {
+          'NADA REGISTRADO'
+        }
+      register: we_registro
+      changed_when: false
+      ignore_errors: true
+      when: we_depois.services | default([]) | length == 0
+
     - name: Garantir que o serviço está rodando e é automático
       ansible.windows.win_service:
         name: windows_exporter
@@ -171,8 +217,17 @@
         msg: >-
           {{ inventory_hostname }}:
           {% if we_depois.services | default([]) | length == 0 %}
-          FALHOU — o serviço windows_exporter não existe depois da
-          instalação. O MSI é o do windows_exporter, versão amd64?
+          FALHOU — o serviço não existe depois da instalação.
+          {{ we_registro.stdout | default('') | trim }}
+          {% if 'NADA REGISTRADO' in (we_registro.stdout | default('')) %}
+          Nada foi registrado: o msiexec provavelmente recusou a linha de
+          comando. Confira se 'arguments' traz SÓ propriedades — o
+          win_package já passa /qn por conta própria, e um /quiet a mais
+          gera o erro 1639.
+          {% else %}
+          Algo foi registrado mas sem serviço: o MSI é mesmo o do
+          windows_exporter, versão amd64?
+          {% endif %}
           {% elif we_porta_ok is failed %}
           serviço instalado, mas a porta {{ we_porta }} NÃO responde. Provável
           coletor inválido em we_coletores — o serviço sobe e morre ao
@@ -200,6 +255,7 @@
 - name: Gerar a lista de alvos para o Prometheus
   hosts: "{{ alvo | default('nao_definido') }}"
   gather_facts: false
+  ignore_unreachable: true
 
   tasks:
     - name: Escrever prometheus-targets-{{ alvo }}.json
