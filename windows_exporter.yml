@@ -1,0 +1,235 @@
+---
+# Instala o windows_exporter do Prometheus nas estações Windows.
+#
+#   piloto:       ansible-playbook windows_exporter.yml -e alvo=lab2 --limit 211
+#   laboratório:  ansible-playbook windows_exporter.yml -e alvo=lab2
+#   parque todo:  ansible-playbook windows_exporter.yml -e alvo=windows
+#
+#   só conferir, sem instalar:
+#                 ansible-playbook windows_exporter.yml -e alvo=lab2 -t verificar
+#
+# Requer o espelho HTTP no ar:  ansible-playbook repo_local.yml
+#
+# ── O QUE É ───────────────────────────────────────────────────────────────
+#
+# Agente que expõe métricas da máquina (CPU, memória, disco, serviços) em
+# http://<estação>:9182/metrics, para o Prometheus coletar. Roda como
+# serviço do Windows — não é aplicativo de usuário, então NÃO cai na
+# armadilha de perfil que custou tempo com Arduino, Figma e NetBeans.
+#
+# ── ANTES DE RODAR: PÔR O MSI NO ESPELHO ──────────────────────────────────
+#
+# Baixe de https://github.com/prometheus-community/windows_exporter/releases
+# a versão amd64 e copie para a pasta 'windows_instaladores' do Samba
+# (//10.44.24.130/smd). Ajuste 'we_arquivo' abaixo, ou passe
+#   -e we_arquivo=windows_exporter-0.31.3-amd64.msi
+#
+# Baixar do espelho e não do GitHub é deliberado: são 130 estações, e o
+# release do GitHub tem limite de taxa. Também protege do que já aconteceu
+# com os instaladores da Apache — versão antiga sumir do servidor de origem
+# e o playbook quebrar sozinho, sem ninguém ter mexido em nada.
+#
+# ── COLETORES ─────────────────────────────────────────────────────────────
+#
+# O padrão do exporter é enxuto. 'we_coletores' acrescenta o que interessa
+# num laboratório: serviços (para saber se o Veyon ou o VNC caíram),
+# processos e estado do disco físico. Cada coletor custa tempo de resposta,
+# então a lista é deliberadamente curta — não se liga tudo "porque existe".
+
+- name: windows_exporter
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  serial: '25%'
+  max_fail_percentage: 20
+
+  vars:
+    we_arquivo: 'windows_exporter-0.31.8-amd64.msi'
+    we_destino: 'C:\Temp\{{ we_arquivo }}'
+    we_porta: 9182
+    we_coletores: 'cpu,cs,logical_disk,logon,memory,net,os,service,system,textfile,process,physical_disk'
+    # De onde o Prometheus vai coletar.
+    #
+    # TROQUE PELO IP DO MAC MINI assim que ele estiver definido:
+    #   -e we_prometheus_ip=10.102.227.XXX
+    #
+    # O padrão abaixo libera a sub-rede inteira dos laboratórios, o que é
+    # permissivo demais: expõe métricas de 130 estações — processos em
+    # execução, usuário logado, uso de disco — a qualquer máquina do
+    # segmento, inclusive às dos próprios alunos. Serve para o piloto, não
+    # para o parque.
+    we_prometheus_ip: '10.102.227.0/24'
+
+  pre_tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o alvo: ansible-playbook windows_exporter.yml -e alvo=lab2"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+  tasks:
+    # ── VERIFICAÇÃO ───────────────────────────────────────────────────────
+    - name: Ver se o serviço já existe
+      ansible.windows.win_service_info:
+        name: windows_exporter
+      register: we_servico
+      failed_when: false
+      tags: [always, verificar]
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_play
+      when: "'verificar' in ansible_run_tags"
+      tags: [always, verificar]
+
+    # ── INSTALAÇÃO ────────────────────────────────────────────────────────
+    - name: Garantir a pasta temporária
+      ansible.windows.win_file:
+        path: 'C:\Temp'
+        state: directory
+      when: we_servico.services | default([]) | length == 0
+
+    - name: Baixar o MSI do espelho local
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ we_arquivo }}"
+        dest: "{{ we_destino }}"
+        force: false
+      register: we_download
+      ignore_errors: true
+      when: we_servico.services | default([]) | length == 0
+
+    - name: Avisar quando o MSI não chegou
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }}: não foi possível baixar
+          {{ repo_interno_url }}/{{ we_arquivo }}. Confira se o arquivo está
+          na pasta windows_instaladores do Samba e se o espelho está no ar
+          (ansible-playbook repo_local.yml).
+      when:
+        - we_servico.services | default([]) | length == 0
+        - we_download is failed
+
+    # ENABLED_COLLECTORS e LISTEN_PORT são propriedades públicas do MSI do
+    # windows_exporter: ele as grava na configuração do serviço na hora da
+    # instalação. Mudar depois exige reinstalar ou editar o serviço à mão.
+    - name: Instalar o windows_exporter
+      ansible.windows.win_package:
+        path: "{{ we_destino }}"
+        state: present
+        arguments: >-
+          /quiet
+          ENABLED_COLLECTORS={{ we_coletores }}
+          LISTEN_PORT={{ we_porta }}
+      register: we_install
+      when: we_servico.services | default([]) | length == 0
+
+    # ── FIREWALL ──────────────────────────────────────────────────────────
+    #
+    # Sempre executada, mesmo onde o exporter já estava: a regra pode ter
+    # sido perdida numa reimagem enquanto o serviço permaneceu.
+    - name: Liberar a porta do exporter só para o Prometheus
+      community.windows.win_firewall_rule:
+        name: Prometheus windows_exporter
+        localport: "{{ we_porta }}"
+        remoteip: "{{ we_prometheus_ip }}"
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+
+    # ── CONFERÊNCIA ───────────────────────────────────────────────────────
+    #
+    # Confere o RESULTADO, não o código de saída. Instalador que termina com
+    # zero e não entrega nada já aconteceu aqui: o pacote 'netbeans' do
+    # Chocolatey relatou "install was successful" sem produto na máquina.
+    - name: Conferir que o serviço subiu
+      ansible.windows.win_service_info:
+        name: windows_exporter
+      register: we_depois
+      failed_when: false
+
+    - name: Garantir que o serviço está rodando e é automático
+      ansible.windows.win_service:
+        name: windows_exporter
+        state: started
+        start_mode: auto
+      when: we_depois.services | default([]) | length > 0
+
+    # Serviço rodando não prova que a porta responde: o coletor pode falhar
+    # na inicialização e o serviço ficar de pé sem servir métricas.
+    - name: Conferir que a porta responde
+      ansible.windows.win_wait_for:
+        port: "{{ we_porta }}"
+        host: 127.0.0.1
+        timeout: 30
+      register: we_porta_ok
+      ignore_errors: true
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if we_depois.services | default([]) | length == 0 %}
+          FALHOU — o serviço windows_exporter não existe depois da
+          instalação. O MSI é o do windows_exporter, versão amd64?
+          {% elif we_porta_ok is failed %}
+          serviço instalado, mas a porta {{ we_porta }} NÃO responde. Provável
+          coletor inválido em we_coletores — o serviço sobe e morre ao
+          inicializar. Veja o Log de Eventos, origem windows_exporter.
+          {% else %}
+          OK — http://{{ ansible_host | default(inventory_hostname) }}:{{ we_porta }}/metrics
+          {% endif %}
+
+    - name: Limpar o instalador
+      ansible.windows.win_file:
+        path: "{{ we_destino }}"
+        state: absent
+      when: we_servico.services | default([]) | length == 0
+
+# ── ALVOS PARA O PROMETHEUS ───────────────────────────────────────────────
+#
+# Gera o arquivo de targets em formato de service discovery por arquivo, que
+# é o que o Prometheus lê sem precisar de recarga manual. Copie para o Mac
+# mini e aponte um 'file_sd_configs' para ele.
+#
+# Escrito a partir do INVENTÁRIO, e não de quem respondeu: máquina desligada
+# continua sendo alvo legítimo — o Prometheus a marcará como 'down', que é a
+# informação certa. Gerar só com quem respondeu faria a estação apagada
+# desaparecer do monitoramento em vez de aparecer como fora do ar.
+- name: Gerar a lista de alvos para o Prometheus
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Escrever prometheus-targets-{{ alvo }}.json
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/prometheus-targets-{{ alvo }}.json"
+        mode: "0644"
+        content: |
+          [
+            {
+              "labels": {
+                "laboratorio": "{{ alvo }}",
+                "job": "windows_exporter"
+              },
+              "targets": [
+          {% for h in groups[alvo] | sort %}
+                "{{ hostvars[h].ansible_host | default(h) }}:{{ we_porta | default(9182) }}"{{ "," if not loop.last }}
+          {% endfor %}
+              ]
+            }
+          ]
+      delegate_to: localhost
+      become: false
+      run_once: true
+      vars:
+        we_porta: 9182
+
+    - name: Onde ficou
+      ansible.builtin.debug:
+        msg: >-
+          {{ groups[alvo] | length }} alvo(s) em
+          {{ inventario_dir }}/prometheus-targets-{{ alvo }}.json —
+          copie para o Mac mini e aponte um file_sd_configs para ele.
+      run_once: true

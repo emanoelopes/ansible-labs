@@ -215,6 +215,96 @@
 # force: false porque a imagem não muda; checksum evitaria baixar de novo,
 # mas exigiria mantê-lo em dia a cada troca de arte. Se um dia o papel de
 # parede mudar, apague o arquivo das estações ou troque o nome.
+# ── macOS: o mesmo papel de parede, por outro caminho ────────────────────
+#
+# Nada abaixo desta seção serve ao lab3: win_stat, win_get_url e registro do
+# Windows não existem em macOS. E o mecanismo é diferente em dois pontos:
+#
+#   - a imagem vai para /Library/Desktop Pictures, e não para C:\Windows\Web;
+#   - não há chave de registro. O papel de parede é propriedade da sessão
+#     gráfica, e se define com osascript DENTRO dela.
+#
+# Quem recebe é o usuário do CONSOLE, detectado em tempo de execução com
+# 'stat -f%Su /dev/console'. É deliberado: nos iMacs não há autologon fixo
+# como o 'aluno' do Windows, e quem vê a área de trabalho é quem está
+# sentado ali. Perguntar o nome do usuário no group_vars seria mais uma
+# coisa a manter em dia e a errar.
+- name: Trazer a imagem do papel de parede (macOS)
+  ansible.builtin.get_url:
+    url: "{{ repo_interno_url }}/{{ estado_wallpaper_arquivo }}"
+    dest: "{{ estado_wallpaper_macos }}"
+    mode: '0644'
+    force: false
+  become: true
+  register: wallpaper_mac_img
+  ignore_errors: true
+  when:
+    - ansible_os_family | default('') != 'Windows'
+    - estado_wallpaper_macos is defined
+  tags: aparencia
+
+# O AppleScript vai para um arquivo em vez de ser passado com -e. Assim o
+# caminho da imagem é interpolado pelo Ansible, fora do shell, e não há
+# aspas dentro de aspas nem contrabarra antes de aspa — a combinação que já
+# impediu o carregamento de playbook neste repositório duas vezes.
+- name: Escrever o AppleScript
+  ansible.builtin.copy:
+    dest: /tmp/papel_de_parede.applescript
+    mode: '0644'
+    content: |
+      tell application "Finder"
+        set desktop picture to POSIX file "{{ estado_wallpaper_macos }}"
+      end tell
+  when:
+    - ansible_os_family | default('') != 'Windows'
+    - estado_wallpaper_macos is defined
+    - wallpaper_mac_img is not failed
+  tags: aparencia
+
+- name: Aplicar na sessão do console
+  ansible.builtin.shell: |
+    set -e
+    usuario=$(stat -f%Su /dev/console)
+    if [ -z "$usuario" ] || [ "$usuario" = root ]; then
+      echo 'SEM SESSAO'
+      exit 0
+    fi
+    uid=$(id -u "$usuario")
+    # launchctl asuser é o que põe o comando dentro da sessão gráfica do
+    # usuário. Sem ele, o osascript não alcança o Finder e falha em
+    # silêncio ou com erro de conexão ao servidor de janelas.
+    launchctl asuser "$uid" sudo -u "$usuario" osascript /tmp/papel_de_parede.applescript
+    echo "APLICADO para $usuario"
+  become: true
+  register: wallpaper_mac
+  changed_when: "'APLICADO' in wallpaper_mac.stdout"
+  ignore_errors: true
+  when:
+    - ansible_os_family | default('') != 'Windows'
+    - estado_wallpaper_macos is defined
+    - wallpaper_mac_img is not failed
+  tags: aparencia
+
+- name: Relatar o resultado no macOS
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}:
+      {% if wallpaper_mac_img is failed %}
+      imagem NÃO obtida — o espelho respondeu em {{ repo_interno_url }}?
+      {% elif 'SEM SESSAO' in (wallpaper_mac.stdout | default('')) %}
+      ninguém no console; o papel de parede não pôde ser aplicado. A imagem
+      já está em {{ estado_wallpaper_macos }} e basta repetir com alguém
+      logado.
+      {% else %}
+      {{ wallpaper_mac.stdout | default('') | trim }}
+      {% endif %}
+  when:
+    - ansible_os_family | default('') != 'Windows'
+    - estado_wallpaper_macos is defined
+  tags: aparencia
+
+# ── Windows, daqui em diante ─────────────────────────────────────────────
+
 - name: Ver se a imagem do papel de parede já está na máquina
   ansible.windows.win_stat:
     path: "{{ estado_wallpaper }}"

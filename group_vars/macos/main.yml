@@ -21,6 +21,16 @@
 
 ansible_user: suporte
 
+# ── Papel de parede ──────────────────────────────────────────────────────
+#
+# Mesma imagem dos laboratórios Windows, vinda do mesmo espelho HTTP. O
+# caminho de destino é outro porque o macOS não tem C:\Windows\Web.
+#
+# /Library/Desktop Pictures é o diretório do sistema para isso: legível por
+# todos os usuários, e é onde o próprio macOS guarda as imagens padrão.
+estado_wallpaper_arquivo: 'wallpapersmd.jpg'
+estado_wallpaper_macos: '/Library/Desktop Pictures/wallpapersmd.jpg'
+
 # Use the same secret for SSH and sudo to avoid -k and -K prompts
 ansible_password: "{{ vault_macos_password }}"
 ansible_become_password: "{{ vault_macos_password }}"
