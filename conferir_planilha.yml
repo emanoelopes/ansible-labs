@@ -183,7 +183,7 @@
           {{ '%Y-%m-%d %H:%M' | strftime }}
           ══════════════════════════════════════════════════════════════
 
-          Planilha: {{ registros | length }} linhas
+          Planilha: {{ registros | length }} posições
                     {{ planilha_com_equip | length }} com equipamento,
                     {{ planilha_vazias | length }} marcadas como vazias
           Inventário Ansible: {{ no_inventario | length }} hosts ativos
@@ -248,7 +248,7 @@
           {% endif %}
 
           ─── 6. PATRIMÔNIO EM MAIS DE UMA POSIÇÃO ─────────────────────
-          Um equipamento não pode estar em dois lugares. Ou uma das linhas
+          Um equipamento não pode estar em dois lugares. Ou uma das posições
           está desatualizada — máquina remanejada e o registro antigo não
           foi apagado — ou houve erro de digitação num dos números.
           {#

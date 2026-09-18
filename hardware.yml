@@ -1,0 +1,276 @@
+---
+# Inventário de hardware com DETECÇÃO DE ALTERAÇÃO.
+#
+#   ansible-playbook hardware.yml -e alvo=lab4
+#   ansible-playbook hardware.yml -e alvo=lab4 --limit 427
+#
+# Somente leitura nas estações. Seguro com aula em andamento.
+#
+# Grava dois arquivos por laboratório, em inventario/:
+#   hardware-<lab>.json  linha de base, sobrescrita a cada coleta
+#   hardware-<lab>.txt   relatório, incluindo o que MUDOU desde a anterior
+#
+# ── POR QUE COMPARAR, E NÃO SÓ LISTAR ─────────────────────────────────────
+#
+# Um relatório de hardware isolado não detecta nada: alguém teria de
+# lembrar como a máquina era antes. A detecção exige linha de base, e é ela
+# que responde às perguntas que interessam num parque de 155 estações:
+#
+#   - sumiu memória de alguma máquina?
+#   - trocaram um SSD por outro?
+#   - a placa-mãe é a mesma, ou o gabinete foi substituído?
+#
+# Numa primeira execução não há o que comparar, e o relatório diz isso.
+#
+# ── RELAÇÃO COM O collect_hardware DA ROLE maintenance ────────────────────
+#
+# Aquele grava systems.csv e systems-log.csv, com um resumo por máquina em
+# uma linha. Continua útil como retrato do parque e como histórico.
+#
+# Este vai mais fundo onde importa para detectar troca de peça: módulos de
+# memória slot a slot (capacidade, velocidade, fabricante, número de série),
+# TODOS os discos e não só o do sistema, com serial e firmware, e a
+# placa-mãe. E compara.
+
+- name: Coletar hardware
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook hardware.yml -e alvo=lab4"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+
+    - name: Levantar a ficha da máquina
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        $cs   = Get-CimInstance Win32_ComputerSystem
+        $bios = Get-CimInstance Win32_BIOS
+        $mb   = Get-CimInstance Win32_BaseBoard
+        $os   = Get-CimInstance Win32_OperatingSystem
+        $cpu  = Get-CimInstance Win32_Processor | Select-Object -First 1
+
+        # ── Memória, slot a slot ──────────────────────────────────────────
+        # É o pedido central: não basta o total. Uma máquina que tinha dois
+        # módulos de 4 GB e passa a ter um de 8 GB soma o mesmo total e é
+        # outra máquina.
+        $arr = Get-CimInstance Win32_PhysicalMemoryArray | Select-Object -First 1
+        $mods = @()
+        foreach ($m in (Get-CimInstance Win32_PhysicalMemory | Sort-Object DeviceLocator)) {
+          $gb = [math]::Round($m.Capacity / 1GB, 1)
+          $fab = ($m.Manufacturer, 'sem fabricante' -ne $null)[0]
+          $sn  = if ($m.SerialNumber) { $m.SerialNumber.Trim() } else { 'sem serial' }
+          $mods += "{0}: {1}GB {2}MHz {3} SN={4}" -f $m.DeviceLocator, $gb, $m.Speed, $fab, $sn
+        }
+
+        # ── Discos: TODOS, não só o do sistema ────────────────────────────
+        # O OptiPlex 7010 do lab4 tem SSD e HDD. Olhar só o do sistema
+        # deixaria a troca do segundo passar despercebida.
+        $discos = @()
+        foreach ($d in (Get-CimInstance Win32_DiskDrive | Sort-Object DeviceID)) {
+          $gb = [math]::Round($d.Size / 1GB, 0)
+          $sn = if ($d.SerialNumber) { $d.SerialNumber.Trim() } else { 'sem serial' }
+          $discos += "{0}GB {1} SN={2} FW={3}" -f $gb, $d.Model, $sn, $d.FirmwareRevision
+        }
+
+        # Tipo de mídia vem de outro lugar: Win32_DiskDrive não distingue
+        # SSD de HDD. Get-PhysicalDisk existe do Windows 8 em diante.
+        $midias = @()
+        foreach ($p in (Get-PhysicalDisk | Sort-Object DeviceId)) {
+          $midias += "{0}: {1}" -f $p.FriendlyName, $p.MediaType
+        }
+
+        $rede = @()
+        foreach ($n in (Get-CimInstance Win32_NetworkAdapter -Filter "PhysicalAdapter=True" |
+                        Where-Object { $_.MACAddress })) {
+          $rede += "{0} {1}" -f $n.MACAddress, $n.Name
+        }
+
+        $video = @()
+        foreach ($v in (Get-CimInstance Win32_VideoController)) { $video += $v.Name }
+
+        [pscustomobject]@{
+          fabricante        = $cs.Manufacturer
+          modelo            = $cs.Model
+          serial_chassi     = $bios.SerialNumber
+          placa_mae         = "{0} {1}" -f $mb.Manufacturer, $mb.Product
+          placa_mae_serial  = $mb.SerialNumber
+          bios              = "{0} ({1})" -f $bios.SMBIOSBIOSVersion, $bios.ReleaseDate
+          cpu               = $cpu.Name
+          cpu_nucleos       = "{0}C/{1}T" -f $cpu.NumberOfCores, $cpu.NumberOfLogicalProcessors
+          ram_total_gb      = [math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+          ram_slots         = "{0} usados de {1}" -f $mods.Count, $arr.MemoryDevices
+          ram_modulos       = ($mods -join ' | ')
+          discos            = ($discos -join ' | ')
+          discos_midia      = ($midias -join ' | ')
+          rede              = ($rede -join ' | ')
+          video             = ($video -join ' | ')
+          so                = "{0} {1}" -f $os.Caption, $os.BuildNumber
+        } | ConvertTo-Json -Compress
+      register: hw_raw
+      changed_when: false
+      ignore_errors: true
+
+    - name: Interpretar
+      ansible.builtin.set_fact:
+        hw: "{{ hw_raw.stdout | default('{}') | trim | from_json }}"
+      when: hw_raw is not failed
+
+- name: Comparar com a linha de base e relatar
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Ver se existe linha de base anterior
+      ansible.builtin.stat:
+        path: "{{ inventario_dir }}/hardware-{{ alvo }}.json"
+      register: base_stat
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Carregar a linha de base anterior
+      ansible.builtin.include_vars:
+        file: "{{ inventario_dir }}/hardware-{{ alvo }}.json"
+        name: base_antiga
+      when: base_stat.stat.exists
+      run_once: true
+
+    # Só entram máquinas que responderam. Estação desligada não deve apagar
+    # a ficha dela da linha de base — mesma lógica acumulativa do mapa de
+    # MACs, e pelo mesmo motivo: perder dado por ausência é silencioso.
+    - name: Partir da linha de base anterior
+      ansible.builtin.set_fact:
+        base_nova: "{{ base_antiga.maquinas | default({}) }}"
+      run_once: true
+
+    - name: Acrescentar cada máquina coletada
+      ansible.builtin.set_fact:
+        base_nova: "{{ base_nova | combine({item: hostvars[item].hw}) }}"
+      loop: "{{ ansible_play_hosts | sort }}"
+      loop_control:
+        label: "{{ item }}"
+      when: hostvars[item].hw is defined
+      run_once: true
+
+    # O relatório é composto UMA vez, num set_fact, e depois exibido e
+    # salvo. Compor duas vezes — uma no debug, outra no copy — abriria a
+    # chance de as duas versões divergirem, e foi o que a primeira escrita
+    # deste arquivo fez: a tarefa de salvar relia o arquivo que ela própria
+    # ia escrever.
+    - name: Compor o relatório
+      ansible.builtin.set_fact:
+        relatorio: |
+          ══════════════════════════════════════════════════════════════
+          HARDWARE — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+
+          Coletadas: {{ ansible_play_hosts | length }} de {{ groups[alvo] | length }}
+          {% set fora = groups[alvo] | difference(ansible_play_hosts) %}
+          {% if fora | length > 0 %}
+          Não responderam: {{ fora | join(', ') }}
+          {% endif %}
+          {% if antiga | length == 0 %}
+
+          ── PRIMEIRA COLETA ───────────────────────────────────────────
+          Não há linha de base anterior, então não há o que comparar. Esta
+          execução CRIA a base; a detecção de alteração começa na próxima.
+          {% else %}
+
+          ── ALTERAÇÕES DESDE A COLETA ANTERIOR ────────────────────────
+          {% set ns = namespace(mudou=0) %}
+          {% for h in ansible_play_hosts | sort %}
+          {% if h in antiga and hostvars[h].hw is defined %}
+          {% set difs = [] %}
+          {% for c in campos %}
+          {% if (antiga[h][c] | default('')) | string != (hostvars[h].hw[c] | default('')) | string %}
+          {% set _ = difs.append(c) %}
+          {% endif %}
+          {% endfor %}
+          {% if difs | length > 0 %}
+          {% set ns.mudou = ns.mudou + 1 %}
+
+            {{ h }}
+          {% for c in difs %}
+              {{ c }}
+                antes: {{ antiga[h][c] | default('(ausente)') }}
+                agora: {{ hostvars[h].hw[c] | default('(ausente)') }}
+          {% endfor %}
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+          {% set novas = ansible_play_hosts | difference(antiga.keys() | list) %}
+          {% for h in novas | sort %}
+
+            {{ h }} — SEM FICHA ANTERIOR (máquina nova no laboratório)
+          {% endfor %}
+          {% if ns.mudou == 0 and novas | length == 0 %}
+            (nenhuma — o hardware está como na coleta anterior)
+          {% endif %}
+
+          {% if ns.mudou > 0 %}
+          {{ ns.mudou }} máquina(s) com hardware alterado. Troca de peça
+          legítima é rotina; o que esta seção existe para pegar é a troca
+          que ninguém registrou — e a que ninguém fez.
+          {% endif %}
+          {% endif %}
+
+          ── MEMÓRIA ───────────────────────────────────────────────────
+          {% for h in ansible_play_hosts | sort %}
+          {% if hostvars[h].hw is defined %}
+            {{ "%-5s" | format(h) }}{{ "%-6s" | format(hostvars[h].hw.ram_total_gb ~ 'GB') }}{{ "%-18s" | format(hostvars[h].hw.ram_slots) }}{{ hostvars[h].hw.ram_modulos }}
+          {% endif %}
+          {% endfor %}
+
+          ── DISCOS ────────────────────────────────────────────────────
+          {% for h in ansible_play_hosts | sort %}
+          {% if hostvars[h].hw is defined %}
+            {{ "%-5s" | format(h) }}{{ hostvars[h].hw.discos }}
+                  {{ hostvars[h].hw.discos_midia }}
+          {% endif %}
+          {% endfor %}
+
+          ── IDENTIFICAÇÃO ─────────────────────────────────────────────
+          {% for h in ansible_play_hosts | sort %}
+          {% if hostvars[h].hw is defined %}
+            {{ "%-5s" | format(h) }}{{ hostvars[h].hw.modelo }} | chassi {{ hostvars[h].hw.serial_chassi }} | placa-mãe {{ hostvars[h].hw.placa_mae_serial }}
+                  {{ hostvars[h].hw.cpu }} {{ hostvars[h].hw.cpu_nucleos }} | BIOS {{ hostvars[h].hw.bios }}
+          {% endif %}
+          {% endfor %}
+          ══════════════════════════════════════════════════════════════
+      run_once: true
+      vars:
+        campos: ['fabricante', 'modelo', 'serial_chassi', 'placa_mae', 'placa_mae_serial',
+                 'bios', 'cpu', 'cpu_nucleos', 'ram_total_gb', 'ram_slots', 'ram_modulos',
+                 'discos', 'discos_midia', 'rede', 'video', 'so']
+        antiga: "{{ base_antiga.maquinas | default({}) }}"
+
+    - name: Exibir
+      ansible.builtin.debug:
+        msg: "{{ relatorio.split('\n') }}"
+      run_once: true
+
+    - name: Salvar o relatório
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/hardware-{{ alvo }}.txt"
+        mode: "0640"
+        content: "{{ relatorio }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    # A base nova é gravada DEPOIS do relatório. Se fosse antes, a
+    # comparação seria contra ela mesma e nunca acusaria diferença.
+    - name: Gravar a nova linha de base
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/hardware-{{ alvo }}.json"
+        mode: "0640"
+        content: "{{ {'coletado_em': '%Y-%m-%d %H:%M' | strftime, 'maquinas': base_nova} | to_nice_json }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
