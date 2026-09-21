@@ -59,18 +59,40 @@
     we_arquivo: 'windows_exporter-0.31.8-amd64.msi'
     we_destino: 'C:\Temp\{{ we_arquivo }}'
     we_porta: 9182
-    we_coletores: 'cpu,cs,logical_disk,logon,memory,net,os,service,system,textfile,process,physical_disk'
-    # De onde o Prometheus vai coletar.
+    # Os oito primeiros são EXATAMENTE o padrão da versão 0.31.8, lido do
+    # próprio binário:
+    #   windows_exporter.exe --help | primeira linha de --collectors.enabled
     #
-    # TROQUE PELO IP DO MAC MINI assim que ele estiver definido:
-    #   -e we_prometheus_ip=10.102.227.XXX
+    # Não invente nomes a partir de documentação ou memória: 'cs' e 'logon'
+    # existiam em versões anteriores, foram removidos, e cada um derrubou o
+    # serviço na partida com 'unknown collector <nome>' — um de cada vez, o
+    # que custou duas rodadas de diagnóstico em 21/09/2026. Ao trocar de
+    # versão do MSI, confira a lista no binário novo antes de aplicar.
     #
-    # O padrão abaixo libera a sub-rede inteira dos laboratórios, o que é
-    # permissivo demais: expõe métricas de 130 estações — processos em
-    # execução, usuário logado, uso de disco — a qualquer máquina do
-    # segmento, inclusive às dos próprios alunos. Serve para o piloto, não
-    # para o parque.
-    we_prometheus_ip: '10.102.227.0/24'
+    # Acrescentados aos padrões, ambos confirmados no --help da mesma versão:
+    #   textfile  métricas próprias, se um dia quisermos publicar algo do
+    #             laboratório que o exporter não mede
+    #   time      sincronismo de relógio — relógio fora de hora quebra
+    #             autenticação de domínio, e o sintoma não parece ser isso
+    #
+    # Deliberadamente FORA: 'process'. Ele existe, mas rende uma série por
+    # processo por máquina, o que num parque de 154 estações é volume
+    # desproporcional ao que responde. Entra quando houver pergunta que só
+    # ele responda.
+    we_coletores: 'cpu,memory,logical_disk,physical_disk,net,os,service,system,textfile,time'
+    # De onde o Prometheus vai coletar: o Mac mini de observabilidade,
+    # 10.102.227.250, IP fixo desde 21/09/2026.
+    #
+    # Host único, não sub-rede. Até aqui o valor era '10.102.227.0/24', que
+    # liberava o segmento inteiro — as métricas do windows_exporter não são
+    # inócuas: 'logon' entrega quem está logado, 'process' entrega o que está
+    # rodando. Abrir isso para as estações dos próprios alunos era aceitável
+    # só enquanto era piloto de três máquinas.
+    #
+    # A regra tem nome fixo ('Prometheus windows_exporter'), então reexecutar
+    # SUBSTITUI o escopo antigo nas máquinas que já receberam o /24; não
+    # acumula uma segunda regra permissiva ao lado.
+    we_prometheus_ip: '10.102.227.250'
 
   pre_tasks:
     - name: Confirmar que o alvo foi informado
@@ -145,6 +167,65 @@
           LISTEN_PORT={{ we_porta }}
       register: we_install
       when: we_servico.services | default([]) | length == 0
+
+    # ── COLETORES ─────────────────────────────────────────────────────────
+    #
+    # A lista de coletores NÃO vive na linha de comando do serviço: o MSI a
+    # grava em config.yaml, e é de lá que o exporter lê a cada partida.
+    #
+    # Por que isto existe, em vez de confiar no ENABLED_COLLECTORS do MSI:
+    # win_package com state: present não faz nada quando a mesma versão já
+    # está instalada. Mudar we_coletores e reexecutar daria 'ok' em todas as
+    # máquinas sem alterar coletor nenhum — o playbook relataria convergência
+    # enquanto o serviço seguisse morto. Gerenciar o arquivo torna a lista de
+    # fato declarada: muda aqui, muda na máquina, sem reinstalar.
+    #
+    # Foi o que custou 21/09/2026: as três máquinas do piloto subiram em
+    # 18/09 e morreram no primeiro reinício com 'unknown collector cs'. O
+    # coletor 'cs' saiu das versões recentes — o que ele media (hostname,
+    # processadores lógicos, memória física) hoje vem de os, cpu e memory.
+    - name: Declarar os coletores em config.yaml
+      ansible.windows.win_copy:
+        dest: 'C:\Program Files\windows_exporter\config.yaml'
+        content: |
+          collectors:
+            enabled: {{ we_coletores }}
+      register: we_config
+
+    # ── E A LINHA DE COMANDO DO SERVIÇO PRECISA CALAR ─────────────────────
+    #
+    # O MSI grava o ENABLED_COLLECTORS como '--collectors.enabled ...' no
+    # ImagePath do serviço, e argumento de linha de comando VENCE o
+    # config.yaml. Sem esta tarefa, gerenciar o arquivo não serve para nada:
+    # ele fica correto e ignorado, o serviço segue lendo a lista congelada no
+    # dia da instalação, e um reinício não muda nada.
+    #
+    # Foi o que escondeu a causa por três rodadas em 21/09/2026. O sintoma
+    # era contraditório de propósito: em primeiro plano o exporter subia com
+    # os dez coletores e escutava na 9182, enquanto o mesmo binário, como
+    # serviço, morria calado.
+    #
+    # Deixando só o --config.file, a lista passa a vir de um único lugar — e
+    # aí 'we_coletores' é de fato declarado.
+    - name: Tirar a lista de coletores da linha de comando do serviço
+      ansible.windows.win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Services\windows_exporter
+        name: ImagePath
+        data: '"C:\Program Files\windows_exporter\windows_exporter.exe" --config.file="C:\Program Files\windows_exporter\config.yaml"'
+        type: expandstring
+      register: we_imagepath
+
+    # Reinício explícito, não handler: handler roda no fim da play, depois
+    # das tarefas de conferência — a porta seria testada contra o serviço
+    # ainda com a configuração antiga, e um ajuste correto apareceria como
+    # falha.
+    - name: Reiniciar o exporter quando a configuração mudou
+      ansible.windows.win_service:
+        name: windows_exporter
+        state: restarted
+      register: we_restart
+      ignore_errors: true
+      when: we_config is changed or we_imagepath is changed
 
     # ── FIREWALL ──────────────────────────────────────────────────────────
     #
