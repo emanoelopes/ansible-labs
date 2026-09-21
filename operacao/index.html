@@ -1,0 +1,989 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Operação dos laboratórios — o que rodar quando - Ansible Labs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#operacao-dos-laboratorios-o-que-rodar-quando" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Ansible Labs" class="md-header__button md-logo" aria-label="Ansible Labs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Ansible Labs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Operação dos laboratórios — o que rodar quando
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Ansible Labs" class="md-nav__button md-logo" aria-label="Ansible Labs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Ansible Labs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Welcome to Ansible Labs repository
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operação dos laboratórios — o que rodar quando
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operação dos laboratórios — o que rodar quando
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#o-dia-a-dia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        O dia a dia
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quando-algo-nao-responde" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quando algo não responde
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditoria-semanal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auditoria semanal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inventario-e-conferencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventário e conferência
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wake-on-lan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wake-on-LAN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#instalar-ou-remover-software" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instalar ou remover software
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observabilidade-prometheus-e-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observabilidade — Prometheus e Grafana
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Observabilidade — Prometheus e Grafana">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#instalar-o-agente-nas-estacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instalar o agente nas estações
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#levar-os-alvos-para-o-mac-mini" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Levar os alvos para o Mac mini
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conferir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conferir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#paineis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Painéis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quatro-armadilhas-desta-montagem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quatro armadilhas desta montagem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnostico-que-quebra-impasse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnóstico que quebra impasse
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tres-armadilhas-que-ja-custaram-caro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Três armadilhas que já custaram caro
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#o-dia-a-dia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        O dia a dia
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quando-algo-nao-responde" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quando algo não responde
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditoria-semanal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auditoria semanal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inventario-e-conferencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventário e conferência
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wake-on-lan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wake-on-LAN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#instalar-ou-remover-software" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instalar ou remover software
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observabilidade-prometheus-e-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observabilidade — Prometheus e Grafana
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Observabilidade — Prometheus e Grafana">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#instalar-o-agente-nas-estacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instalar o agente nas estações
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#levar-os-alvos-para-o-mac-mini" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Levar os alvos para o Mac mini
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conferir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conferir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#paineis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Painéis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quatro-armadilhas-desta-montagem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quatro armadilhas desta montagem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnostico-que-quebra-impasse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnóstico que quebra impasse
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tres-armadilhas-que-ja-custaram-caro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Três armadilhas que já custaram caro
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="operacao-dos-laboratorios-o-que-rodar-quando">Operação dos laboratórios — o que rodar quando</h1>
+<p>Guia por <strong>situação</strong>, não por arquivo. Cada playbook tem no próprio cabeçalho
+a explicação detalhada e o histórico das decisões; aqui está só o mapa.</p>
+<p>Todos os comandos pressupõem:</p>
+<pre><code class="language-bash">cd ~/ansible-labs
+export ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass
+</code></pre>
+<p>Sem essa variável, qualquer playbook que leia o vault falha com
+<code>Decryption failed</code>. O caminho não fica no <code>ansible.cfg</code> porque o arquivo é
+versionado e um <code>vault_password_file</code> inexistente é erro fatal de
+configuração — quebraria o CI e a máquina de quem clonasse o repositório.</p>
+<hr />
+<h2 id="o-dia-a-dia">O dia a dia</h2>
+<table>
+<thead>
+<tr>
+<th>Situação</th>
+<th>Comando</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ligar um laboratório remotamente</td>
+<td><code>ansible-playbook acordar.yml -e alvo=lab4</code></td>
+</tr>
+<tr>
+<td>Desligar, avisando quem estiver usando</td>
+<td><code>ansible-playbook desligar.yml -e alvo=lab4 -e atraso=300</code></td>
+</tr>
+<tr>
+<td>Ver quem está usando antes de desligar</td>
+<td><code>ansible-playbook desligar.yml -e alvo=lab4 -t verificar</code></td>
+</tr>
+<tr>
+<td>Aplicar o estado declarado</td>
+<td><code>ansible-playbook estado.yml -e alvo=lab4</code></td>
+</tr>
+<tr>
+<td>Ver o que mudaria, sem mudar</td>
+<td><code>ansible-playbook estado.yml -e alvo=lab4 --check --diff</code></td>
+</tr>
+</tbody>
+</table>
+<p>O <code>estado.yml</code> aceita tags para as partes rápidas, quando não se quer esperar
+a instalação de pacotes:</p>
+<ul>
+<li><code>-t energia</code> — plano de energia, suspensão, monitor, desligamento diário</li>
+<li><code>-t navegadores</code> — política do Firefox</li>
+<li><code>-t aparencia</code> — papel de parede</li>
+<li><code>-t sessao</code> — logon automático</li>
+<li><code>-t pacotes</code> — software (a parte demorada)</li>
+</ul>
+<hr />
+<h2 id="quando-algo-nao-responde">Quando algo não responde</h2>
+<p>Máquina que não responde pode estar <strong>desligada</strong> ou <strong>mal configurada</strong>, e as
+duas produzem o mesmo silêncio. A distinção importa porque as soluções são
+opostas: uma volta sozinha na próxima aula, a outra nunca volta.</p>
+<pre><code class="language-bash">ansible-playbook alcance.yml -e alvo=lab4            # o laboratório inteiro
+ansible-playbook alcance.yml -e alvo=lab4 --limit 411
+</code></pre>
+<p>Ele sonda portas TCP do controlador e classifica. Não usa ping: o firewall do
+Windows bloqueia ICMP por padrão em vários perfis.</p>
+<p>Foi um caso desses que manteve o <strong>lab5 inteiro fora da automação por tempo
+indeterminado</strong> — o inventário o declarava na porta 5986 com transporte
+<code>basic</code>, o listener HTTPS não existia mais, e nada nunca acusou nada.</p>
+<hr />
+<h2 id="auditoria-semanal">Auditoria semanal</h2>
+<p>Roda sozinha, por <code>systemd</code>, em horários escolhidos para coincidir com aulas
+— a auditoria só avalia quem está ligado.</p>
+<table>
+<thead>
+<tr>
+<th>Quando</th>
+<th>Labs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>terça, 15h</td>
+<td>lab2, lab6</td>
+</tr>
+<tr>
+<td>quarta, 10h</td>
+<td>lab1</td>
+</tr>
+<tr>
+<td>quarta, 15h</td>
+<td>lab4, lab5</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">systemctl list-timers 'ansible-auditoria*'     # ver o agendamento
+ansible-playbook auditoria.yml -e alvo=lab4 -e enviar_email=false   # à mão
+ansible-playbook auditoria.yml -t instalar_agendamento -K           # reinstalar
+</code></pre>
+<p><strong>A agenda caduca na virada do semestre.</strong> O Mapa de Salas é refeito e as
+disciplinas trocam de laboratório; o agendamento continua no horário velho,
+agora vazio, e nada dá erro. O relatório avisa quando a cobertura cai abaixo
+de 50%, mas conferir na virada é mais barato que descobrir depois. A skill
+<code>mapa-de-salas</code> responde qual laboratório tem aula quando.</p>
+<hr />
+<h2 id="inventario-e-conferencia">Inventário e conferência</h2>
+<table>
+<thead>
+<tr>
+<th>Para saber</th>
+<th>Comando</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>O que está instalado, e em quantas máquinas</td>
+<td><code>ansible-playbook inventario_software.yml -e alvo=lab4</code></td>
+</tr>
+<tr>
+<td>Uso de disco e o que dá para recuperar</td>
+<td><code>ansible-playbook disco.yml -e alvo=lab4</code></td>
+</tr>
+<tr>
+<td>Onde o espaço está, de verdade (demorado)</td>
+<td><code>ansible-playbook disco.yml -e alvo=lab4 -e detalhado=true</code></td>
+</tr>
+<tr>
+<td>Se a planilha bate com a realidade</td>
+<td><code>ansible-playbook conferir_planilha.yml -e alvo=lab4</code></td>
+</tr>
+</tbody>
+</table>
+<p>O <code>conferir_planilha.yml</code> precisa do CSV da aba exportado para
+<code>inventario/planilha-&lt;lab&gt;.csv</code>. A exportação é manual de propósito: publicar
+a planilha na web a tornaria acessível a quem tivesse o link, e ela contém
+patrimônios e endereços MAC.</p>
+<hr />
+<h2 id="wake-on-lan">Wake-on-LAN</h2>
+<p>Funciona, com dois limites que custaram tempo para descobrir:</p>
+<p><strong>O pacote sai do <code>ppgte-server</code>, não do controlador.</strong> O controlador está em
+<code>10.102.226.x</code> e as estações em <code>10.102.227.0/24</code>; broadcast dirigido entre
+sub-redes é descartado pelo roteador. O <code>ppgte-server</code> (<code>10.102.227.245</code>) está
+dentro do segmento. É o padrão desde 09/09/2026 — se ele cair, o WoL para.</p>
+<p><strong>Não sobrevive a corte de energia.</strong> A placa de rede só responde ao pacote
+mágico se continuar energizada em standby. Desligamento por software preserva
+isso; disjuntor, queda ou régua desligada, não. Depois de um fim de semana com
+corte, é preciso ir ao laboratório apertar o botão.</p>
+<p>Antes de coletar MACs, as máquinas precisam estar ligadas:</p>
+<pre><code class="language-bash">ansible-playbook coletar_macs.yml -e alvo=lab4
+ansible-playbook macs_planilha.yml -e alvo=todos   # colunas para colar na planilha
+</code></pre>
+<hr />
+<h2 id="instalar-ou-remover-software">Instalar ou remover software</h2>
+<p>O estado declarado cobre o que é padrão do laboratório. Para demanda pontual:</p>
+<pre><code class="language-bash">ansible-playbook site.yaml -e local=lab4 -t apache_netbeans
+ansible-playbook site.yaml -e local=lab4 -t tomcat
+ansible-playbook postgresql_pgadmin.yml -e local=lab4
+ansible-playbook remover_pacote.yml -e alvo=lab4 -e pacote=X          # prévia
+ansible-playbook remover_pacote.yml -e alvo=lab4 -e pacote=X -t remover
+</code></pre>
+<p>O <code>remover_pacote.yml</code> recusa remover pacote que esteja declarado em
+<code>group_vars</code> — o <code>estado.yml</code> o reinstalaria na execução seguinte, e a máquina
+ficaria oscilando entre dois estados sem explicação aparente.</p>
+<hr />
+<h2 id="observabilidade-prometheus-e-grafana">Observabilidade — Prometheus e Grafana</h2>
+<p>A base é o Mac mini <strong>mm2</strong>, em <strong>10.102.227.250</strong>, IP fixo. Prometheus e
+Grafana rodam em Docker, com o compose em <code>~/observabilidade-labs/</code>.</p>
+<p>Não confundir com o <strong>mm01</strong>, outro Mac mini, destinado a assumir como
+controlador Ansible. São máquinas diferentes com papéis diferentes.</p>
+<pre><code>~/observabilidade-labs/
+  docker-compose.yml
+  prometheus.yml          ← montado como ARQUIVO em /etc/prometheus/prometheus.yml
+  targets/                ← montado como PASTA  em /etc/prometheus/targets
+    prometheus-targets-lab1.json
+    prometheus-targets-lab2.json
+    prometheus-targets-lab3.json
+</code></pre>
+<p>Grafana em <code>http://10.102.227.250:3000</code>, Prometheus em <code>:9090</code>.</p>
+<h3 id="instalar-o-agente-nas-estacoes">Instalar o agente nas estações</h3>
+<pre><code class="language-bash"># Windows — lab1, lab2, lab4, lab5, lab6
+ansible-playbook windows_exporter.yml -e alvo=lab1
+
+# macOS — lab3
+ansible-playbook node_exporter.yml -e alvo=lab3
+
+# só verificar, sem instalar nada
+ansible-playbook windows_exporter.yml -e alvo=lab1 -t verificar
+</code></pre>
+<p>Cada execução grava <code>inventario/prometheus-targets-&lt;lab&gt;.json</code>, a partir do
+<strong>inventário</strong> e não de quem respondeu — estação apagada continua sendo alvo
+legítimo e aparece como <code>down</code>, que é a informação certa. Gerar só com quem
+respondeu faria a máquina desligada sumir do monitoramento em vez de aparecer
+fora do ar.</p>
+<h3 id="levar-os-alvos-para-o-mac-mini">Levar os alvos para o Mac mini</h3>
+<pre><code class="language-bash"># na máquina de trabalho
+scp ~/ansible-labs/inventario/prometheus-targets-*.json emanoel@10.102.227.250:/tmp/
+
+# no Mac mini
+cd ~/observabilidade-labs
+sudo mv /tmp/prometheus-targets-*.json targets/
+sudo chown 65534:65534 targets/*.json
+sudo chmod 644 targets/*.json
+</code></pre>
+<p>O <code>65534</code> é o UID <code>nobody</code>, com que o processo do Prometheus roda dentro do
+contêiner. Sem permissão de leitura ele <strong>não falha</strong> — reporta zero alvos,
+que na tela é idêntico a "arquivo não encontrado".</p>
+<p>Não é preciso editar o <code>prometheus.yml</code> nem reiniciar: o <code>file_sd_configs</code> usa
+glob e relê sozinho a cada 5 minutos.</p>
+<pre><code class="language-yaml">  - job_name: 'laboratorios'
+    file_sd_configs:
+      - files:
+          - '/etc/prometheus/targets/*.json'
+        refresh_interval: 5m
+</code></pre>
+<h3 id="conferir">Conferir</h3>
+<pre><code class="language-bash">docker exec prometheus ls -l /etc/prometheus/targets/    # o contêiner enxerga?
+curl -s localhost:9090/api/v1/targets \
+  | grep -o '&quot;health&quot;:&quot;[a-z]*&quot;' | sort | uniq -c          # quantos up?
+</code></pre>
+<p>Os dois degraus separam causas que dão o mesmo sintoma: o primeiro isola
+problema de volume, o segundo de configuração ou de rede.</p>
+<h3 id="paineis">Painéis</h3>
+<p>Data source do Grafana: URL <strong><code>http://prometheus:9090</code></strong> — o nome do serviço na
+rede do Docker, nunca <code>localhost</code>, que ali seria o próprio contêiner do
+Grafana. Painéis prontos: <strong>1860</strong> (Node Exporter Full, lab3) e <strong>14694</strong>
+(Windows Exporter, demais laboratórios).</p>
+<h3 id="quatro-armadilhas-desta-montagem">Quatro armadilhas desta montagem</h3>
+<p><strong>Volume de arquivo único esconde a pasta ao lado.</strong> O <code>prometheus.yml</code> é
+montado como arquivo, não como diretório: o contêiner enxerga só ele dentro de
+<code>/etc/prometheus/</code>. Qualquer coisa que você ponha em <code>/etc/prometheus/</code> do
+<em>host</em> fica invisível. Por isso <code>targets/</code> tem montagem própria no compose.</p>
+<p><strong>A linha de comando do serviço vence o arquivo de configuração.</strong> O MSI do
+<code>windows_exporter</code> grava o <code>ENABLED_COLLECTORS</code> no <code>ImagePath</code> do serviço, e
+argumento de linha de comando tem precedência sobre o <code>config.yaml</code>. Em
+21/09/2026 isso custou três rodadas: o arquivo estava correto e era ignorado,
+enquanto o serviço morria com a lista congelada no dia da instalação. O
+playbook hoje reescreve o <code>ImagePath</code> deixando só o <code>--config.file</code>.</p>
+<p><strong>Nome de coletor muda entre versões.</strong> <code>cs</code> e <code>logon</code> existiam e foram
+removidos na 0.31; cada um derrubou o serviço na partida com <code>unknown
+collector &lt;nome&gt;</code>, um de cada vez. Ao trocar a versão do MSI, leia a lista do
+próprio binário antes de aplicar:</p>
+<pre><code class="language-bash">ansible lab1 --limit 112 -m win_shell -a '&amp; &quot;C:\Program Files\windows_exporter\windows_exporter.exe&quot; --help'
+</code></pre>
+<p>A primeira linha de <code>--collectors.enabled</code> traz os padrões daquela versão —
+válidos por definição.</p>
+<p><strong>Subir agora não é sobreviver a um reinício.</strong> As três máquinas do piloto
+Windows subiram em 18/09 e estavam mortas em 21/09, porque o <code>cs</code> só derrubava
+o serviço na partida seguinte. O teste que vale é depois de um boot, não logo
+após instalar. No lab3 isso está coberto por o serviço ser LaunchDaemon com
+<code>RunAtLoad</code>, e não <code>brew services</code> — que morre no logout do usuário.</p>
+<h3 id="diagnostico-que-quebra-impasse">Diagnóstico que quebra impasse</h3>
+<p>Quando o serviço morre calado, rode o binário em <strong>primeiro plano</strong>: ele
+escreve no console o erro que, como serviço, se perde.</p>
+<pre><code class="language-bash">ansible lab1 --limit 112 -m win_shell -a '
+$exe = &quot;C:\Program Files\windows_exporter\windows_exporter.exe&quot;
+$p = Start-Process -FilePath $exe -ArgumentList &quot;--config.file=&quot;&quot;C:\Program Files\windows_exporter\config.yaml&quot;&quot;&quot; `
+     -NoNewWindow -PassThru -RedirectStandardOutput C:\Temp\we_out.txt -RedirectStandardError C:\Temp\we_err.txt
+Start-Sleep -Seconds 6
+if (-not $p.HasExited) { &quot;AINDA RODANDO&quot;; $p.Kill() } else { &quot;SAIU com codigo &quot; + $p.ExitCode }
+Get-Content C:\Temp\we_out.txt,C:\Temp\we_err.txt -EA SilentlyContinue
+'
+</code></pre>
+<p>Se em primeiro plano funciona e como serviço não, o problema não é o binário
+nem a configuração — é como o serviço foi registrado. No lab3, o equivalente é
+<code>tail -n 15 /var/log/node_exporter.err</code>.</p>
+<hr />
+<h2 id="tres-armadilhas-que-ja-custaram-caro">Três armadilhas que já custaram caro</h2>
+<p><strong>O Ansible conecta como <code>suporte</code>; quem usa a máquina é o <code>aluno</code>.</strong> Todo
+instalador resolve o perfil pelo token de segurança com que roda, não pelas
+variáveis de ambiente. Software que grava no perfil do usuário vai para o
+perfil errado e fica invisível ao aluno. Aconteceu com o Arduino, com o papel
+de parede e com a configuração do NetBeans. A saída é instalar para todos os
+usuários quando o instalador permitir (<code>estado_pacotes_args</code>) ou escrever
+direto na chave do aluno (tag <code>aparencia</code>).</p>
+<p><strong>Ausência não é conformidade.</strong> Máquina desligada não é avaliada, e um
+relatório com duas máquinas vistas e "0 divergências" parece boa notícia sem
+ser. Sempre olhe a cobertura antes da conclusão.</p>
+<p><strong>Presente em uma máquina não é padrão do laboratório.</strong> Listas declaradas
+derivadas de relatórios sem contagem promoveram a padrão o que era resíduo de
+um disco remanejado — e o <code>estado.yml</code> propagou para as 25 outras. Hoje o
+inventário conta em quantas máquinas cada pacote está, e
+<code>estado_pacotes_pontuais</code> registra o que foi instalação deliberada numa
+máquina só, para a revisão seguinte não refazer a pergunta.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
