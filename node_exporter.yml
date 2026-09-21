@@ -1,0 +1,323 @@
+---
+# Instala o node_exporter do Prometheus nos iMacs do lab3 e entrega a lista
+# de alvos para o Mac mini de observabilidade (10.102.227.250).
+#
+#   piloto:   ansible-playbook node_exporter.yml -e alvo=lab3 --limit 311
+#   tudo:     ansible-playbook node_exporter.yml -e alvo=lab3
+#   conferir: ansible-playbook node_exporter.yml -e alvo=lab3 -t verificar
+#
+# É o par macOS do windows_exporter.yml, e carrega as lições que aquele
+# custou caro em 21/09/2026:
+#
+#   1. Instalar não é servir. Confere-se a PORTA respondendo, não o código
+#      de saída do instalador nem "o serviço existe".
+#   2. Subir agora não é sobreviver a um reinício. As três máquinas do
+#      piloto Windows subiram num dia e estavam mortas no seguinte. Por isso
+#      aqui o serviço é LaunchDaemon com RunAtLoad, e não 'brew services'.
+#   3. Configuração em dois lugares é configuração em lugar nenhum. No
+#      Windows a lista de coletores vivia no config.yaml E na linha de
+#      comando do serviço; a segunda vencia, e a primeira ficou correta e
+#      ignorada por três rodadas de diagnóstico. Aqui há UMA fonte: o
+#      ProgramArguments do plist.
+#
+# POR QUE LaunchDaemon E NÃO 'brew services':
+# 'brew services' instala um LaunchAgent do usuário que o rodou — ele morre
+# quando esse usuário faz logout, e nem chega a subir antes do primeiro
+# login. Num laboratório onde 'aluno' entra e sai o dia inteiro e 'suporte'
+# quase nunca está logado, isso renderia métricas intermitentes sem padrão
+# discernível — o pior tipo de defeito, porque parece problema de rede.
+# LaunchDaemon roda como root desde o boot, independente de sessão.
+
+- name: node_exporter
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: true
+  serial: '25%'
+  max_fail_percentage: 20
+
+  # Estação apagada é ausência, não erro — e sem isto uma leva inteiramente
+  # apagada encerra a play, deixando de tentar as levas seguintes. Ver o
+  # comentário longo no estado.yml.
+  ignore_unreachable: true
+
+  vars:
+    ne_porta: 9100
+    ne_plist: /Library/LaunchDaemons/io.prometheus.node_exporter.plist
+    ne_label: io.prometheus.node_exporter
+    ne_textfile_dir: /usr/local/var/node_exporter
+
+    # Coletores: ao contrário do windows_exporter, o node_exporter vem com um
+    # conjunto padrão sensato e não exige lista explícita. O textfile é o
+    # único acréscimo, e existe para que um script local possa publicar algo
+    # que o exporter não mede — por exemplo ocupação por sessão de aluno, que
+    # é justamente a métrica que o lado Windows perdeu quando o coletor
+    # 'logon' saiu da versão 0.31.
+    ne_args:
+      - "--web.listen-address=:{{ ne_porta }}"
+      - "--collector.textfile.directory={{ ne_textfile_dir }}"
+
+  pre_tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: >-
+          Informe o laboratório: ansible-playbook node_exporter.yml -e alvo=lab3
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+
+    - name: Recusar alvo que não seja macOS
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }} não é macOS ({{ ansible_facts['os_family'] }}).
+          Para os laboratórios Windows use windows_exporter.yml.
+      when: ansible_facts['os_family'] != 'Darwin'
+
+  tasks:
+    # ── ESTADO ATUAL ──────────────────────────────────────────────────────
+    #
+    # Sondagem, não verificação: aqui a ausência é a resposta esperada na
+    # primeira instalação. Por isso 'failed_when: false' e não
+    # 'ignore_errors' — não há falha a ignorar, e um FAILED vermelho na
+    # primeira tarefa de toda instalação nova treina a pessoa a desconsiderar
+    # vermelho, que é justamente o que não se quer num playbook cujo valor
+    # está em avisar.
+    #
+    # A distinção que torna isto seguro: o resultado É LIDO logo abaixo
+    # (ne_antes). 'failed_when: false' só é armadilha quando mascara uma
+    # falha que ninguém examina.
+    - name: Ver se o node_exporter já responde
+      ansible.builtin.wait_for:
+        port: "{{ ne_porta }}"
+        host: 127.0.0.1
+        timeout: 3
+      register: ne_antes
+      failed_when: false
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_host
+      tags: [never, verificar]
+
+    # ── BINÁRIO ───────────────────────────────────────────────────────────
+    #
+    # Via Homebrew, que já é o gerenciador de pacotes declarado do lab3 (ver
+    # roles/estado_lab_macos). Não se introduz um segundo caminho de
+    # instalação para um pacote só: seria mais uma coisa a lembrar de
+    # atualizar, e o inventário de software deixaria de vê-lo.
+    #
+    # become_user é obrigatório: o Homebrew RECUSA rodar como root. O role
+    # estado_lab_macos tem a correção de posse do prefixo para as máquinas
+    # onde ele foi instalado com sudo no passado — se esta tarefa falhar com
+    # erro de permissão, rode antes:
+    #   ansible-playbook estado.yml -e alvo=lab3 -t pacotes
+    - name: Instalar o node_exporter
+      community.general.homebrew:
+        name: node_exporter
+        state: present
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: ne_brew
+      ignore_errors: true
+
+    - name: Localizar o binário
+      ansible.builtin.stat:
+        path: /usr/local/bin/node_exporter
+      register: ne_bin
+
+    - name: Avisar quando o binário não chegou
+      ansible.builtin.fail:
+        msg: >-
+          node_exporter não foi instalado em /usr/local/bin. O Homebrew
+          respondeu: {{ ne_brew.msg | default('sem mensagem') }}. Se for
+          recusa de permissão, o prefixo do Homebrew pode pertencer a root —
+          rode 'ansible-playbook estado.yml -e alvo=lab3 -t pacotes' antes.
+      when: not ne_bin.stat.exists
+
+    # ── SERVIÇO ───────────────────────────────────────────────────────────
+    - name: Garantir o diretório de métricas próprias
+      ansible.builtin.file:
+        path: "{{ ne_textfile_dir }}"
+        state: directory
+        owner: root
+        group: wheel
+        mode: '0755'
+
+    # Fonte ÚNICA dos argumentos. Mudar ne_args aqui muda a máquina — não há
+    # segundo lugar onde a mesma coisa esteja configurada.
+    - name: Declarar o LaunchDaemon
+      ansible.builtin.copy:
+        dest: "{{ ne_plist }}"
+        owner: root
+        group: wheel
+        mode: '0644'
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>Label</key>
+            <string>{{ ne_label }}</string>
+            <key>ProgramArguments</key>
+            <array>
+              <string>/usr/local/bin/node_exporter</string>
+          {% for a in ne_args %}
+              <string>{{ a }}</string>
+          {% endfor %}
+            </array>
+            <key>RunAtLoad</key>
+            <true/>
+            <key>KeepAlive</key>
+            <true/>
+            <key>StandardOutPath</key>
+            <string>/var/log/node_exporter.log</string>
+            <key>StandardErrorPath</key>
+            <string>/var/log/node_exporter.err</string>
+          </dict>
+          </plist>
+      register: ne_plist_escrito
+
+    # bootout antes de bootstrap: launchctl não recarrega um daemon já
+    # carregado só porque o arquivo mudou. Sem o bootout, editar o plist
+    # produziria 'ok' com o serviço rodando com os argumentos antigos — a
+    # mesma armadilha da linha de comando do windows_exporter.
+    #
+    # O bootout falha quando o daemon ainda não está carregado, que é o caso
+    # da primeira instalação: por isso ignore_errors, e não failed_when.
+    - name: Descarregar o daemon antes de recarregar
+      ansible.builtin.command:
+        cmd: launchctl bootout system/{{ ne_label }}
+      register: ne_bootout
+      ignore_errors: true
+      changed_when: ne_bootout.rc == 0
+      when: ne_plist_escrito is changed
+
+    - name: Carregar o daemon
+      ansible.builtin.command:
+        cmd: launchctl bootstrap system {{ ne_plist }}
+      register: ne_bootstrap
+      ignore_errors: true
+      changed_when: ne_bootstrap.rc == 0
+      when: ne_plist_escrito is changed
+
+    - name: Garantir que está carregado mesmo sem mudança no plist
+      ansible.builtin.command:
+        cmd: launchctl print system/{{ ne_label }}
+      register: ne_print
+      changed_when: false
+      ignore_errors: true
+
+    - name: Carregar quando não estava carregado
+      ansible.builtin.command:
+        cmd: launchctl bootstrap system {{ ne_plist }}
+      register: ne_bootstrap2
+      ignore_errors: true
+      when: ne_print.rc != 0
+
+    # ── CONFERÊNCIA ───────────────────────────────────────────────────────
+    #
+    # A porta respondendo é a ÚNICA prova que interessa. 'launchctl' aceitar
+    # o bootstrap prova apenas que o plist é XML válido.
+    - name: Conferir que a porta responde
+      ansible.builtin.wait_for:
+        port: "{{ ne_porta }}"
+        host: 127.0.0.1
+        timeout: 30
+      register: ne_porta_ok
+      ignore_errors: true
+
+    - name: Ler por que o exporter não respondeu
+      ansible.builtin.command:
+        cmd: tail -n 15 /var/log/node_exporter.err
+      register: ne_log
+      changed_when: false
+      ignore_errors: true
+      when: ne_porta_ok is failed
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if not ne_bin.stat.exists %}
+          FALHOU — binário ausente; o Homebrew não instalou.
+          {% elif ne_porta_ok is failed %}
+          instalado, mas a porta {{ ne_porta }} NÃO responde.
+          {{ ne_log.stdout | default('(sem log em /var/log/node_exporter.err)') | trim }}
+          {% else %}
+          OK — http://{{ ansible_host | default(inventory_hostname) }}:{{ ne_porta }}/metrics
+          {% endif %}
+
+    # ── FIREWALL ──────────────────────────────────────────────────────────
+    #
+    # NÃO configurado aqui, de propósito. O firewall do macOS é por
+    # aplicativo, não por porta: não há equivalente de 'libere a 9100 só para
+    # 10.102.227.250'. Se o filtro de aplicativos estiver ligado nestes
+    # iMacs, a liberação teria de ser por binário (socketfilterfw), o que
+    # dá uma regra permissiva para qualquer origem — pior, não melhor.
+    #
+    # Consequência a conhecer: as métricas dos iMacs ficam legíveis por
+    # qualquer máquina que alcance a porta 9100. Aceitável enquanto a rede
+    # dos laboratórios for fechada; se deixar de ser, a contenção terá de
+    # vir do switch ou de pf, não daqui.
+    - name: Registrar o estado do filtro de aplicativos
+      ansible.builtin.command:
+        cmd: /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+      register: ne_fw
+      changed_when: false
+      ignore_errors: true
+
+    - name: Avisar quando o filtro de aplicativos está ligado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: filtro de aplicativos do macOS ATIVO.
+          Se a porta responde em 127.0.0.1 mas o Prometheus não alcança,
+          é aqui. Libere o binário /usr/local/bin/node_exporter.
+      when:
+        - ne_fw.stdout is defined
+        - "'enabled' in (ne_fw.stdout | default('') | lower)"
+        - ne_porta_ok is not failed
+
+# ── ALVOS PARA O PROMETHEUS ───────────────────────────────────────────────
+#
+# Mesmo formato e mesma pasta dos alvos Windows, para que o glob
+# 'prometheus-targets-*.json' do file_sd_configs pegue os dois sem
+# configuração adicional no Mac mini.
+#
+# Escrito a partir do INVENTÁRIO, não de quem respondeu: iMac desligado
+# continua sendo alvo legítimo e aparece como 'down', que é a informação
+# certa. Gerar só com quem respondeu faria a máquina apagada sumir do
+# monitoramento em vez de aparecer fora do ar.
+- name: Gerar a lista de alvos para o Prometheus
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Escrever prometheus-targets-{{ alvo }}.json
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/prometheus-targets-{{ alvo }}.json"
+        mode: "0644"
+        content: |
+          [
+            {
+              "labels": {
+                "laboratorio": "{{ alvo }}",
+                "job": "node_exporter"
+              },
+              "targets": [
+          {% for h in groups[alvo] | sort %}
+                "{{ hostvars[h].ansible_host | default(h) }}:{{ ne_porta | default(9100) }}"{{ "," if not loop.last }}
+          {% endfor %}
+              ]
+            }
+          ]
+      delegate_to: localhost
+      become: false
+      run_once: true
+      vars:
+        ne_porta: 9100
+
+    - name: Onde ficou
+      ansible.builtin.debug:
+        msg: >-
+          {{ groups[alvo] | length }} alvo(s) em
+          {{ inventario_dir }}/prometheus-targets-{{ alvo }}.json —
+          copie para o Mac mini junto com os dos labs Windows.
+      run_once: true

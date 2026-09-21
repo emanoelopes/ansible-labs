@@ -140,6 +140,145 @@ ficaria oscilando entre dois estados sem explicação aparente.
 
 ---
 
+## Observabilidade — Prometheus e Grafana
+
+A base é o Mac mini **mm2**, em **10.102.227.250**, IP fixo. Prometheus e
+Grafana rodam em Docker, com o compose em `~/observabilidade-labs/`.
+
+Não confundir com o **mm01**, outro Mac mini, destinado a assumir como
+controlador Ansible. São máquinas diferentes com papéis diferentes.
+
+```
+~/observabilidade-labs/
+  docker-compose.yml
+  prometheus.yml          ← montado como ARQUIVO em /etc/prometheus/prometheus.yml
+  targets/                ← montado como PASTA  em /etc/prometheus/targets
+    prometheus-targets-lab1.json
+    prometheus-targets-lab2.json
+    prometheus-targets-lab3.json
+```
+
+Grafana em `http://10.102.227.250:3000`, Prometheus em `:9090`.
+
+### Instalar o agente nas estações
+
+```bash
+# Windows — lab1, lab2, lab4, lab5, lab6
+ansible-playbook windows_exporter.yml -e alvo=lab1
+
+# macOS — lab3
+ansible-playbook node_exporter.yml -e alvo=lab3
+
+# só verificar, sem instalar nada
+ansible-playbook windows_exporter.yml -e alvo=lab1 -t verificar
+```
+
+Cada execução grava `inventario/prometheus-targets-<lab>.json`, a partir do
+**inventário** e não de quem respondeu — estação apagada continua sendo alvo
+legítimo e aparece como `down`, que é a informação certa. Gerar só com quem
+respondeu faria a máquina desligada sumir do monitoramento em vez de aparecer
+fora do ar.
+
+### Levar os alvos para o Mac mini
+
+```bash
+# na máquina de trabalho
+scp ~/ansible-labs/inventario/prometheus-targets-*.json emanoel@10.102.227.250:/tmp/
+
+# no Mac mini
+cd ~/observabilidade-labs
+sudo mv /tmp/prometheus-targets-*.json targets/
+sudo chown 65534:65534 targets/*.json
+sudo chmod 644 targets/*.json
+```
+
+O `65534` é o UID `nobody`, com que o processo do Prometheus roda dentro do
+contêiner. Sem permissão de leitura ele **não falha** — reporta zero alvos,
+que na tela é idêntico a "arquivo não encontrado".
+
+Não é preciso editar o `prometheus.yml` nem reiniciar: o `file_sd_configs` usa
+glob e relê sozinho a cada 5 minutos.
+
+```yaml
+  - job_name: 'laboratorios'
+    file_sd_configs:
+      - files:
+          - '/etc/prometheus/targets/*.json'
+        refresh_interval: 5m
+```
+
+### Conferir
+
+```bash
+docker exec prometheus ls -l /etc/prometheus/targets/    # o contêiner enxerga?
+curl -s localhost:9090/api/v1/targets \
+  | grep -o '"health":"[a-z]*"' | sort | uniq -c          # quantos up?
+```
+
+Os dois degraus separam causas que dão o mesmo sintoma: o primeiro isola
+problema de volume, o segundo de configuração ou de rede.
+
+### Painéis
+
+Data source do Grafana: URL **`http://prometheus:9090`** — o nome do serviço na
+rede do Docker, nunca `localhost`, que ali seria o próprio contêiner do
+Grafana. Painéis prontos: **1860** (Node Exporter Full, lab3) e **14694**
+(Windows Exporter, demais laboratórios).
+
+### Quatro armadilhas desta montagem
+
+**Volume de arquivo único esconde a pasta ao lado.** O `prometheus.yml` é
+montado como arquivo, não como diretório: o contêiner enxerga só ele dentro de
+`/etc/prometheus/`. Qualquer coisa que você ponha em `/etc/prometheus/` do
+*host* fica invisível. Por isso `targets/` tem montagem própria no compose.
+
+**A linha de comando do serviço vence o arquivo de configuração.** O MSI do
+`windows_exporter` grava o `ENABLED_COLLECTORS` no `ImagePath` do serviço, e
+argumento de linha de comando tem precedência sobre o `config.yaml`. Em
+21/09/2026 isso custou três rodadas: o arquivo estava correto e era ignorado,
+enquanto o serviço morria com a lista congelada no dia da instalação. O
+playbook hoje reescreve o `ImagePath` deixando só o `--config.file`.
+
+**Nome de coletor muda entre versões.** `cs` e `logon` existiam e foram
+removidos na 0.31; cada um derrubou o serviço na partida com `unknown
+collector <nome>`, um de cada vez. Ao trocar a versão do MSI, leia a lista do
+próprio binário antes de aplicar:
+
+```bash
+ansible lab1 --limit 112 -m win_shell -a '& "C:\Program Files\windows_exporter\windows_exporter.exe" --help'
+```
+
+A primeira linha de `--collectors.enabled` traz os padrões daquela versão —
+válidos por definição.
+
+**Subir agora não é sobreviver a um reinício.** As três máquinas do piloto
+Windows subiram em 18/09 e estavam mortas em 21/09, porque o `cs` só derrubava
+o serviço na partida seguinte. O teste que vale é depois de um boot, não logo
+após instalar. No lab3 isso está coberto por o serviço ser LaunchDaemon com
+`RunAtLoad`, e não `brew services` — que morre no logout do usuário.
+
+### Diagnóstico que quebra impasse
+
+Quando o serviço morre calado, rode o binário em **primeiro plano**: ele
+escreve no console o erro que, como serviço, se perde.
+
+```bash
+ansible lab1 --limit 112 -m win_shell -a '
+$exe = "C:\Program Files\windows_exporter\windows_exporter.exe"
+$p = Start-Process -FilePath $exe -ArgumentList "--config.file=""C:\Program Files\windows_exporter\config.yaml""" `
+     -NoNewWindow -PassThru -RedirectStandardOutput C:\Temp\we_out.txt -RedirectStandardError C:\Temp\we_err.txt
+Start-Sleep -Seconds 6
+if (-not $p.HasExited) { "AINDA RODANDO"; $p.Kill() } else { "SAIU com codigo " + $p.ExitCode }
+Get-Content C:\Temp\we_out.txt,C:\Temp\we_err.txt -EA SilentlyContinue
+'
+```
+
+Se em primeiro plano funciona e como serviço não, o problema não é o binário
+nem a configuração — é como o serviço foi registrado. No lab3, o equivalente é
+`tail -n 15 /var/log/node_exporter.err`.
+
+---
+
 ## Três armadilhas que já custaram caro
 
 **O Ansible conecta como `suporte`; quem usa a máquina é o `aluno`.** Todo
