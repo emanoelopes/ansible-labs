@@ -24,6 +24,18 @@ estado_pacotes_extra:
   - godot
   - epicgameslauncher
   - processing
+  - nodejs
+
+  # ── Linguagens de script ────────────────────────────────────────────
+  # Demanda de 22/09/2026: Ruby on Rails e Lua. Lua cobre a disciplina
+  # "Linguagem de Programação Script", listada mais abaixo entre as que
+  # usam o lab1.
+  #
+  # 'ruby' traz só o interpretador e o RubyGems; o framework Rails é
+  # garantido por cima dele pela tarefa "Garantir a gem rails sobre o
+  # Ruby do Chocolatey", em roles/estado_lab/tasks/main.yml.
+  - ruby
+  - lua
 
   # ── Navegadores ───────────────────────────────────────────────────
   - firefox
