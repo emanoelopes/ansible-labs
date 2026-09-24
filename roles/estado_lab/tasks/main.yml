@@ -382,11 +382,24 @@
     - wallpaper_download is failed
   tags: aparencia
 
-- name: Garantir o papel de parede do aluno
+# ── BLOQUEIO CONTRA O ALUNO TROCAR O PAPEL DE PAREDE ──────────────────────
+#
+# Vai na mesma tarefa que aplica o papel de parede porque as duas coisas
+# dependem do mesmo SID resolvido e do mesmo carregar/descarregar de
+# ntuser.dat — repetir essa dança numa segunda tarefa custaria mais do que
+# ganharia em separação.
+#
+# estado_wallpaper_bloqueado governa o sentido: true grava a política
+# "Impedir alteração do papel de parede da área de trabalho" na chave do
+# aluno (e em HKU\.DEFAULT, para o próximo perfil); false remove só o
+# valor NoChangingWallPaper, nunca a chave inteira, que pode acumular
+# outras políticas no futuro.
+- name: Garantir o papel de parede do aluno e travar a troca por política local
   ansible.windows.win_shell: |
     $ErrorActionPreference = 'Stop'
     $img = $env:WP_IMAGEM
     $usuario = $env:WP_USUARIO
+    $bloquear = $env:WP_BLOQUEAR -eq '1'
 
     if (-not (Test-Path $img)) {
       # Apontar o registro para arquivo inexistente deixa a área de trabalho
@@ -414,11 +427,31 @@
     # HKU\.DEFAULT é o modelo de perfil novo; a chave do SID é o aluno de hoje.
     foreach ($base in @("HKU:\$sid", 'HKU:\.DEFAULT')) {
       $desk = Join-Path $base 'Control Panel\Desktop'
-      if (-not (Test-Path $desk)) { continue }
-      foreach ($par in @(@('Wallpaper', $img), @('WallpaperStyle', '10'), @('TileWallpaper', '0'))) {
-        $atual = (Get-ItemProperty -Path $desk -Name $par[0] -ErrorAction SilentlyContinue).($par[0])
-        if ($atual -ne $par[1]) {
-          Set-ItemProperty -Path $desk -Name $par[0] -Value $par[1] -Type String
+      if (Test-Path $desk) {
+        foreach ($par in @(@('Wallpaper', $img), @('WallpaperStyle', '10'), @('TileWallpaper', '0'))) {
+          $atual = (Get-ItemProperty -Path $desk -Name $par[0] -ErrorAction SilentlyContinue).($par[0])
+          if ($atual -ne $par[1]) {
+            Set-ItemProperty -Path $desk -Name $par[0] -Value $par[1] -Type String
+            $mudou = $true
+          }
+        }
+      }
+
+      # Mesma chave que o gpedit.msc gravaria — não depende de domínio, só
+      # de o Windows lê-la no logon, o que ele faz independente de quem a
+      # escreveu.
+      $politica = Join-Path $base 'Software\Policies\Microsoft\Windows\System'
+      if ($bloquear) {
+        if (-not (Test-Path $politica)) { New-Item -Path $politica -Force | Out-Null }
+        $atual = (Get-ItemProperty -Path $politica -Name NoChangingWallPaper -ErrorAction SilentlyContinue).NoChangingWallPaper
+        if ($atual -ne 1) {
+          New-ItemProperty -Path $politica -Name NoChangingWallPaper -Value 1 -PropertyType DWord -Force | Out-Null
+          $mudou = $true
+        }
+      } elseif (Test-Path $politica) {
+        $atual = (Get-ItemProperty -Path $politica -Name NoChangingWallPaper -ErrorAction SilentlyContinue).NoChangingWallPaper
+        if ($null -ne $atual) {
+          Remove-ItemProperty -Path $politica -Name NoChangingWallPaper -Force
           $mudou = $true
         }
       }
@@ -436,6 +469,7 @@
     # carregamento de playbook neste repositório.
     WP_IMAGEM: "{{ estado_wallpaper }}"
     WP_USUARIO: "{{ estado_autologon_usuario }}"
+    WP_BLOQUEAR: "{{ estado_wallpaper_bloqueado | ternary('1', '0') }}"
   register: wallpaper
   changed_when: "'ALTERADO' in wallpaper.stdout"
   # Sem a imagem na máquina, esta tarefa lançaria exceção e marcaria o host

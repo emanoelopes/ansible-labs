@@ -51,6 +51,15 @@ ansible_password: "{{ vault_senha_suporte }}"
 estado_wallpaper_arquivo: 'wallpapersmd.jpg'
 estado_wallpaper: 'C:\Windows\Web\Wallpaper\Windows\wallpapersmd.jpg'
 
+# As estações não são ingressadas em domínio — não há GPO de verdade para
+# aplicar. O equivalente é a Política de Grupo Local: a mesma chave que o
+# gpedit.msc gravaria ("Impedir alteração do papel de parede da área de
+# trabalho"), escrita direto no registro do aluno pela tarefa que já aplica
+# o papel de parede. true trava a troca (Configurações > Personalização e
+# Painel de Controle ficam com "gerenciado pela organização"); false
+# remove só esse valor, sem mexer em outras políticas da mesma chave.
+estado_wallpaper_bloqueado: true
+
 # ── PACOTES MANTIDOS SEMPRE NA ÚLTIMA VERSÃO ─────────────────────────────
 #
 # O padrão do parque é 'present': garante presença e não mexe na versão,
