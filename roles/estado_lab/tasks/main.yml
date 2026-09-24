@@ -130,6 +130,31 @@
     - not ansible_check_mode
   tags: pacotes
 
+# --- Gems (Ruby) ----------------------------------------------------------------
+
+# Rails não é pacote do Chocolatey — é uma gem, instalada por cima do
+# interpretador. Por isso não entra em estado_pacotes_extra como 'ruby': o
+# Chocolatey garante o interpretador e o RubyGems, e esta tarefa garante o
+# framework, só nos hosts onde 'ruby' foi declarado.
+#
+# A maioria das gems de que o Rails depende (sqlite3, nokogiri, ...) traz
+# binário pré-compilado para Windows; por isso não se instala o devkit
+# (MSYS2) aqui — o 'ridk install' do pacote 'ruby' é interativo e não serve
+# para instalação silenciosa.
+- name: Garantir a gem rails sobre o Ruby do Chocolatey
+  ansible.windows.win_shell: |
+    $ErrorActionPreference = 'Stop'
+    if ((gem list -i '^rails$') -eq 'true') {
+      'ja conforme'
+    } else {
+      gem install rails --no-document | Out-Null
+      'ALTERADO'
+    }
+  register: rails_gem
+  changed_when: "'ALTERADO' in rails_gem.stdout"
+  when: "'ruby' in estado_pacotes"
+  tags: pacotes
+
 # --- Navegadores --------------------------------------------------------------
 
 # Desligar o atualizador interno do Firefox NÃO é abandonar a atualização —

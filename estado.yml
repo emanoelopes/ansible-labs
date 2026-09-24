@@ -51,11 +51,16 @@
   # Unificado em 11/09/2026: lab3 passou a caber no mesmo comando
   # (ansible-playbook estado.yml -e alvo=lab3) que os labs Windows, em vez
   # de ter playbook e nível de robustez próprios em lab3.yaml.
+  # 'default('')' importa para o host inalcançável: sem gather_facts, o
+  # dicionário fica sem a chave 'os_family', e o acesso direto por colchete
+  # falha com erro fatal — não coberto por ignore_unreachable, que só
+  # suprime falha de CONEXÃO. Sem o default, a máquina apagada volta a
+  # derrubar a leva que a nota acima diz estar resolvida.
   roles:
     - role: estado_lab
-      when: ansible_facts['os_family'] == 'Windows'
+      when: ansible_facts['os_family'] | default('') == 'Windows'
     - role: estado_lab_macos
-      when: ansible_facts['os_family'] == 'Darwin'
+      when: ansible_facts['os_family'] | default('') == 'Darwin'
 
   pre_tasks:
     - name: Avisar quando nenhum alvo foi informado
