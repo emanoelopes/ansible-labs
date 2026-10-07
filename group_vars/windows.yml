@@ -92,6 +92,14 @@ estado_pacotes_args:
   # /S é o modo silencioso do instalador NSIS.
   arduino: '/ALLUSERS /S'
 
+# BGInfo: dois últimos octetos do IP na área de trabalho, para identificar a
+# estação à distância. Não é pacote do Chocolatey (precisa do .bgi e do .vbs do
+# repositório e de uma tarefa de logon), então tem tarefas próprias na role
+# estado_lab, tag 'bginfo'. Vale para todos os laboratórios Windows.
+estado_bginfo: true
+estado_bginfo_pasta: 'C:\Aplicativos\bginfo'
+estado_bginfo_url: 'https://download.sysinternals.com/files/BGInfo.zip'
+
 estado_pacotes_base:
   - audacity
   - foxitreader

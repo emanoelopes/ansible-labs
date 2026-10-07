@@ -10,6 +10,7 @@
 #   pacotes  -> instalação de software (a parte demorada)
 #   energia  -> plano, suspensão, monitor, hibernação, desligamento diário
 #   sessao   -> logon automático
+#   bginfo   -> BGInfo com os dois últimos octetos do IP na área de trabalho
 #
 # Sem tag nenhuma, roda tudo. Para aplicar só a energia, que leva segundos:
 #   ansible-playbook estado.yml -e alvo=lab1 -t energia
@@ -591,3 +592,59 @@
   when: estado_autologon_usuario is not none
   no_log: true
   tags: sessao
+
+# --- BGInfo -------------------------------------------------------------------
+#
+# Os arquivos vêm de roles/smd/files/bginfo/, os mesmos do bginfo.yaml.
+# A tarefa de logon usa o SID do grupo Users (S-1-5-32-545) porque o NOME muda
+# com o idioma do Windows ("Usuários" nas estações): com "Users" ela falha.
+
+- name: Pasta do BGInfo
+  ansible.windows.win_file:
+    path: "{{ estado_bginfo_pasta }}"
+    state: directory
+  when: estado_bginfo | default(false)
+  tags: bginfo
+
+- name: Baixar o BGInfo (Sysinternals)
+  ansible.windows.win_get_url:
+    url: "{{ estado_bginfo_url }}"
+    dest: "{{ estado_bginfo_pasta }}\\BGInfo.zip"
+    force: false
+  when: estado_bginfo | default(false)
+  tags: bginfo
+
+- name: Extrair o BGInfo
+  community.windows.win_unzip:
+    src: "{{ estado_bginfo_pasta }}\\BGInfo.zip"
+    dest: "{{ estado_bginfo_pasta }}"
+    creates: "{{ estado_bginfo_pasta }}\\Bginfo64.exe"
+  when: estado_bginfo | default(false)
+  tags: bginfo
+
+- name: Configuração e script do BGInfo
+  ansible.windows.win_copy:
+    src: "{{ playbook_dir }}/roles/smd/files/bginfo/{{ item }}"
+    dest: "{{ estado_bginfo_pasta }}\\{{ item }}"
+  loop:
+    - usuario_ip.bgi
+    - ip_final.vbs
+  when: estado_bginfo | default(false)
+  tags: bginfo
+
+- name: Rodar o BGInfo no logon de qualquer usuário
+  community.windows.win_scheduled_task:
+    name: BGInfo
+    description: Exibir os dois últimos octetos do IP
+    actions:
+      - path: "{{ estado_bginfo_pasta }}\\Bginfo64.exe"
+        arguments: '"{{ estado_bginfo_pasta }}\usuario_ip.bgi" /accepteula /timer:0 /silent'
+    triggers:
+      - type: logon
+    group: S-1-5-32-545
+    logon_type: group
+    run_level: limited
+    state: present
+    enabled: true
+  when: estado_bginfo | default(false)
+  tags: bginfo
