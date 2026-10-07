@@ -1,1 +1,57 @@
 ---
+# BGInfo: final do IP (dois últimos octetos) na área de trabalho (cartão Trello dXCZOQSX).
+#
+#   ansible-playbook bginfo.yaml -e alvo=147
+#
+# Instala o BGInfo em C:\Aplicativos\bginfo e registra uma tarefa que o roda no
+# logon de QUALQUER usuário. A tarefa antiga da role smd (tag bginfo_task) rodava
+# como SYSTEM: o papel de parede é por usuário, então o aluno nunca via nada.
+# Aqui a tarefa roda no contexto de quem entra (grupo Users).
+- name: BGInfo
+  hosts: '{{ alvo }}'
+  gather_facts: false
+  vars:
+    pasta: 'C:\Aplicativos\bginfo'
+    bginfo_url: 'https://download.sysinternals.com/files/BGInfo.zip'
+  tasks:
+    - name: Pasta do BGInfo
+      ansible.windows.win_file:
+        path: '{{ pasta }}'
+        state: directory
+
+    - name: Baixar o BGInfo (Sysinternals)
+      ansible.windows.win_get_url:
+        url: '{{ bginfo_url }}'
+        dest: '{{ pasta }}\BGInfo.zip'
+        force: false
+
+    - name: Extrair
+      community.windows.win_unzip:
+        src: '{{ pasta }}\BGInfo.zip'
+        dest: '{{ pasta }}'
+        creates: '{{ pasta }}\Bginfo64.exe'
+
+    # O campo IP_FINAL do .bgi é um VB Script: o BGInfo roda o ip_final.vbs a
+    # cada execução e mostra o que ele devolve (os dois últimos octetos).
+    - name: Configuração e script (dois últimos octetos do IP)
+      ansible.windows.win_copy:
+        src: 'roles/smd/files/bginfo/{{ item }}'
+        dest: '{{ pasta }}\{{ item }}'
+      loop:
+        - usuario_ip.bgi
+        - ip_final.vbs
+
+    - name: Rodar no logon de qualquer usuário
+      community.windows.win_scheduled_task:
+        name: BGInfo
+        description: Exibir os dois últimos octetos do IP
+        actions:
+          - path: '{{ pasta }}\Bginfo64.exe'
+            arguments: '"{{ pasta }}\usuario_ip.bgi" /accepteula /timer:0 /silent'
+        triggers:
+          - type: logon
+        group: S-1-5-32-545  # Users (o nome muda com o idioma do Windows)
+        logon_type: group
+        run_level: limited
+        state: present
+        enabled: true
