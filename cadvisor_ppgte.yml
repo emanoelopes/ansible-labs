@@ -1,0 +1,141 @@
+---
+# cAdvisor no ppgte-server: métricas POR CONTÊINER (CPU, memória, rede) para
+# o Prometheus/Grafana no mm2. O node_exporter (node_exporter_linux.yml) só
+# vê o HOST inteiro — isto aqui é o que falta para distinguir Ollama, Open
+# WebUI, n8n e Traefik uns dos outros num painel.
+#
+#   instalar:    ansible-playbook cadvisor_ppgte.yml
+#   só conferir: ansible-playbook cadvisor_ppgte.yml -t verificar
+#
+# Porta 8081, não a 8080 padrão do cAdvisor: a 8080 já está ocupada no
+# ppgte-server pelo Open WebUI (ollama-webui). Checado antes de escrever
+# isto (ss -ltn).
+#
+# Contêiner solto (docker run --restart=always), fora de qualquer compose
+# existente (ollama-docker, n8n-compose, ollama-webui): cAdvisor monitora o
+# Docker do host de fora, não pertence à aplicação de nenhum desses
+# projetos. Misturar os dois faria um 'docker compose down' de uma aplicação
+# levar o monitoramento junto.
+#
+# VERSÃO IMPORTA: v0.49.1 (a mais recente "estável" conhecida quando isto foi
+# escrito) não funciona aqui — o Docker 29 deste host usa o snapshotter do
+# containerd como storage driver ("driver-type: io.containerd.snapshotter.v1"
+# no 'docker info'), e o inspetor Docker do cAdvisor até essa versão espera
+# o layout antigo (image/overlayfs/layerdb/mounts/<id>/mount-id) para achar a
+# read-write layer. Sem achar, ele descarta o contêiner por completo — nem
+# cai para métricas genéricas por cgroup, como faz com os pods do k3s (que
+# também rodam nesta máquina e não sofrem o mesmo problema, por não passar
+# pelo inspetor Docker). Resultado: zero contêineres Docker visíveis, zero
+# erro aparente — só silêncio, até alguém notar que falta justamente o que
+# se queria ver. A v0.55.1 corrige isto; testado neste host antes de fixar
+# a versão aqui.
+- name: cAdvisor no ppgte-server
+  hosts: ppgte
+  gather_facts: false
+  become: true
+
+  vars:
+    ca_porta: 8081
+    ca_nome: cadvisor
+    ca_imagem: gcr.io/cadvisor/cadvisor:v0.55.1
+
+  tasks:
+    - name: Ver se o contêiner já está rodando
+      ansible.builtin.command:
+        cmd: docker ps -q -f name=^/{{ ca_nome }}$
+      register: ca_running
+      changed_when: false
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_host
+      tags: [never, verificar]
+
+    - name: Remover contêiner parado, se existir, antes de recriar
+      ansible.builtin.command:
+        cmd: docker rm -f {{ ca_nome }}
+      register: ca_rm
+      failed_when: false
+      changed_when: ca_rm.rc == 0
+      when: ca_running.stdout == ""
+
+    - name: Subir o cAdvisor
+      ansible.builtin.command:
+        cmd: >-
+          docker run -d
+          --name={{ ca_nome }}
+          --restart=always
+          --privileged
+          --device=/dev/kmsg
+          --publish={{ ca_porta }}:8080
+          --volume=/:/rootfs:ro
+          --volume=/var/run:/var/run:ro
+          --volume=/sys:/sys:ro
+          --volume=/var/lib/docker/:/var/lib/docker:ro
+          --volume=/dev/disk/:/dev/disk:ro
+          {{ ca_imagem }}
+      register: ca_run
+      when: ca_running.stdout == ""
+
+    - name: Conferir que a porta responde
+      ansible.builtin.wait_for:
+        port: "{{ ca_porta }}"
+        host: 127.0.0.1
+        timeout: 30
+      register: ca_porta_ok
+      ignore_errors: true
+
+    - name: Ler o log quando não respondeu
+      ansible.builtin.command:
+        cmd: docker logs --tail 20 {{ ca_nome }}
+      register: ca_log
+      changed_when: false
+      ignore_errors: true
+      when: ca_porta_ok is failed
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if ca_porta_ok is failed %}
+          FALHOU — a porta {{ ca_porta }} não respondeu.
+          {{ ca_log.stdout | default('(sem log)') }}
+          {% else %}
+          OK — http://{{ ansible_host }}:{{ ca_porta }}/metrics
+          {% endif %}
+
+# ── ALVO PARA O PROMETHEUS ─────────────────────────────────────────────────
+#
+# Arquivo separado do prometheus-targets-ppgte.json (que é do node_exporter,
+# job diferente) — mesmo host, dois jobs, dois arquivos, como o glob
+# 'prometheus-targets-*.json' do mm2 já espera.
+- name: Gerar o alvo do cAdvisor para o Prometheus
+  hosts: ppgte
+  gather_facts: false
+
+  tasks:
+    - name: Escrever prometheus-targets-ppgte-containers.json
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/prometheus-targets-ppgte-containers.json"
+        mode: "0644"
+        content: |
+          [
+            {
+              "labels": {
+                "laboratorio": "ppgte",
+                "job": "cadvisor"
+              },
+              "targets": [
+                "{{ ansible_host }}:{{ ca_porta | default(8081) }}"
+              ]
+            }
+          ]
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Onde ficou
+      ansible.builtin.debug:
+        msg: >-
+          alvo em {{ inventario_dir }}/prometheus-targets-ppgte-containers.json
+          — copie para o Mac mini junto com os demais (ver docs/operacao.md).
+      run_once: true

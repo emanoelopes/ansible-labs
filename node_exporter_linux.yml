@@ -1,0 +1,141 @@
+---
+# Instala o node_exporter do Prometheus no ppgte-server e no mm2
+# (observabilidade), via pacote Debian — não Homebrew (lab3) nem MSI
+# (Windows): são Ubuntu Server, com systemd nativo.
+#
+#   ppgte-server:  ansible-playbook node_exporter_linux.yml -e alvo=ppgte
+#   mac mini:      ansible-playbook node_exporter_linux.yml -e alvo=observabilidade
+#   só conferir:   ansible-playbook node_exporter_linux.yml -e alvo=ppgte -t verificar
+#
+# É o terceiro par do mesmo agente: windows_exporter.yml cobre o parque
+# Windows, node_exporter.yml (Homebrew + LaunchDaemon) cobre o lab3. Este
+# cobre os dois hosts Ubuntu fora dos laboratórios didáticos — o próprio
+# mm2 incluído: ele hospeda o Prometheus em Docker, mas isso não o monitora
+# a si mesmo enquanto este playbook não rodar nele.
+#
+# Pacote 'prometheus-node-exporter' do repositório Ubuntu: ao contrário do
+# Homebrew no lab3 (que só entrega o binário, sem subir serviço), o pacote
+# Debian já chega com a unit systemd habilitada e ativa — RunAtLoad e
+# KeepAlive de fábrica, sem plist para escrever.
+#
+# Alcance pela rede: o alvo gravado no JSON é o IP do host (ansible_host),
+# não 127.0.0.1 — no mm2 isso importa porque o Prometheus roda dentro de um
+# contêiner Docker, que não vê a loopback do host. Nenhum dos dois hosts
+# tinha ufw ativo na instalação (confirmado antes de escrever isto); se
+# isso mudar, a porta 9100 precisa ficar liberada ao menos para
+# 10.102.227.250, como já vale para a 9182 nos labs Windows.
+
+- name: node_exporter (Ubuntu/Debian)
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: true
+  become: true
+
+  vars:
+    ne_porta: 9100
+    ne_pacote: prometheus-node-exporter
+
+  pre_tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: >-
+          Informe o grupo: ansible-playbook node_exporter_linux.yml -e alvo=ppgte
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+
+    - name: Recusar alvo que não seja Debian/Ubuntu
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }} não é Debian/Ubuntu
+          ({{ ansible_facts['os_family'] }}). Para o lab3 (macOS) use
+          node_exporter.yml; para os labs Windows, windows_exporter.yml.
+      when: ansible_facts['os_family'] != 'Debian'
+
+  tasks:
+    - name: Ver se o node_exporter já responde
+      ansible.builtin.wait_for:
+        port: "{{ ne_porta }}"
+        host: 127.0.0.1
+        timeout: 3
+      register: ne_antes
+      failed_when: false
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_host
+      tags: [never, verificar]
+
+    - name: Instalar o node_exporter
+      ansible.builtin.apt:
+        name: "{{ ne_pacote }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    # O pacote Debian já ativa e habilita o serviço na instalação; esta
+    # tarefa só torna isso explícito e idempotente, em vez de confiar em
+    # comportamento implícito do postinst.
+    - name: Garantir que o serviço está ativo e habilitado
+      ansible.builtin.systemd:
+        name: "{{ ne_pacote }}"
+        state: started
+        enabled: true
+
+    - name: Conferir que a porta responde
+      ansible.builtin.wait_for:
+        port: "{{ ne_porta }}"
+        host: 127.0.0.1
+        timeout: 30
+      register: ne_porta_ok
+      ignore_errors: true
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if ne_porta_ok is failed %}
+          instalado, mas a porta {{ ne_porta }} NÃO responde.
+          {% else %}
+          OK — http://{{ ansible_host | default(inventory_hostname) }}:{{ ne_porta }}/metrics
+          {% endif %}
+
+# ── ALVOS PARA O PROMETHEUS ───────────────────────────────────────────────
+#
+# Mesmo formato e mesma pasta dos alvos Windows e do lab3, para que o glob
+# 'prometheus-targets-*.json' do file_sd_configs no mm2 pegue este também
+# sem configuração adicional.
+- name: Gerar a lista de alvos para o Prometheus
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Escrever prometheus-targets-{{ alvo }}.json
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/prometheus-targets-{{ alvo }}.json"
+        mode: "0644"
+        content: |
+          [
+            {
+              "labels": {
+                "laboratorio": "{{ alvo }}",
+                "job": "node_exporter"
+              },
+              "targets": [
+          {% for h in groups[alvo] | sort %}
+                "{{ hostvars[h].ansible_host | default(h) }}:{{ ne_porta | default(9100) }}"{{ "," if not loop.last }}
+          {% endfor %}
+              ]
+            }
+          ]
+      delegate_to: localhost
+      become: false
+      run_once: true
+      vars:
+        ne_porta: 9100
+
+    - name: Onde ficou
+      ansible.builtin.debug:
+        msg: >-
+          {{ groups[alvo] | length }} alvo(s) em
+          {{ inventario_dir }}/prometheus-targets-{{ alvo }}.json —
+          copie para o Mac mini junto com os demais (ver docs/operacao.md).
+      run_once: true
