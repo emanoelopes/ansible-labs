@@ -1,0 +1,132 @@
+---
+# Instala e configura o AnyDesk para acesso remoto não supervisionado.
+#
+#   ansible-playbook anydesk.yml -e alvo=lab1 --limit 147
+#
+# Requer o espelho HTTP no ar:
+#   ansible-playbook repo_local.yml
+#
+# ── DEMANDA PONTUAL ────────────────────────────────────────────────────────
+#
+# Criado em 07/10/2026 para a 147 (lab1): o demandante do Minicurso de
+# Bioinformática vai validar remotamente a instalação de ChimeraX/Vina/
+# MGLTools (ver bioinformatica.yml) às 8h de 08/10/2026. NÃO é software do
+# estado do laboratório — não entra em group_vars/lab1.yml. Depois da
+# validação, considerar desinstalar (remover_pacote.yml não serve aqui, o
+# AnyDesk não entrou pelo estado.yml) ou pelo menos trocar a senha de
+# acesso não supervisionado.
+#
+# ── POR QUE NÃO VEIO PELO CHOCOLATEY ───────────────────────────────────────
+#
+# O pacote 'anydesk' do Chocolatey (9.8.0) tem o checksum do instalador
+# desatualizado: o instalador que o AnyDesk serve hoje em
+# download.anydesk.com/AnyDesk.exe não bate com o hash fixado no pacote —
+# o fabricante atualiza o binário mais rápido do que o mantenedor do pacote
+# atualiza o checksum. Em vez de instalar com --ignore-checksums (ruim
+# especialmente para software de acesso remoto), o instalador foi baixado
+# direto do domínio oficial do fabricante e colocado no espelho Samba, em
+# windows_instaladores/anydesk/ — mesmo padrão do autocad.yml e do
+# bioinformatica.yml. Confira o hash antes de reusar um AnyDesk.exe antigo:
+# o fabricante substitui o arquivo no mesmo link quando lança versão nova.
+#
+# ── A SENHA DE ACESSO NÃO SUPERVISIONADO ───────────────────────────────────
+#
+# Fica em vault_senha_anydesk_147 (group_vars/all/vault.yml, cifrado, fora
+# do git) — nunca em texto puro neste playbook. É passada ao AnyDesk via
+# STDIN ('--set-password' lendo da entrada padrão), não como argumento de
+# linha de comando: um argumento apareceria em texto claro na lista de
+# processos de quem olhasse a estação naquele instante.
+#
+# Repasse a senha e o AnyDesk-ID (impresso no fim da execução) ao validador
+# por um canal diferente deste repositório/terminal — nunca os deixe em
+# texto claro num arquivo versionado.
+#
+# ── NAT E FIREWALL ──────────────────────────────────────────────────────────
+#
+# O AnyDesk atravessa NAT pelo relay dele mesmo (conexão de SAÍDA da
+# estação para a nuvem do AnyDesk) — não precisa abrir porta de entrada no
+# firewall do lab para o validador conectar de fora. Confirmada
+# conectividade de saída da 147 para anydesk.com:443 em 07/10/2026.
+
+- name: AnyDesk para acesso remoto não supervisionado
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+
+  vars:
+    anydesk_destino: 'C:\Temp\AnyDesk.exe'
+    anydesk_instaladir: 'C:\Program Files (x86)\AnyDesk'
+    anydesk_exe: 'C:\Program Files (x86)\AnyDesk\AnyDesk.exe'
+    # Nome da variável de vault: vault_senha_anydesk_<posição>. Repita o
+    # padrão ao reusar este playbook noutra máquina — não existe uma senha
+    # única genérica de propósito, cada estação tem a sua.
+    anydesk_senha: "{{ lookup('vars', 'vault_senha_anydesk_' + inventory_hostname) }}"
+
+  pre_tasks:
+    - name: Avisar quando nenhum laboratório foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook anydesk.yml -e alvo=lab1 --limit <posição>"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+  tasks:
+    - name: Distribuir o instalador do espelho local
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/anydesk/AnyDesk.exe"
+        dest: "{{ anydesk_destino }}"
+        force: false
+
+    - name: Verificar se já está instalado
+      ansible.windows.win_stat:
+        path: "{{ anydesk_exe }}"
+      register: anydesk_check
+
+    - name: Instalar como serviço (todos os usuários, inicia com o Windows)
+      ansible.windows.win_command: >-
+        "{{ anydesk_destino }}" --install "{{ anydesk_instaladir }}"
+        --start-with-win --create-shortcuts --create-desktop-icon --silent
+      when: not anydesk_check.stat.exists
+
+    - name: Confirmar que o executável existe após instalar
+      ansible.windows.win_stat:
+        path: "{{ anydesk_exe }}"
+      register: anydesk_check_pos
+      when: not anydesk_check.stat.exists
+
+    - name: Falhar se a instalação não deixou o executável no lugar esperado
+      ansible.builtin.fail:
+        msg: >-
+          {{ inventory_hostname }}: instalador rodou mas {{ anydesk_exe }}
+          não existe. Confira C:\ProgramData\chocolatey\logs ou rode o
+          instalador manualmente numa sessão para ver o erro real.
+      when:
+        - not anydesk_check.stat.exists
+        - not anydesk_check_pos.stat.exists
+
+    - name: Garantir que o serviço do AnyDesk está rodando
+      ansible.windows.win_service:
+        name: AnyDesk
+        state: started
+        start_mode: auto
+
+    # Senha pelo STDIN, não como argumento — ver comentário no topo do
+    # arquivo. no_log evita que a senha vá parar no log do Ansible.
+    - name: Definir a senha de acesso não supervisionado
+      ansible.windows.win_shell: >-
+        echo '{{ anydesk_senha }}' | & '{{ anydesk_exe }}' --set-password
+      no_log: true
+      changed_when: true
+
+    - name: Obter o AnyDesk-ID desta máquina
+      ansible.windows.win_command: >-
+        "{{ anydesk_exe }}" --get-id
+      register: anydesk_id
+      changed_when: false
+
+    - name: Mostrar o AnyDesk-ID (repasse ao validador por canal separado)
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: AnyDesk-ID = {{ anydesk_id.stdout | trim }}.
+          A senha está em vault_senha_anydesk_{{ inventory_hostname }}
+          (group_vars/all/vault.yml) — não repetida aqui de propósito.

@@ -1,0 +1,298 @@
+---
+# Instala os três softwares do Minicurso de Bioinformática no lab1.
+#
+#   1. só distribuir os instaladores (padrão):
+#        ansible-playbook bioinformatica.yml -e alvo=lab1
+#
+#   2. distribuir E instalar:
+#        ansible-playbook bioinformatica.yml -e alvo=lab1 -t instalar
+#
+#   piloto antes de espalhar (sempre faça isto primeiro):
+#        ansible-playbook bioinformatica.yml -e alvo=lab1 --limit 112 -t instalar
+#
+# Requer o espelho HTTP no ar:
+#   ansible-playbook repo_local.yml
+#   (se o espelho já estava montado antes de 01/10/2026, rode com
+#   -e remontar=true para o CIFS reler a pasta nova)
+#
+# ── DEMANDA PONTUAL — NÃO FAZ PARTE DO ESTADO DO LAB1 ─────────────────────
+#
+# Pedido de 01/10/2026 para o Minicurso de Bioinformática no lab1. Por ser
+# demanda pontual (curso avulso, não disciplina fixa do lab1), os três
+# pacotes NÃO entram em group_vars/lab1.yml nem em estado_pacotes_pontuais
+# — esse último é para pacotes Chocolatey, e nenhum dos três está no
+# Chocolatey. Ficam como este playbook avulso, à parte do estado.yml.
+#
+# Se o minicurso passar a ser recorrente e a demanda deixar de ser pontual,
+# aí sim vale declarar em group_vars/lab1.yml — decisão deliberada, não
+# efeito colateral de rodar isto.
+#
+# ── OS TRÊS SOFTWARES ──────────────────────────────────────────────────────
+#
+# 1. UCSF ChimeraX 1.12 — instalador Inno Setup (~400 MB). Fica atrás de uma
+#    tela de licença acadêmica não-comercial da UCSF; aceita em 01/10/2026
+#    para uso do SMD (não-comercial, o que se aplica). O link gerado após
+#    aceitar é de uso único/temporário, por isso o arquivo já foi baixado e
+#    colocado no Samba — não adianta tentar buscar de novo com a mesma URL.
+#
+# 2. AutoDock Vina 1.1.2 — MSI padrão (~500 KB), sem licença no caminho.
+#
+# 3. MGLTools 1.5.7 — instalador próprio (~80 MB, PECompact2), sem licença
+#    no caminho.
+#
+# ── SILENCIOSO: VERIFICADO SÓ PARA O VINA ─────────────────────────────────
+#
+# O MSI do Vina usa o padrão msiexec (/qn /norestart), documentado pelo
+# próprio fabricante ("Double-click the downloaded MSI file and follow the
+# instructions" — ou seja, é instalador Windows Installer comum).
+#
+# ChimeraX (/VERYSILENT /SUPPRESSMSGBOXES /NORESTART, convenção Inno Setup) e
+# MGLTools (/S, convenção comum de instaladores antigos tipo NSIS/InstallShield)
+# são CHUTES EDUCADOS — não testados neste parque. Rode com --limit numa
+# máquina piloto antes de espalhar para as 26, e confira o resultado pelo
+# executável em disco (ver tarefas de verificação abaixo), não pelo código de
+# saída — é a mesma armadilha do Chocolatey descrita na skill
+# instalar-software-laboratorio: instalador pode devolver sucesso sem o
+# produto ter sido instalado.
+#
+# ── O RISCO DE PERFIL JÁ CONHECIDO AQUI ───────────────────────────────────
+#
+# O Ansible conecta como 'suporte'; quem usa o laboratório é o 'aluno'. Os
+# três instaladores aqui são ferramentas de linha de comando / aplicativos
+# científicos tradicionais (não Electron), e os sites dos fabricantes não
+# mencionam instalação "por usuário" — o esperado é indo para Program Files,
+# visível para qualquer usuário. Mas isso NÃO foi confirmado na prática.
+# Se, no piloto, o ChimeraX ou o MGLTools aparecerem no perfil do 'suporte'
+# e não no do 'aluno', o caminho é o mesmo do figma.yml: tarefa agendada com
+# logon_type=interactive_token.
+
+- name: Minicurso de Bioinformática (ChimeraX, Vina, MGLTools)
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  serial: '25%'
+  max_fail_percentage: 20
+
+  vars:
+    bio_subpasta: 'bioinformatica'
+    bio_destino: 'C:\Temp\bioinformatica'
+
+    vina_arquivo: 'autodock_vina_1_1_2_win32.msi'
+    # O fabricante documenta só o caminho de 32 bit. Em Windows 64 bit, MSI
+    # de 32 bit costuma cair em "Program Files (x86)" — por isso os dois
+    # caminhos na verificação abaixo.
+    vina_exe_candidatos:
+      - 'C:\Program Files\The Scripps Research Institute\Vina\vina.exe'
+      - 'C:\Program Files (x86)\The Scripps Research Institute\Vina\vina.exe'
+
+    mgltools_arquivo: 'mgltools_win32_1.5.7_Setup.exe'
+    # Caminho de instalação padrão não confirmado — ver comentário acima.
+    mgltools_exe_candidatos:
+      - 'C:\Program Files (x86)\MGLTools-1.5.7\python.exe'
+      - 'C:\Program Files\MGLTools-1.5.7\python.exe'
+
+    chimerax_arquivo: 'ChimeraX-1.12.exe'
+    # Idem — Inno Setup pode decidir "Program Files" ou AppData do usuário
+    # conectado, dependendo de como o instalador foi empacotado.
+    chimerax_exe_candidatos:
+      - 'C:\Program Files\ChimeraX 1.12\bin\ChimeraX.exe'
+      - 'C:\Program Files (x86)\ChimeraX 1.12\bin\ChimeraX.exe'
+
+  pre_tasks:
+    - name: Avisar quando nenhum laboratório foi informado
+      ansible.builtin.fail:
+        msg: "Informe o laboratório: ansible-playbook bioinformatica.yml -e alvo=lab1"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+  tasks:
+    # ── ETAPA 1: DISTRIBUIR (sempre roda) ─────────────────────────────────
+    - name: Garantir a pasta temporária
+      ansible.windows.win_file:
+        path: "{{ bio_destino }}"
+        state: directory
+      tags: distribuir,instalar
+
+    - name: Distribuir os três instaladores do espelho local
+      ansible.windows.win_get_url:
+        url: "{{ repo_interno_url }}/{{ bio_subpasta }}/{{ item }}"
+        dest: "{{ bio_destino }}\\{{ item }}"
+        force: false
+      loop:
+        - "{{ vina_arquivo }}"
+        - "{{ mgltools_arquivo }}"
+        - "{{ chimerax_arquivo }}"
+      tags: distribuir,instalar
+
+    # ── ETAPA 2: INSTALAR (só com -t instalar) ────────────────────────────
+    - name: Ver se o Vina já está instalado
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ vina_exe_candidatos }}"
+      register: vina_antes_check
+      tags: never,instalar
+
+    - name: Instalar o AutoDock Vina
+      ansible.windows.win_command: >-
+        msiexec /i "{{ bio_destino }}\{{ vina_arquivo }}" /qn /norestart
+      register: vina_install
+      failed_when: vina_install.rc not in [0, 3010, 1641]
+      when: not (vina_antes_check.results | selectattr('stat.exists') | list | length > 0)
+      tags: never,instalar
+
+    - name: Ver se o Vina ficou instalado
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ vina_exe_candidatos }}"
+      register: vina_depois_check
+      tags: never,instalar
+
+    # ── MGLTools ───────────────────────────────────────────────────────────
+    - name: Ver se o MGLTools já está instalado
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ mgltools_exe_candidatos }}"
+      register: mgltools_antes_check
+      tags: never,instalar
+
+    - name: Instalar o MGLTools
+      ansible.windows.win_command: >-
+        "{{ bio_destino }}\{{ mgltools_arquivo }}" /S
+      register: mgltools_install
+      failed_when: false
+      when: not (mgltools_antes_check.results | selectattr('stat.exists') | list | length > 0)
+      tags: never,instalar
+
+    - name: Ver se o MGLTools ficou instalado
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ mgltools_exe_candidatos }}"
+      register: mgltools_depois_check
+      tags: never,instalar
+
+    # ── ChimeraX ───────────────────────────────────────────────────────────
+    - name: Ver se o ChimeraX já está instalado
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ chimerax_exe_candidatos }}"
+      register: chimerax_antes_check
+      tags: never,instalar
+
+    - name: Instalar o ChimeraX
+      ansible.windows.win_command: >-
+        "{{ bio_destino }}\{{ chimerax_arquivo }}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+      register: chimerax_install
+      failed_when: false
+      # Inno Setup descompacta ~400 MB antes de instalar; mais lento que o
+      # padrão de timeout do win_command.
+      async: 900
+      poll: 15
+      when: not (chimerax_antes_check.results | selectattr('stat.exists') | list | length > 0)
+      tags: never,instalar
+
+    - name: Ver se o ChimeraX ficou instalado
+      ansible.windows.win_stat:
+        path: "{{ item }}"
+      loop: "{{ chimerax_exe_candidatos }}"
+      register: chimerax_depois_check
+      tags: never,instalar
+
+    - name: Resultado por máquina
+      ansible.builtin.debug:
+        msg:
+          - "{{ inventory_hostname }}:"
+          - "  Vina:      {{ 'OK' if (vina_depois_check.results | selectattr('stat.exists') | list | length > 0) else 'NÃO ENCONTRADO' }}"
+          - "  MGLTools:  {{ 'OK' if (mgltools_depois_check.results | selectattr('stat.exists') | list | length > 0) else 'NÃO ENCONTRADO' }}"
+          - "  ChimeraX:  {{ 'OK' if (chimerax_depois_check.results | selectattr('stat.exists') | list | length > 0) else 'NÃO ENCONTRADO' }}"
+      tags: never,instalar
+
+    - name: Onde ficaram os instaladores
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: instaladores em {{ bio_destino }}.
+          Para instalar: -t instalar
+      when: "'instalar' not in ansible_run_tags"
+      tags: distribuir,instalar
+
+# ── RELATÓRIO CONSOLIDADO ───────────────────────────────────────────────────
+#
+# Play SEPARADA, sem 'serial'. A play acima roda em lotes de 25%, e
+# 'run_once' dispara de novo A CADA LOTE — é andaime do Ansible, não bug
+# evidente, mas o efeito é feio: um relatório gerado (e salvo, sobrescrevendo
+# o anterior) depois de CADA lote, listando como "NÃO ENCONTRADO" toda
+# máquina que o lote atual ainda não alcançou, mesmo que ela já estivesse
+# instalada de uma execução anterior. Foi o que aconteceu em 01/10/2026: o
+# relatório do primeiro lote, salvo como arquivo final, mostrava só 4 OK e 21
+# "NÃO ENCONTRADO" — as 21 só não tinham sido tocadas AINDA por aquele lote.
+#
+# Rodando numa play à parte, sem serial, isto só executa uma vez, depois que
+# TODOS os lotes da play anterior terminaram — e os hostvars de cada máquina
+# continuam acessíveis aqui, porque pertencem à mesma execução do playbook.
+#
+# 'hosts: localhost' pareceria mais natural, mas --limit filtra TODAS as
+# plays do playbook pelo padrão informado — e quando o --limit não inclui
+# 'localhost' (o caso comum: --limit 127,144), esta play inteira é pulada
+# com "no hosts matched", sem aviso. Foi o que aconteceu em 01/10/2026 numa
+# execução com --limit. Por isso 'hosts' repete o mesmo alvo da play
+# anterior: como --limit já filtrou aquele grupo, sempre sobra pelo menos
+# uma máquina para o run_once disparar, e as tarefas delegam para localhost.
+- name: Relatório consolidado do Minicurso de Bioinformática
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  tags: never,instalar
+
+  vars:
+    # Repetida da play anterior: vars de play não atravessam para esta play
+    # nova, só os hostvars (fatos) das máquinas processadas.
+    bio_destino: 'C:\Temp\bioinformatica'
+
+  tasks:
+    - name: Consolidar
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.set_fact:
+        bio_relatorio: |
+          ══════════════════════════════════════════════════════════════
+          MINICURSO DE BIOINFORMÁTICA — {{ alvo | upper }}
+          {{ '%Y-%m-%d %H:%M' | strftime }}
+          ══════════════════════════════════════════════════════════════
+          {% set alcancadas = [] %}
+          {% set nao_alcancadas = [] %}
+          {% for h in groups[alvo] | sort %}
+          {% if hostvars[h].chimerax_depois_check is defined %}
+          {% set _ = alcancadas.append(h) %}
+          {% else %}
+          {% set _ = nao_alcancadas.append(h) %}
+          {% endif %}
+          {% endfor %}
+          Alcançadas nesta execução: {{ alcancadas | length }} de {{ groups[alvo] | length }}
+          {% if nao_alcancadas | length > 0 %}
+          Não alcançadas (fora do --limit ou inacessíveis): {{ nao_alcancadas | join(', ') }}
+          {% endif %}
+
+          {% for h in alcancadas %}
+          {% set v = hostvars[h] %}
+          {{ h }}:
+            Vina:      {{ 'OK' if (v.vina_depois_check.results | selectattr('stat.exists') | list | length > 0) else 'NÃO ENCONTRADO' }}
+            MGLTools:  {{ 'OK' if (v.mgltools_depois_check.results | selectattr('stat.exists') | list | length > 0) else 'NÃO ENCONTRADO' }}
+            ChimeraX:  {{ 'OK' if (v.chimerax_depois_check.results | selectattr('stat.exists') | list | length > 0) else 'NÃO ENCONTRADO' }}
+          {% endfor %}
+
+          Os instaladores ficam em {{ bio_destino }} em cada máquina — onde
+          "NÃO ENCONTRADO" aparecer, a instalação manual (duplo clique) não
+          precisa baixar nada.
+          ══════════════════════════════════════════════════════════════
+
+    - name: Exibir o relatório
+      run_once: true
+      ansible.builtin.debug:
+        msg: "{{ bio_relatorio.split('\n') }}"
+
+    - name: Salvar o relatório
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/bioinformatica-{{ alvo }}.txt"
+        mode: "0640"
+        content: "{{ bio_relatorio }}"
