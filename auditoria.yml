@@ -260,6 +260,18 @@
           or (com_falha | default([]) | length > 0)
       no_log: true
 
+    # Informativo: versões defasadas dos pacotes declarados. Roda depois do
+    # e-mail e não altera a condição de envio — versão mais nova não é desvio.
+    - name: Verificar versões defasadas (somente leitura)
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - "{{ playbook_dir }}/versoes.yml"
+          - -e
+          - "alvo={{ alvo }}"
+      changed_when: false
+      failed_when: false
+
 - name: Instalar o agendamento semanal
   hosts: localhost
   connection: local

@@ -1,0 +1,64 @@
+---
+# Versões defasadas dos pacotes DECLARADOS — só informação, nunca alerta.
+#
+#   manual:  ansible-playbook versoes.yml -e alvo=lab1
+#
+# Somente leitura: roda 'choco outdated', que apenas consulta o repositório do
+# Chocolatey e não instala nem atualiza nada. Cruza o resultado com a lista
+# efetiva (estado_pacotes_base + estado_pacotes_extra) e grava um relatório em
+# inventario/versoes-<lab>.txt.
+#
+# Não entra no e-mail da auditoria de propósito: a auditoria só avisa quando
+# algo está fora do estado declarado, e versão mais nova não é desvio com
+# 'estado_pacotes_versao: present'. Ver o cabeçalho de auditoria.yml.
+
+- name: Verificar versões defasadas dos pacotes declarados
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  ignore_unreachable: true
+
+  vars:
+    pacotes_declarados: >-
+      {{ ((estado_pacotes_base | default([])) + (estado_pacotes_extra | default([])))
+         | unique | sort }}
+
+  tasks:
+    - name: Consultar pacotes do Chocolatey com versão mais nova (sem alterar)
+      ansible.windows.win_shell: choco outdated --limit-output --no-color --ignore-unfound
+      register: choco_outdated
+      changed_when: false
+      failed_when: false
+      when: pacotes_declarados | length > 0
+
+    - name: Cruzar a saída com a lista declarada
+      ansible.builtin.set_fact:
+        defasados: >-
+          {{ choco_outdated.stdout_lines | default([])
+             | select('match', '^(' ~ (pacotes_declarados | map('regex_escape') | join('|')) ~ ')\|')
+             | list }}
+      when: pacotes_declarados | length > 0
+
+    # run_once com delegação: uma única escrita, depois de todas as máquinas
+    # terem respondido (estratégia linear). Máquina inalcançável aparece como
+    # "sem resposta", não some do relatório.
+    - name: Gravar o relatório de versões
+      ansible.builtin.copy:
+        dest: "{{ inventario_dir }}/versoes-{{ alvo }}.txt"
+        mode: "0640"
+        content: |
+          Versões defasadas dos pacotes declarados — {{ alvo }}
+          Gerado em {{ now(fmt='%Y-%m-%d %H:%M') }}
+          Somente informação: nada foi instalado nem atualizado.
+
+          {% for h in ansible_play_hosts %}
+          {{ h }}: {% if hostvars[h].choco_outdated is not defined %}sem resposta
+          {% elif hostvars[h].choco_outdated.rc | default(1) != 0 %}falha na consulta (rc={{ hostvars[h].choco_outdated.rc | default('?') }})
+          {% else %}{{ (hostvars[h].defasados | default([])) | length }} pacote(s) defasado(s)
+          {% for linha in hostvars[h].defasados | default([]) %}
+            {{ linha.split('|')[0] }}: {{ linha.split('|')[1] }} -> {{ linha.split('|')[2] }}
+          {% endfor %}
+          {% endif %}
+
+          {% endfor %}
+      run_once: true
+      delegate_to: localhost
