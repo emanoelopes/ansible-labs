@@ -260,13 +260,14 @@
 # Idempotência à mão, como o powercfg do Windows: lê o valor atual, compara
 # com o desejado, só aplica quando difere. 'pmset -g custom' não é
 # localizado (ao contrário do powercfg em português do Windows) — os nomes
-# das chaves ('sleep', 'displaysleep') são fixos em qualquer idioma do
-# sistema, então o awk abaixo não tem o mesmo risco de quebra por locale.
-- name: Ajustar suspensão e desligamento do monitor
+# das chaves ('sleep', 'displaysleep', 'womp') são fixos em qualquer idioma
+# do sistema, então o awk abaixo não tem o mesmo risco de quebra por locale.
+- name: Ajustar suspensão, monitor e Wake-on-LAN
   ansible.builtin.shell: |
     set -e
     atual_sleep=$(printf '%s\n' "$PMSET_CUSTOM" | awk '/^[[:space:]]*sleep[[:space:]]/{print $2; exit}')
     atual_disp=$(printf '%s\n' "$PMSET_CUSTOM" | awk '/^[[:space:]]*displaysleep[[:space:]]/{print $2; exit}')
+    atual_womp=$(printf '%s\n' "$PMSET_CUSTOM" | awk '/^[[:space:]]*womp[[:space:]]/{print $2; exit}')
     mudou=false
     if [ "$atual_sleep" != "$ALVO_SLEEP" ]; then
       pmset -a sleep "$ALVO_SLEEP"
@@ -276,11 +277,16 @@
       pmset -a displaysleep "$ALVO_DISP"
       mudou=true
     fi
+    if [ "$atual_womp" != "$ALVO_WOMP" ]; then
+      pmset -a womp "$ALVO_WOMP"
+      mudou=true
+    fi
     if [ "$mudou" = true ]; then echo ALTERADO; else echo 'ja conforme'; fi
   environment:
     PMSET_CUSTOM: "{{ estado_pmset_custom.stdout }}"
     ALVO_SLEEP: "{{ estado_suspender_apos_min }}"
     ALVO_DISP: "{{ estado_desligar_monitor_min }}"
+    ALVO_WOMP: "{{ 1 if estado_wol else 0 }}"
   become: true
   register: estado_pmset_energia
   changed_when: "'ALTERADO' in estado_pmset_energia.stdout"
@@ -300,34 +306,53 @@
 # comparar (foi exatamente esse tipo de detalhe que quebrou o powercfg no
 # Windows). Em vez de comparar strings, este script INTERPRETA a hora atual
 # de volta para 24h e compara números — não importa como o pmset formata.
-- name: Agendar o desligamento diário
+#
+# TAMBÉM CANCELA UM AGENDAMENTO DA AÇÃO CONTRÁRIA, se houver. 'pmset repeat
+# shutdown' e 'pmset repeat sleep' são independentes — agendar um não
+# substitui o outro. Sem esta checagem, trocar estado_desligar_acao de
+# 'desligar' para 'suspender' (feito em 28/09/2026 no lab3, para o
+# Wake-on-LAN funcionar) deixaria o desligamento antigo ativo por baixo do
+# novo agendamento de suspensão, e a máquina continuaria desligando por
+# completo todo dia — silenciosamente, porque 'pmset -g sched' já mostraria
+# a suspensão como agendada e pareceria conforme.
+- name: Agendar a ação diária (desligar ou suspender)
   ansible.builtin.shell: |
     set -e
-    python3 - "$PMSET_DIAS" "$HORA_DESEJADA" <<'PY'
+    python3 - "$PMSET_DIAS" "$HORA_DESEJADA" "$ACAO" <<'PY'
     import re, subprocess, sys, os
 
-    dias, hora_desejada = sys.argv[1], sys.argv[2]
+    dias, hora_desejada, acao = sys.argv[1], sys.argv[2], sys.argv[3]
     h, m = (int(x) for x in hora_desejada.split(':'))
     alvo_min = h * 60 + m
 
     atual = os.environ.get('PMSET_SCHED_ATUAL', '')
-    encontrado = re.search(r'shutdown at (\d{1,2}):(\d{2})(AM|PM)', atual)
-    atual_min = None
-    if encontrado:
+
+    def minutos(evento):
+        encontrado = re.search(rf'{evento} at (\d{{1,2}}):(\d{{2}})(AM|PM)', atual)
+        if not encontrado:
+            return None
         hh, mm, ap = int(encontrado.group(1)), int(encontrado.group(2)), encontrado.group(3)
         hh = (0 if hh == 12 else hh) if ap == 'AM' else (12 if hh == 12 else hh + 12)
-        atual_min = hh * 60 + mm
+        return hh * 60 + mm
 
-    if atual_min == alvo_min:
+    outra_acao = 'sleep' if acao == 'shutdown' else 'shutdown'
+    acao_min = minutos(acao)
+    outra_min = minutos(outra_acao)
+
+    if acao_min == alvo_min and outra_min is None:
         print('ja conforme')
     else:
-        subprocess.run(['pmset', 'repeat', 'shutdown', dias, f'{hora_desejada}:00'], check=True)
+        # Substitui os dois agendamentos repetitivos (não há como cancelar só
+        # um tipo pela CLI) e recria só o desejado.
+        subprocess.run(['pmset', 'repeat', 'cancel'], check=True)
+        subprocess.run(['pmset', 'repeat', acao, dias, f'{hora_desejada}:00'], check=True)
         print('ALTERADO')
     PY
   environment:
     PMSET_SCHED_ATUAL: "{{ estado_pmset_sched.stdout | default('') }}"
     HORA_DESEJADA: "{{ estado_desligar_hora }}"
     PMSET_DIAS: "{{ estado_desligar_dias }}"
+    ACAO: "{{ 'sleep' if estado_desligar_acao == 'suspender' else 'shutdown' }}"
   become: true
   when: estado_desligar_hora is not none
   register: estado_pmset_desligar

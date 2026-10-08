@@ -75,9 +75,27 @@
 #    fica 10.102.227.255 quando delegado a localhost, e 255.255.255.255
 #    quando delegado a outro host (pode sempre ser sobrescrito com -e).
 #
-# Enquanto (2) e (3) não estiverem resolvidos, este playbook roda sem erro e
-# nada acontece — o pacote sai e não chega. Por isso ele CONFERE se as
-# máquinas acordaram, em vez de apenas informar que enviou.
+# 4. LAB3 (macOS) É DIFERENTE DOS DEMAIS EM DOIS PONTOS:
+#
+#    a) A verificação "acordou?" fala com a estação pela porta do
+#       inventário (ansible_port), não uma porta fixa: 5985 (WinRM) nos
+#       labs Windows, 22 (SSH) no lab3. Isto já está tratado abaixo — não é
+#       preciso passar nada a mais.
+#
+#    b) Mac não aceita o pacote mágico depois de um DESLIGAMENTO completo,
+#       só depois de SUSPENSÃO — ao contrário do BIOS de PC, que pode manter
+#       a placa de rede energizada mesmo desligado (item 2 acima). Por isso
+#       o lab3 tem, desde 28/09/2026, estado_desligar_acao: suspender e
+#       estado_wol: true em group_vars/lab3.yml — ele SUSPENDE às 23:00 em
+#       vez de desligar. Sem isso, o acordar.yml roda sem erro contra o
+#       lab3 e nunca acorda nada, porque a máquina está desligada, não
+#       suspensa. Aplique o estado antes de testar:
+#         ansible-playbook estado.yml -e alvo=lab3 -t energia
+#
+# Enquanto (2)/(4b) e (3) não estiverem resolvidos, este playbook roda sem
+# erro e nada acontece — o pacote sai e não chega, ou chega e a máquina
+# ignora. Por isso ele CONFERE se as máquinas acordaram, em vez de apenas
+# informar que enviou.
 
 - name: Acordar estações por Wake-on-LAN
   hosts: localhost
@@ -181,22 +199,27 @@
     # ── LINHA DE BASE: QUEM JÁ ESTAVA LIGADO ──────────────────────────────
     #
     # Sem esta medição o playbook não prova nada. Ele confere se a máquina
-    # responde na 5985 DEPOIS do pacote — o que é verdade também para quem
-    # já estava ligada antes. Laboratório aceso dá 100% de sucesso, e o
-    # relatório afirma que o Wake-on-LAN funciona.
+    # responde na porta de gerência DEPOIS do pacote — o que é verdade
+    # também para quem já estava ligada antes. Laboratório aceso dá 100% de
+    # sucesso, e o relatório afirma que o Wake-on-LAN funciona.
     #
     # Aconteceu em 09/09/2026: as 27 do lab4 "responderam" em seis segundos.
-    # Estação desligada leva de 40 a 90 segundos até o WinRM subir — seis
-    # segundos só é possível para quem já estava de pé. O laboratório tinha
-    # acabado de ser ligado à mão.
+    # Estação desligada leva de 40 a 90 segundos até o serviço de gerência
+    # subir — seis segundos só é possível para quem já estava de pé. O
+    # laboratório tinha acabado de ser ligado à mão.
     #
     # A verificação existia justamente para não confiar em "pacote enviado".
     # Tinha o mesmo vício, uma camada acima: media o estado final e o
     # atribuía à causa que se queria confirmar.
+    #
+    # A PORTA VEM DO INVENTÁRIO (hostvars[item].ansible_port), não é fixa em
+    # 5985: é 5985 (WinRM) nos labs Windows e 22 (SSH) no lab3, mesmo padrão
+    # que o alcance.yml já usa (lá chamado porta_gerencia). Fixar em 5985
+    # faria este playbook nunca detectar uma estação do lab3 como acordada.
     - name: Medir quem já está ligado ANTES de enviar
       ansible.builtin.wait_for:
         host: "{{ hostvars[item].ansible_host | default(item) }}"
-        port: 5985
+        port: "{{ hostvars[item].ansible_port | default(5985) | int }}"
         timeout: 3
       loop: "{{ com_mac | sort }}"
       loop_control:
@@ -238,7 +261,7 @@
     - name: Disparar a espera de cada estação em paralelo
       ansible.builtin.wait_for:
         host: "{{ hostvars[item].ansible_host | default(item) }}"
-        port: 5985
+        port: "{{ hostvars[item].ansible_port | default(5985) | int }}"
         timeout: "{{ wol_espera }}"
       loop: "{{ com_mac | sort }}"
       loop_control:

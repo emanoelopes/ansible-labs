@@ -16,3 +16,9 @@
 # Sem isto, é preciso passar -e ansible_user=suporte -k toda vez.
 ansible_user: suporte
 ansible_password: "{{ vault_senha_suporte_ppgte }}"
+
+# A senha de sudo do 'suporte' é a mesma do login — confirmado ao instalar o
+# node_exporter (node_exporter_linux.yml), que precisa de 'become' para o
+# apt. Sem esta linha, qualquer playbook com become neste host pede senha
+# interativamente ('-K'), o que trava uma execução não interativa.
+ansible_become_password: "{{ vault_senha_suporte_ppgte }}"

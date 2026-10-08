@@ -50,3 +50,14 @@ mas_installed_apps:
 # esbarra em permissão de escrita em /Applications, sem sudo do aluno.
 estado_homebrew_cask_latest:
   - firefox
+
+# Wake-on-LAN (2026-09-28): o lab3 passa a SUSPENDER às 23:00 em vez de
+# DESLIGAR. Mac não acorda de um desligamento completo por WoL — só de
+# suspensão, ao contrário do BIOS de PC dos labs Windows, que pode manter a
+# placa de rede energizada mesmo desligado (ver acordar.yml). Continuar
+# desligando por completo tornaria o acordar.yml inofensivo por engano: roda
+# sem erro, envia o pacote, e nenhuma máquina acorda. estado_desligar_hora
+# (herdado do default, 23:00) e estado_desligar_dias continuam os mesmos —
+# só a ação muda.
+estado_desligar_acao: suspender
+estado_wol: true

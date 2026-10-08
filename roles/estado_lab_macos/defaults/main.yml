@@ -32,14 +32,31 @@ estado_homebrew_cask_latest: []
 # Mesma política do estado_lab Windows: suspensão desligada por padrão,
 # porque máquina suspensa não responde a SSH e a auditoria a reportaria como
 # inalcançável, sem distinguir de desligada.
-estado_suspender_apos_min: 0        # 0 = nunca suspende (pmset sleep 0)
+estado_suspender_apos_min: 0        # 0 = nunca suspende por ociosidade (pmset sleep 0)
 estado_desligar_monitor_min: 15     # pmset displaysleep
 
-# Desligamento automático diário, via 'pmset repeat shutdown'. Defina
+# Ação do agendamento diário: 'desligar' (pmset repeat shutdown) ou
+# 'suspender' (pmset repeat sleep). Independente de estado_suspender_apos_min
+# acima, que é só o timer por ociosidade — o agendamento diário dispara num
+# horário fixo, ociosa ou não.
+#
+# A escolha importa para Wake-on-LAN: ao contrário do BIOS de PC (que pode
+# manter a placa de rede energizada mesmo desligado, dependendo de
+# configuração — ver acordar.yml), o Mac só aceita o pacote mágico quando
+# está SUSPENSO. De um desligamento completo ele não acorda por WoL de jeito
+# nenhum. Um laboratório com estado_desligar_acao: desligar e estado_wol:
+# true roda o acordar.yml sem erro todo dia e nunca acorda nada.
+estado_desligar_acao: desligar
+
+# Desligamento ou suspensão automática diária, via 'pmset repeat'. Defina
 # estado_desligar_hora como null para não agendar (não remove um agendamento
 # já existente — mesma semântica do estado_desligar_hora do Windows).
 estado_desligar_hora: '23:00'
 estado_desligar_dias: 'MTWRFSU'     # todos os dias
+
+# Wake-on-LAN (pmset womp). Só tem efeito prático com estado_desligar_acao:
+# suspender — ver o comentário acima.
+estado_wol: false
 
 # --- Controle de execução -------------------------------------------------
 # Quando true, a role só relata divergências sem corrigir.

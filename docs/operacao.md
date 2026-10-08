@@ -156,6 +156,8 @@ controlador Ansible. São máquinas diferentes com papéis diferentes.
     prometheus-targets-lab1.json
     prometheus-targets-lab2.json
     prometheus-targets-lab3.json
+    prometheus-targets-ppgte.json
+    prometheus-targets-observabilidade.json
 ```
 
 Grafana em `http://10.102.227.250:3000`, Prometheus em `:9090`.
@@ -168,6 +170,10 @@ ansible-playbook windows_exporter.yml -e alvo=lab1
 
 # macOS — lab3
 ansible-playbook node_exporter.yml -e alvo=lab3
+
+# Ubuntu — ppgte-server e o próprio mm2 (ele não se monitora sozinho até rodar isto)
+ansible-playbook node_exporter_linux.yml -e alvo=ppgte
+ansible-playbook node_exporter_linux.yml -e alvo=observabilidade
 
 # só verificar, sem instalar nada
 ansible-playbook windows_exporter.yml -e alvo=lab1 -t verificar
@@ -222,8 +228,9 @@ problema de volume, o segundo de configuração ou de rede.
 
 Data source do Grafana: URL **`http://prometheus:9090`** — o nome do serviço na
 rede do Docker, nunca `localhost`, que ali seria o próprio contêiner do
-Grafana. Painéis prontos: **1860** (Node Exporter Full, lab3) e **14694**
-(Windows Exporter, demais laboratórios).
+Grafana. Painéis prontos: **1860** (Node Exporter Full, job `node_exporter` —
+lab3, ppgte-server e o próprio mm2) e **14694** (Windows Exporter, demais
+laboratórios).
 
 ### Quatro armadilhas desta montagem
 
