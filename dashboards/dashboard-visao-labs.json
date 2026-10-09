@@ -1,0 +1,358 @@
+{
+  "id": 143237829386240,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "count by (laboratorio) (up{job=~\"windows_exporter|node_exporter\", laboratorio=~\"lab.*\"} == 1)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Máquinas ligadas por laboratório",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "100 - (avg by (laboratorio) (rate(windows_cpu_time_total{mode=\"idle\", laboratorio=~\"lab.*\"}[5m])) * 100)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "100 - (avg by (laboratorio) (rate(node_cpu_seconds_total{mode=\"idle\", laboratorio=~\"lab.*\"}[5m])) * 100)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "B"
+        }
+      ],
+      "title": "CPU em uso por laboratório (%)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 3,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "100 * (1 - (sum by (laboratorio) (windows_logical_disk_free_bytes{volume=\"C:\", laboratorio=~\"lab.*\"}) / sum by (laboratorio) (windows_logical_disk_size_bytes{volume=\"C:\", laboratorio=~\"lab.*\"})))",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "100 * (1 - (sum by (laboratorio) (node_filesystem_avail_bytes{mountpoint=\"/\", laboratorio=~\"lab.*\"}) / sum by (laboratorio) (node_filesystem_size_bytes{mountpoint=\"/\", laboratorio=~\"lab.*\"})))",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Disco em uso por laboratório (%, unidade do sistema)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "description": "Segundos desde o último mouse/tecla (GetLastInputInfo), média das máquinas ligadas do lab. Só cobre laboratórios com o coletor de atividade implantado (atividade_estacao.yml) — os demais aparecem sem série até o rollout chegar.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "min": 0,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "avg by (laboratorio) (estacao_ociosa_segundos{laboratorio=~\"lab.*\"})",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Ociosidade média por laboratório",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "description": "Soma de conexões TCP estabelecidas na porta 80/443 entre as máquinas do lab — indício de navegação, não prova. Não registra destino. Só cobre laboratórios com o coletor de atividade implantado.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 5,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "sum by (laboratorio) (estacao_conexoes_tcp{tipo=\"web\", laboratorio=~\"lab.*\"})",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{laboratorio}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Conexões web ativas por laboratório",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "description": "Soma de todo o tráfego de rede das máquinas ligadas do lab (interfaces físicas, sem loopback/túnel) — inclui tudo: navegação, Windows Update, antivírus, sincronismo. Não distingue origem.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "sum by (laboratorio) (rate(windows_net_bytes_received_total{laboratorio=~\"lab.*\", nic!~\".*Loopback.*\"}[5m]))",
+          "legendFormat": "{{laboratorio}} (recebido)",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "sum by (laboratorio) (rate(windows_net_bytes_sent_total{laboratorio=~\"lab.*\", nic!~\".*Loopback.*\"}[5m]))",
+          "legendFormat": "{{laboratorio}} (enviado)",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "sum by (laboratorio) (rate(node_network_receive_bytes_total{laboratorio=~\"lab.*\", device=~\"en[0-9]+\"}[5m]))",
+          "legendFormat": "{{laboratorio}} (recebido)",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "sum by (laboratorio) (rate(node_network_transmit_bytes_total{laboratorio=~\"lab.*\", device=~\"en[0-9]+\"}[5m]))",
+          "legendFormat": "{{laboratorio}} (enviado)",
+          "refId": "D"
+        }
+      ],
+      "title": "Tráfego de rede por laboratório",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "laboratorios",
+    "overview"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Laboratórios — Visão geral",
+  "uid": "visao-labs",
+  "version": 2
+}
