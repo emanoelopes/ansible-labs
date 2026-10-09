@@ -339,6 +339,57 @@
       ],
       "title": "Tráfego de rede por laboratório",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffyxh5kcfjhtsd"
+      },
+      "description": "Top 3 processos por CPU em cada laboratório (coletor 'process' do windows_exporter, só os processos na lista de inclusão de we_processos_incluir — navegadores, Office/WPS, IDEs, bancos de dados, Docker, motores de jogo etc.). So labs Windows; lab3 (macOS) nao tem esse coletor.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ffyxh5kcfjhtsd"
+          },
+          "expr": "topk by (laboratorio) (3, sum by (laboratorio, process) (rate(windows_process_cpu_time_total{laboratorio=~\"lab.*\"}[5m])) * 100)",
+          "legendFormat": "{{laboratorio}} · {{process}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Principais processos por laboratório",
+      "type": "timeseries"
     }
   ],
   "refresh": "1m",
@@ -354,5 +405,5 @@
   "timezone": "browser",
   "title": "Laboratórios — Visão geral",
   "uid": "visao-labs",
-  "version": 2
+  "version": 3
 }

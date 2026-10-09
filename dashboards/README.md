@@ -33,6 +33,8 @@ painéis sobem sem dado, apontando para uma data source que não existe lá.
 ## dashboard-visao-labs.json
 
 "Laboratórios — Visão geral": máquinas ligadas, CPU, disco, ociosidade,
-conexões web e tráfego de rede, por laboratório (lab1–lab6). As métricas de
-ociosidade/conexões vêm do `atividade_estacao.yml` — só aparecem nos labs
-onde ele já rodou.
+conexões web, tráfego de rede e principais processos, por laboratório
+(lab1–lab6). As métricas de ociosidade/conexões vêm do
+`atividade_estacao.yml` — só aparecem nos labs onde ele já rodou. O painel
+de processos vem do coletor `process` do `windows_exporter.yml`
+(`we_processos_incluir`) — só Windows; lab3 (macOS) fica de fora dele.
