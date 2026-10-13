@@ -13,6 +13,7 @@ exclude_paths:
   - interface/          # aplicação Python (FastAPI/Textual), não é Ansible
   - seer/               # scripts auxiliares de conferência de notas
   - docs/
+  - roles/sql_server_2014/tasks/fix_sql_auth.yml   # playbook avulso (hosts: all) dentro de tasks/; não é importado pela role
   - roles/mediaweek/   # arquivos de tarefas contendo plays inteiros (hosts/vars); role não referenciada por nenhum playbook
   - group_vars/all/vault.yml.example
 
