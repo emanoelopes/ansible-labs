@@ -262,7 +262,7 @@
 # localizado (ao contrário do powercfg em português do Windows) — os nomes
 # das chaves ('sleep', 'displaysleep', 'womp') são fixos em qualquer idioma
 # do sistema, então o awk abaixo não tem o mesmo risco de quebra por locale.
-- name: Ajustar suspensão, monitor e Wake-on-LAN
+- name: Ajustar suspensão, monitor e Wake-on-LAN  # noqa: risky-shell-pipe
   ansible.builtin.shell: |
     set -e
     atual_sleep=$(printf '%s\n' "$PMSET_CUSTOM" | awk '/^[[:space:]]*sleep[[:space:]]/{print $2; exit}')
@@ -315,7 +315,7 @@
 # novo agendamento de suspensão, e a máquina continuaria desligando por
 # completo todo dia — silenciosamente, porque 'pmset -g sched' já mostraria
 # a suspensão como agendada e pareceria conforme.
-- name: Agendar a ação diária (desligar ou suspender)
+- name: Agendar a ação diária (desligar ou suspender)  # noqa: risky-shell-pipe
   ansible.builtin.shell: |
     set -e
     python3 - "$PMSET_DIAS" "$HORA_DESEJADA" "$ACAO" <<'PY'

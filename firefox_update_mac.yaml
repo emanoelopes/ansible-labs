@@ -62,7 +62,7 @@
         - homebrew_check.stat.exists
         - firefox_updated_version is defined
 
-    - name: Verificar se o Firefox está funcionando
+    - name: Verificar se o Firefox está funcionando  # noqa: risky-shell-pipe
       shell: |
         if [ -d "/Applications/Firefox.app" ]; then
           /Applications/Firefox.app/Contents/MacOS/firefox --help | head -1
