@@ -1,0 +1,44 @@
+---
+# Garante que a conta do autologon (o 'aluno') tenha sempre a mesma senha.
+#
+#   ansible-playbook senha_aluno.yml -e alvo=lab2
+#   uma máquina:  ansible-playbook senha_aluno.yml -e alvo=lab2 --limit 224
+#
+# Corrige em silêncio: não envia e-mail nem gera alerta. A senha é validada
+# contra a conta local e só é redefinida quando não confere, então rodar de
+# novo não faz nada (idempotente). Conta bloqueada é desbloqueada; conta
+# desativada é reativada. Se a conta não existir, falha o host (não cria).
+#
+# A senha vem de estado_senha_aluno_esperada (padrão 'aluno', o mesmo da role
+# estado_lab que a auditoria usa). Não carregue os defaults da role por
+# vars_files: eles anulariam o estado_autologon_usuario do group_vars.
+
+- name: Garantir a senha do aluno
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  # Estação desligada é ausência, não erro.
+  ignore_unreachable: true
+
+  tasks:
+    - name: Corrigir a senha se estiver diferente
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'Stop'
+        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        $usuario = $env:SENHA_USUARIO
+        $ctx = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Machine')
+        $conta = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($ctx, $usuario)
+        if (-not $conta) { throw "Conta $usuario nao existe" }
+        $mudou = $false
+        if ($conta.IsAccountLockedOut()) { $conta.UnlockAccount(); $mudou = $true }
+        if (-not $conta.Enabled) { $conta.Enabled = $true; $mudou = $true }
+        if (-not $ctx.ValidateCredentials($usuario, $env:SENHA_ESPERADA)) {
+          $conta.SetPassword($env:SENHA_ESPERADA)
+          $mudou = $true
+        }
+        if ($mudou) { $conta.Save(); 'ALTERADO' } else { 'ja conforme' }
+      environment:
+        SENHA_USUARIO: "{{ estado_autologon_usuario | default('aluno') }}"
+        SENHA_ESPERADA: "{{ estado_senha_aluno_esperada | default('aluno') }}"
+      register: senha
+      changed_when: "'ALTERADO' in senha.stdout"
+      no_log: "{{ senha_no_log | default(true) }}"
