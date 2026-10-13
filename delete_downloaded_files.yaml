@@ -11,7 +11,7 @@
 # ficou de fora, provavelmente por descuido. Alinhado em ago/2026.
 
 - name: Remove downloaded files
-  hosts: '{{ local }}'
+  hosts: "{{ local | default('nao_definido') }}"
   gather_facts: false
   vars:
     directories: ['C:\Users\aluno\Downloads']
