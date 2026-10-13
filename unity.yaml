@@ -1,6 +1,6 @@
 ---
   - name: Ensure Unity Editor and Unity Hub is installed
-    hosts: "{{ local }}"
+    hosts: "{{ local | default('nao_definido') }}"
     become: true
     become_method: sudo
     tasks:

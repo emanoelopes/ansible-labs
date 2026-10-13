@@ -2,7 +2,7 @@
   hosts: avell 
   become: true
   vars:
-    - TOMCAT9_URL : "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.86/bin/apache-tomcat-9.0.86.tar.gz"
+    TOMCAT9_URL: "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.86/bin/apache-tomcat-9.0.86.tar.gz"
   
   tasks:
   - name: Update apt-get repo and cache
