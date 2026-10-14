@@ -8,7 +8,7 @@
 # como SYSTEM: o papel de parede é por usuário, então o aluno nunca via nada.
 # Aqui a tarefa roda no contexto de quem entra (grupo Users).
 - name: BGInfo
-  hosts: '{{ alvo }}'
+  hosts: "{{ alvo | default('nao_definido') }}"
   gather_facts: false
   vars:
     pasta: 'C:\Aplicativos\bginfo'

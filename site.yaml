@@ -1,6 +1,6 @@
 ---
 - name: Main Execution Playbook
-  hosts: '{{ local }}'
+  hosts: "{{ local | default('nao_definido') }}"
   serial: '25%'  
   ignore_unreachable: true
   roles:

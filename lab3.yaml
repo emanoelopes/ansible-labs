@@ -15,7 +15,7 @@
 # atualização do macOS (opt-in, tag macos_update) e remoção do usuário
 # 'professor' do grupo admin.
 - name: lab3
-  hosts: "{{ local }}"
+  hosts: "{{ local | default('nao_definido') }}"
   gather_facts: true
   ignore_unreachable: true
   become: true
