@@ -60,6 +60,12 @@ estado_desligar_nome_tarefa: 'Desligar às 23h'
 # existente — remover exigiria uma tarefa explícita).
 estado_autologon_usuario: null
 
+# Senha que a conta do autologon DEVE ter. É verificada de verdade contra a
+# conta local (não apenas gravada no autologon) e divergência aparece na
+# auditoria. null desativa a verificação. Não é segredo: é a senha pública do
+# laboratório, de uso compartilhado pelos alunos.
+estado_senha_aluno_esperada: 'aluno'
+
 # --- Controle de execução -----------------------------------------------------
 # Quando true, a role só relata divergências sem corrigir. Útil para auditoria
 # antes de aplicar em lote.

@@ -17,9 +17,26 @@
 # DESLIGAR COM AVISO NA TELA, dando tempo de salvar o trabalho:
 #   ansible-playbook desligar.yml -e alvo=lab2 -e atraso=300
 #
+# SÓ TESTAR O AVISO no macOS, sem desligar nada de verdade (-t aviso roda
+# só as duas tarefas do diálogo; pula a de desligar/reiniciar, que não tem
+# tag):
+#   ansible-playbook desligar.yml -e alvo=lab3 --limit 342 -e atraso=15 -t aviso
+#
 # O Windows exibe uma caixa de diálogo com a mensagem e a contagem
 # regressiva. Quem estiver na máquina pode abortar com 'shutdown /a' no
 # Executar, e a mensagem padrão diz isso.
+#
+# macOS (lab3) agora faz o mesmo: um 'display dialog' aparece na sessão do
+# usuário logado no console, com 'giving up after {{ atraso }}' fazendo as
+# vezes da contagem regressiva — a caixa some sozinha quando o tempo acaba,
+# junto com o desligamento. Para cancelar: Terminal, 'sudo shutdown -c'.
+#
+# Implementado em 08/10/2026 depois de desligar 4 iMacs sem aviso nenhum na
+# tela — o 'community.general.shutdown' não tem equivalente ao '/c' do
+# Windows, então a mensagem ficava declarada em 'mensagem' e nunca chegava
+# a ninguém no macOS. Sem usuário algum logado no console (ou com root no
+# console, que é o que aparece sem sessão de verdade), a caixa não aparece
+# e o desligamento segue silencioso — não há para quem avisar.
 #
 # SOBRE A DETECÇÃO: o autologon mantém o usuário 'aluno' com sessão aberta
 # em TODA estação, ligada ou ociosa. Então "tem usuário logado" não
@@ -44,6 +61,14 @@
     mensagem: >-
       Suporte SMD: esta estacao sera desligada. Salve seu trabalho agora.
       Para cancelar, abra Executar (tecla Windows + R) e digite: shutdown /a
+
+    # Sem aspas (simples ou duplas): o texto atravessa duas camadas de
+    # quoting (shell, depois AppleScript) sem escape — uma aspa aqui fecha
+    # a string na camada errada e quebra o comando inteiro, silenciosamente
+    # (osascript falha, o diálogo nunca aparece, e o desligamento segue).
+    mensagem_macos: >-
+      Suporte SMD: esta estacao sera desligada. Salve seu trabalho agora.
+      Para cancelar, abra o Terminal e digite: sudo shutdown -c
 
   tasks:
     - name: Confirmar que um alvo foi informado
@@ -136,6 +161,48 @@
       when:
         - ansible_os_family == 'Windows'
         - acao == 'reiniciar'
+
+    # ── AVISO VISUAL NO macOS ───────────────────────────────────────────────
+    #
+    # Não dá pra mandar o diálogo direto: um processo root (launchd/Ansible
+    # via become) não tem a sessão de janelas do usuário logado, e um
+    # 'osascript' disparado assim falha calado ou nem aparece. 'launchctl
+    # asuser <uid> sudo -u <usuario> osascript ...' é a ponte — entra no
+    # bootstrap context da sessão gráfica daquele usuário antes de pedir o
+    # diálogo. É o mesmo truque usado por MDM/Jamf para mostrar algo na
+    # tela de scripts rodando como root.
+    - name: Descobrir o usuário da sessão gráfica (macOS)
+      ansible.builtin.shell: stat -f%Su /dev/console
+      register: at_usuario_console
+      changed_when: false
+      failed_when: false
+      tags: aviso
+      when:
+        - ansible_os_family == 'Darwin'
+        - atraso | int > 0
+        - acao in ['desligar', 'reiniciar']
+
+    # async maior que o atraso: sem isso o wrapper do Ansible mata o
+    # osascript no fim do tempo padrão (geralmente bem menor que 600s),
+    # cortando o diálogo antes do 'giving up after' dele mesmo ter chance de
+    # fechar sozinho — e a mensagem some da tela antes da hora, sem que
+    # nada acuse erro aqui.
+    - name: Mostrar aviso visual na tela (macOS)
+      ansible.builtin.shell: >-
+        launchctl asuser $(id -u "{{ at_usuario_console.stdout | trim }}")
+        sudo -u "{{ at_usuario_console.stdout | trim }}"
+        osascript -e 'display dialog "{{ mensagem_macos | trim }}" with title "Suporte SMD" buttons {"OK"} default button "OK" giving up after {{ atraso }}'
+      become: true
+      async: "{{ atraso | int + 15 }}"
+      poll: 0
+      tags: aviso
+      when:
+        - ansible_os_family == 'Darwin'
+        - atraso | int > 0
+        - acao in ['desligar', 'reiniciar']
+        - at_usuario_console.stdout is defined
+        - at_usuario_console.stdout | trim != ''
+        - at_usuario_console.stdout | trim != 'root'
 
     - name: Desligar estação macOS ou Linux
       community.general.shutdown:

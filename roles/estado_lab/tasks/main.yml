@@ -593,6 +593,60 @@
   no_log: true
   tags: sessao
 
+# ── A SENHA REAL DO ALUNO, E NÃO A QUE O AUTOLOGON LEMBRA ────────────────
+#
+# O win_auto_logon acima só grava a senha em DefaultPassword, no registro. Ele
+# não confere se ela é a senha da conta: se alguém trocar a senha do 'aluno'
+# na máquina, o autologon passa a falhar, a tarefa continua "conforme", e a
+# auditoria não diz nada. Foi assim que o Peterson encontrou dois computadores
+# em que a senha do aluno não era 'aluno'.
+#
+# Aqui a senha é VALIDADA contra a conta local (ValidateCredentials), que é a
+# única prova de que ela funciona. Somente leitura, por isso check_mode: false
+# — sem isso o win_shell seria pulado justamente na auditoria.
+#
+# Cuidados:
+#   - uma tentativa por execução; conta já bloqueada não é testada de novo,
+#     para não prolongar o bloqueio;
+#   - a senha vai por variável de ambiente, nunca no script nem no log;
+#   - esta tarefa NÃO corrige: reporta. Trocar senha é ação a ser decidida.
+- name: Conferir se a senha do aluno é a esperada
+  ansible.windows.win_shell: |
+    $ErrorActionPreference = 'Stop'
+    Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+    $usuario = $env:SENHA_USUARIO
+    $ctx = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Machine')
+    $conta = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($ctx, $usuario)
+    if (-not $conta) { 'DIVERGE: conta ausente'; exit 0 }
+    if (-not $conta.Enabled) { 'DIVERGE: conta desativada'; exit 0 }
+    if ($conta.IsAccountLockedOut()) { 'DIVERGE: conta bloqueada (senha nao testada)'; exit 0 }
+    if ($ctx.ValidateCredentials($usuario, $env:SENHA_ESPERADA)) {
+      'ja conforme'
+    } else {
+      'DIVERGE: senha diferente da esperada'
+    }
+  environment:
+    SENHA_USUARIO: "{{ estado_autologon_usuario }}"
+    SENHA_ESPERADA: "{{ estado_senha_aluno_esperada }}"
+  register: senha_aluno
+  changed_when: "'DIVERGE' in senha_aluno.stdout"
+  check_mode: false
+  no_log: true
+  when:
+    - estado_autologon_usuario is not none
+    - estado_senha_aluno_esperada is not none
+  tags: sessao
+
+- name: Relatar divergência da senha do aluno
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ senha_aluno.stdout | trim }}. A senha de
+      '{{ estado_autologon_usuario }}' deve ser a declarada em
+      estado_senha_aluno_esperada. Corrija na máquina (ou com
+      ansible.windows.win_user) — esta verificação não altera senhas.
+  when: senha_aluno.changed | default(false)
+  tags: sessao
+
 # --- BGInfo -------------------------------------------------------------------
 #
 # Os arquivos vêm de roles/smd/files/bginfo/, os mesmos do bginfo.yaml.

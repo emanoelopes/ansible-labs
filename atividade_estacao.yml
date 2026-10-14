@@ -1,0 +1,206 @@
+---
+# Métricas de ATIVIDADE HUMANA nas estações Windows, para o Prometheus via o
+# coletor textfile do windows_exporter (já habilitado, pasta já existe em
+# 'C:\Program Files\windows_exporter\textfile_inputs' por padrão do MSI —
+# conferido em 08/10/2026 antes de escrever isto, não presumido).
+#
+#   piloto:       ansible-playbook atividade_estacao.yml -e alvo=lab6 --limit 614
+#   laboratório:  ansible-playbook atividade_estacao.yml -e alvo=lab6
+#   só conferir:  ansible-playbook atividade_estacao.yml -e alvo=lab6 -t verificar
+#
+# Requer windows_exporter já instalado (windows_exporter.yml) — este
+# playbook só acrescenta a tarefa agendada e o script; não toca no serviço.
+#
+# ── O QUE MEDE, E O QUE DELIBERADAMENTE NÃO MEDE ───────────────────────────
+#
+# Dois números, escritos a cada minuto:
+#
+#   estacao_ociosa_segundos
+#     Segundos desde o último movimento de mouse ou tecla, via a MESMA API
+#     do Windows que decide quando entra o protetor de tela
+#     (GetLastInputInfo). Não é keylogger: não sabe QUAL tecla, só QUANDO foi
+#     a última. É o mesmo tipo de informação que o 'desligar.yml' já lê via
+#     'quser' na hora de verificar — a novidade aqui é só torná-la uma série
+#     temporal no Prometheus, em vez de só disponível sob pedido.
+#
+#   estacao_conexoes_tcp{tipo="web|outras"}
+#     Contagem de conexões TCP estabelecidas agora, separadas só em
+#     web (porta 80/443) e outras — não registra PARA ONDE, só QUANTAS.
+#     É o sinal de "tem gente navegando" sem olhar o que está sendo
+#     acessado.
+#
+# NÃO faz: inspeção de conteúdo, destino de conexão, nome de processo ou
+# qualquer coisa digitada. Isso foi decisão explícita, não limitação técnica
+# — essa distinção importa tanto quanto o dado em si, numa sala de aula onde
+# o aluno loga em contas pessoais na própria máquina.
+#
+# ── POR QUE TAREFA AGENDADA, E NÃO O COLETOR 'process' DO WINDOWS_EXPORTER
+#
+# O windows_exporter tem um coletor 'process' nativo, mas o windows_exporter.yml
+# já o deixa de fora deliberadamente (ver o comentário lá): uma série por
+# processo por máquina é volume desproporcional para 154 estações, e não
+# responde à pergunta que se quer responder aqui ("tem alguém usando?"), só
+# lista o que está rodando — que já roda em toda máquina ligada, usada ou
+# não. O textfile é mais barato e mede exatamente o que importa.
+
+- name: Métricas de atividade da estação
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  serial: '25%'
+  max_fail_percentage: 20
+  ignore_unreachable: true
+
+  vars:
+    at_pasta: 'C:\Program Files\windows_exporter'
+    at_script: '{{ at_pasta }}\scripts\atividade.ps1'
+    at_textfile: '{{ at_pasta }}\textfile_inputs\atividade.prom'
+    at_tarefa: 'SMD - Atividade da estacao'
+    at_intervalo: 'PT1M'
+
+  pre_tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: "Informe o alvo: ansible-playbook atividade_estacao.yml -e alvo=lab6"
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+      tags: always
+
+    - name: Ver se a tarefa já existe
+      community.windows.win_scheduled_task_stat:
+        name: "{{ at_tarefa }}"
+        path: \
+      register: at_tarefa_info
+      failed_when: false
+      tags: [always, verificar]
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_play
+      when: "'verificar' in ansible_run_tags"
+      tags: [always, verificar]
+
+  tasks:
+    - name: Garantir a pasta de scripts
+      ansible.windows.win_file:
+        path: '{{ at_pasta }}\scripts'
+        state: directory
+
+    # Fonte única do script, como o config.yaml do windows_exporter.yml:
+    # muda aqui, muda na máquina, sem precisar editar arquivo nenhum lá.
+    - name: Declarar o script de coleta
+      ansible.windows.win_copy:
+        dest: "{{ at_script }}"
+        content: |
+          # Gerado por atividade_estacao.yml — não editar na estação.
+          # Não captura conteúdo digitado, nem destino de conexão de rede.
+
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public class SmdIdleTime {
+              [StructLayout(LayoutKind.Sequential)]
+              public struct LASTINPUTINFO {
+                  public uint cbSize;
+                  public uint dwTime;
+              }
+              [DllImport("user32.dll")]
+              public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+              public static uint GetIdleMillis() {
+                  LASTINPUTINFO lii = new LASTINPUTINFO();
+                  lii.cbSize = (uint)Marshal.SizeOf(lii);
+                  GetLastInputInfo(ref lii);
+                  return ((uint)Environment.TickCount - lii.dwTime);
+              }
+          }
+          '@
+
+          $ErrorActionPreference = 'Stop'
+
+          $ocioso = [math]::Round([SmdIdleTime]::GetIdleMillis() / 1000, 0)
+
+          $conexoes = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue
+          $web = @($conexoes | Where-Object { $_.RemotePort -in 80, 443 }).Count
+          $outras = @($conexoes | Where-Object { $_.RemotePort -notin 80, 443 }).Count
+
+          $destino = '{{ at_textfile }}'
+          $tmp = "$destino.tmp"
+
+          # Escrita atômica (tmp + move): o coletor textfile do Prometheus lê o
+          # arquivo a qualquer momento, inclusive no meio de uma escrita direta.
+          # Sem isso, ele ocasionalmente leria um arquivo pela metade e
+          # reportaria erro de parse — intermitente e sem relação óbvia com a
+          # causa real.
+          #
+          # SEM '-NoNewline': o parser do Prometheus exige quebra de linha
+          # depois da última métrica — sem ela, toda leitura falha com
+          # "unexpected end of input stream" e zero métricas chegam, de forma
+          # consistente (não intermitente) até alguém notar. Foi o que
+          # aconteceu no piloto em 08/10/2026: o log do windows_exporter
+          # (Application, origem windows_exporter) apontou a linha certa.
+          @"
+          # HELP estacao_ociosa_segundos Segundos desde o ultimo movimento de mouse ou tecla (GetLastInputInfo do Windows). Nao registra o que foi digitado ou movido.
+          # TYPE estacao_ociosa_segundos gauge
+          estacao_ociosa_segundos $ocioso
+          # HELP estacao_conexoes_tcp Conexoes TCP estabelecidas agora, por tipo. web = porta 80/443; outras = demais portas. Nao registra o destino.
+          # TYPE estacao_conexoes_tcp gauge
+          estacao_conexoes_tcp{tipo="web"} $web
+          estacao_conexoes_tcp{tipo="outras"} $outras
+
+          "@ | Out-File -FilePath $tmp -Encoding ascii -NoNewline
+
+          Move-Item -Path $tmp -Destination $destino -Force
+      register: at_script_escrito
+
+    # start_boundary no passado: o Task Scheduler começa a repetição
+    # imediatamente, em vez de esperar a próxima ocorrência de um horário
+    # futuro — sem isso, a tarefa ficaria parada até a próxima meia-noite.
+    - name: Criar ou atualizar a tarefa agendada
+      community.windows.win_scheduled_task:
+        name: "{{ at_tarefa }}"
+        description: >-
+          Escreve estacao_ociosa_segundos e estacao_conexoes_tcp para o
+          Prometheus (coletor textfile do windows_exporter). Nao captura
+          conteudo digitado nem destino de rede.
+        actions:
+          - path: powershell.exe
+            arguments: >-
+              -NoProfile -NonInteractive -ExecutionPolicy Bypass -File
+              "{{ at_script }}"
+        triggers:
+          - type: time
+            start_boundary: '2026-01-01T00:00:00'
+            repetition:
+              interval: "{{ at_intervalo }}"
+        username: SYSTEM
+        run_level: highest
+        state: present
+        enabled: true
+      register: at_tarefa_criada
+
+    # A primeira execução não espera o próximo minuto — sem isto, 'verificar'
+    # logo em seguida encontraria o textfile ainda ausente e pareceria falha.
+    - name: Disparar a primeira execução
+      ansible.windows.win_shell: Start-ScheduledTask -TaskName '{{ at_tarefa }}'
+      when: at_tarefa_criada is changed
+      changed_when: true
+
+    - name: Esperar o textfile aparecer
+      ansible.windows.win_stat:
+        path: "{{ at_textfile }}"
+      register: at_textfile_stat
+      until: at_textfile_stat.stat.exists
+      retries: 6
+      delay: 5
+      when: at_tarefa_criada is changed
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if at_textfile_stat is defined and at_textfile_stat.stat is defined and not at_textfile_stat.stat.exists %}
+          FALHOU — a tarefa foi criada mas {{ at_textfile }} não apareceu.
+          Confira o Log de Eventos (Task Scheduler) na estação.
+          {% else %}
+          OK — tarefa agendada a cada {{ at_intervalo }}, escrevendo em
+          {{ at_textfile }}.
+          {% endif %}

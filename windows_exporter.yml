@@ -75,11 +75,38 @@
     #   time      sincronismo de relógio — relógio fora de hora quebra
     #             autenticação de domínio, e o sintoma não parece ser isso
     #
-    # Deliberadamente FORA: 'process'. Ele existe, mas rende uma série por
-    # processo por máquina, o que num parque de 154 estações é volume
-    # desproporcional ao que responde. Entra quando houver pergunta que só
-    # ele responda.
-    we_coletores: 'cpu,memory,logical_disk,physical_disk,net,os,service,system,textfile,time'
+    # 'process' entrou em 09/10/2026 — a pergunta que só ele responde
+    # ("quais são os principais processos por laboratório?") apareceu, e o
+    # motivo de tê-lo deixado fora até aqui (uma série por processo por
+    # máquina, ~150-180 processos medidos ao vivo no lab6 em 08/10/2026)
+    # continua valendo. Por isso ele NUNCA entra sem 'we_processos_incluir'
+    # — sem filtro, seriam ~150 mil séries novas nas 154 estações dos 5
+    # labs, a cada 30s, num Prometheus em container sem limite de memória.
+    # Com o filtro, só os processos da lista geram série; o resto do
+    # coletor nem os enumera.
+    we_coletores: 'cpu,memory,logical_disk,physical_disk,net,os,process,service,system,textfile,time'
+
+    # Lista de inclusão do coletor 'process' — regex, não vírgula (é
+    # '--collector.process.include' por baixo). '(?i)' no início: Get-Process
+    # mostra a grafia real de cada programa ('WINWORD', 'firefox', 'Acrobat'
+    # misturados), e não vale a pena apostar certo em todas de cabeça.
+    #
+    # Montada a partir de dois lugares, não de memória: o que os group_vars
+    # de cada lab já declaram como pacote (lab1.yml a lab6.yml) e o que
+    # apareceu de fato rodando em 82 estações ligadas, amostradas ao vivo em
+    # 09/10/2026 — navegador, Office/WPS, IDEs, bancos de dados, Docker,
+    # motores de jogo e afins. Processo de sistema, driver de periférico
+    # (Wacom, áudio, GPU) e serviço de licenciamento (Autodesk, Veyon,
+    # Defender) ficaram de fora de propósito: não respondem "o que o aluno
+    # está rodando", só poluiriam a lista.
+    #
+    # Pode crescer. Rodar e achar um processo que faltou não é erro de
+    # design — é o uso normal desta lista.
+    # Linha única de propósito: '>-' do YAML dobra quebra de linha em
+    # espaço, e um espaço dentro desta regex vira "alternativa com espaço
+    # no começo" — quebraria o casamento de tudo que viesse depois da
+    # primeira quebra, em silêncio, sem erro nenhum para apontar a causa.
+    we_processos_incluir: '(?i)(firefox|chrome|msedge(webview2)?|opera|brave|WINWORD|EXCEL|POWERPNT|OUTLOOK|wps(center|cloudsvr)?|M365Copilot|Acrobat|AcroRd32|pycharm64|netbeans(64)?|eclipse|studio64|code|devenv|notepad\+\+|postman|GitHubDesktop|bvSshClient|node|ruby|lua|pythonw?|javaw?|blender|godot.*|unity.*|processing|gimp|inkscape|krita|EpicGamesLauncher|EpicWebHelper|discord|Roblox.*|steam.*|Rgui|rstudio|matlab|arduino.*|wireshark|Docker Desktop|com\.docker\..*|vmmem.*|wsl(host)?|postgres|pg_ctl|mysqld|sqlservr|figma_agent|ms-teams|teams|zoom|skype|vlc|spotify)'
     # De onde o Prometheus vai coletar: o Mac mini de observabilidade,
     # 10.102.227.250, IP fixo desde 21/09/2026.
     #
@@ -190,6 +217,9 @@
         content: |
           collectors:
             enabled: {{ we_coletores }}
+          collector:
+            process:
+              include: '{{ we_processos_incluir }}'
       register: we_config
 
     # ── E A LINHA DE COMANDO DO SERVIÇO PRECISA CALAR ─────────────────────

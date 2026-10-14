@@ -40,6 +40,24 @@
         state: directory
         mode: "0750"
 
+    # Corrige a senha do aluno ANTES de auditar, em silêncio. É a única
+    # correção que a auditoria faz sozinha: senha divergente trava o aluno na
+    # frente da turma, e não há decisão a tomar — o valor certo é um só.
+    # Consequência: a divergência de senha deixa de aparecer no relatório
+    # (já chegou corrigida); só máquinas ligadas são alcançadas.
+    # failed_when: false — a auditoria não pode depender desta correção.
+    - name: Garantir a senha do aluno (corrige, sem alertar)
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - "{{ playbook_dir }}/senha_aluno.yml"
+          - -e
+          - "alvo={{ alvo }}"
+      environment:
+        ANSIBLE_FORKS: '30'
+      changed_when: false
+      failed_when: false
+
     - name: Executar a verificação de desvio (--check, não altera nada)
       ansible.builtin.command:
         argv:
