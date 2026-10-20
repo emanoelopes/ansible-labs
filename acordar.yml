@@ -60,14 +60,8 @@
 #        10.102.227.255 (muitas redes o mantêm desabilitado por segurança);
 #      - manter uma máquina dentro da sub-rede dos labs e disparar de lá.
 #
-#    Para a segunda saída, use wol_delegate para apontar o envio do pacote
-#    mágico para um host do inventário que já esteja em 10.102.227.0/24
-#    (ex.: ppgte-server, 10.102.227.245, SSH):
-#
-#      ansible-playbook acordar.yml -e alvo=lab4 -e wol_delegate=mm2
-#
-#    Desde 22/09/2026 o mm2 é o padrão — não precisa passar nada. O
-#    ppgte-server segue como alternativa.
+#    É a segunda saída que está em uso: o mm2 (10.102.227.250) dispara o
+#    pacote, e é o PADRÃO desde 22/09/2026 — não precisa passar nada.
 #
 #    O pacote sai de dentro da própria sub-rede dos labs, então o broadcast
 #    255.255.255.255 já basta ali — não precisa do direcionado 10.102.227.255
@@ -105,36 +99,40 @@
   vars:
     # Host de onde o pacote mágico é efetivamente enviado.
     #
-    # PADRÃO É O ppgte-server DESDE 09/09/2026, e não o controlador.
+    # PADRÃO É O mm2 (10.102.227.250) DESDE 22/09/2026, e não o controlador.
     #
-    # O controlador está em 10.102.226.x, fora da sub-rede das estações. Dali
-    # o pacote precisa de broadcast dirigido para 10.102.227.255, que a
-    # maioria dos roteadores descarta — e foi o que aconteceu na primeira
-    # tentativa no lab4, em 08/09/2026: nenhuma máquina acordou.
+    # Por que não o controlador: ele está em 10.102.226.x, fora da sub-rede
+    # das estações. Dali o pacote precisa de broadcast dirigido para
+    # 10.102.227.255, que a maioria dos roteadores descarta — e foi o que
+    # aconteceu na primeira tentativa no lab4, em 08/09/2026: nenhuma máquina
+    # acordou. O delegado precisa estar DENTRO de 10.102.227.0/24, onde o
+    # broadcast local basta.
     #
-    # O ppgte-server está em 10.102.227.245, dentro do segmento. Dali o
-    # broadcast local basta. No teste de 09/09/2026 no lab4, 23 de 27
-    # estações desligadas acordaram; as 4 restantes estavam com o
-    # Wake-on-LAN desabilitado na BIOS, três já corrigidas na hora.
+    # Por que o mm2 e não outro host do segmento: ele é a base de
+    # observabilidade e precisa ficar ligado o tempo todo para o Prometheus
+    # coletar. Quando cai, alguém repara em minutos, porque o painel esvazia.
+    # Um host qualquer fora do ar passaria despercebido até a próxima
+    # tentativa de acordar um laboratório — justamente a hora em que não se
+    # quer descobrir isso.
     #
-    # A dependência: se o delegado estiver fora do ar, o Wake-on-LAN para.
-    # É preço menor que depender de mudança na configuração da rede.
+    # ── O ppgte-server FOI ABANDONADO EM 20/10/2026 ───────────────────────
     #
-    # ── MUDANÇA EM 22/09/2026: ppgte-server → mm2 ─────────────────────────
+    # Ele foi o delegado de 09/09 a 22/09/2026 e funcionou (23 de 27 no lab4
+    # em 09/09; as 4 restantes eram BIOS sem WoL). Saiu porque manter dois
+    # caminhos para a mesma função é pior que ter um: a alternativa nunca é
+    # exercitada, envelhece sem ninguém notar, e aparece numa emergência como
+    # sugestão que manda investigar a máquina errada — foi o que a skill
+    # 'acordar-laboratorio' passou a fazer, apontando o ppgte-server por
+    # quase um mês depois da troca.
     #
-    # O mm2 (10.102.227.250) é a base de observabilidade. Está no mesmo
-    # segmento e é melhor delegado que o ppgte-server por um motivo
-    # estrutural: ele precisa ficar ligado o tempo todo para o Prometheus
-    # coletar. Ou seja, alguém repara em minutos quando ele cai — o painel
-    # esvazia — enquanto um ppgte-server fora do ar passaria despercebido
-    # até a próxima tentativa de acordar um laboratório, que é justamente a
-    # hora em que não se quer descobrir isso.
-    #
-    # Alternativas, se o mm2 estiver indisponível:
-    #   -e wol_delegate=ppgte-server   (10.102.227.245, também no segmento)
+    # Único recurso se o mm2 estiver indisponível:
     #   -e wol_delegate=localhost      (do controlador, exige broadcast
     #                                   dirigido — ver wol_broadcast abaixo;
     #                                   não funcionou em 08/09/2026)
+    #
+    # Ou seja: mm2 fora do ar significa ligar as máquinas presencialmente.
+    # Isso é deliberado — o mm2 é infraestrutura, e tratá-lo como tal é
+    # melhor que ter um segundo caminho que ninguém testa.
     #
     # Quando o mm01 assumir como controlador Ansible, estando ele próprio em
     # 10.102.227.0/24, o wol_delegate perde a razão de existir: o broadcast
@@ -328,12 +326,11 @@
           acordou. Duas causas possíveis, com soluções opostas:
 
           1. O pacote não chega. Foi enviado de {{ wol_delegate }} com
-             broadcast {{ wol_broadcast }}. Se {{ wol_delegate }} está fora
-             de 10.102.227.0/24, o broadcast dirigido provavelmente é
-             descartado pelo roteador. Repita apontando para um host de
-             dentro da sub-rede:
-               -e wol_delegate=mm2            (10.102.227.250)
-               -e wol_delegate=ppgte-server   (10.102.227.245)
+             broadcast {{ wol_broadcast }}. O delegado precisa estar DENTRO
+             de 10.102.227.0/24 — de fora, o broadcast dirigido é descartado
+             pelo roteador. Confira se o mm2 está no ar, que é a causa mais
+             provável de falha total:
+               ansible mm2 -m ping
 
           2. O pacote chega e a placa ignora. Aí é bancada, máquina a
              máquina, e nada disso é padrão de fábrica:

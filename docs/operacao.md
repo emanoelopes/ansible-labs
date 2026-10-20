@@ -103,10 +103,24 @@ patrimônios e endereços MAC.
 
 Funciona, com dois limites que custaram tempo para descobrir:
 
-**O pacote sai do `ppgte-server`, não do controlador.** O controlador está em
+**O pacote sai do `mm2`, não do controlador.** O controlador está em
 `10.102.226.x` e as estações em `10.102.227.0/24`; broadcast dirigido entre
-sub-redes é descartado pelo roteador. O `ppgte-server` (`10.102.227.245`) está
-dentro do segmento. É o padrão desde 09/09/2026 — se ele cair, o WoL para.
+sub-redes é descartado pelo roteador. O `mm2` (`10.102.227.250`) está dentro do
+segmento, e é padrão desde 22/09/2026 — se ele cair, o WoL para, e o primeiro
+teste em caso de falha total é `ansible mm2 -m ping`.
+
+Ele foi escolhido entre os hosts do segmento porque precisa ficar ligado o
+tempo todo para o Prometheus coletar: quando cai, alguém repara em minutos
+porque o painel esvazia.
+
+O `ppgte-server` ocupou esse papel de 09/09 a 22/09/2026 e **foi abandonado em
+20/10/2026**. Não é alternativa: manter dois caminhos para a mesma função é
+pior que ter um, porque o segundo nunca é exercitado e reaparece numa
+emergência mandando investigar a máquina errada. Com o `mm2` fora do ar, ligar
+é presencial — deliberadamente.
+
+Quando o `mm01` assumir como controlador Ansible, estando ele próprio em
+`10.102.227.0/24`, a delegação deixa de ser necessária.
 
 **Não sobrevive a corte de energia.** A placa de rede só responde ao pacote
 mágico se continuar energizada em standby. Desligamento por software preserva
