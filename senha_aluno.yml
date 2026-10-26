@@ -83,7 +83,7 @@
       changed_when: "'DIVERGE' in autologon_antes.stdout or (senha.changed | default(false))"
       no_log: "{{ senha_no_log | default(true) }}"
 
-    - name: Corrigir a senha se estiver diferente (macOS)
+    - name: Corrigir a senha se estiver diferente (macOS)  # noqa: risky-shell-pipe
       when: "'macos' in group_names"
       ansible.builtin.shell: |
         set -u
