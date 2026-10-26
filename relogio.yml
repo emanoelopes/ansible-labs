@@ -1,0 +1,88 @@
+---
+# Corrige o relógio das estações (Windows e macOS) e confere o mm2.
+#
+#   piloto:   ansible-playbook relogio.yml -e alvo=windows --limit 113
+#   aplicar:  ansible-playbook relogio.yml -e alvo=windows
+#             ansible-playbook relogio.yml -e alvo=lab3
+#             ansible-playbook relogio.yml -e alvo=observabilidade
+#
+# O que se encontrou em 26/10/2026:
+#
+#   Windows — serviço w32time parado em 43 de 123 estações, e as que estavam
+#   rodando usavam "Local CMOS Clock" como fonte, isto é, não sincronizavam
+#   com ninguém. O relógio estava certo por acaso, e a deriva só aumenta.
+#   macOS   — o 311 estava 11 minutos adiantado, com "Network Time: Off".
+#   mm2     — correto (systemd-timesyncd sincronizado); só é conferido.
+#
+# Máquina desligada não é corrigida: rode de novo quando ligar.
+
+- name: Relógio — estações Windows
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    # NTP.br: servidores do NIC.br, com latência baixa a partir daqui.
+    relogio_ntp: "a.st1.ntp.br,0x9 b.st1.ntp.br,0x9 c.st1.ntp.br,0x9 time.windows.com,0x9"
+  tasks:
+    - name: Windows — serviço de hora automático, apontado ao NTP.br, ressincronizado
+      when: inventory_hostname in groups['windows']
+      block:
+        - name: w32time com início automático e em execução
+          ansible.windows.win_service:
+            name: w32time
+            start_mode: auto
+            state: started
+
+        - name: Configurar fontes NTP
+          ansible.windows.win_shell: |
+            w32tm /config /manualpeerlist:"{{ relogio_ntp }}" /syncfromflags:manual /reliable:no /update
+            Restart-Service w32time
+            Start-Sleep -Seconds 2
+            w32tm /resync /force
+          register: relogio_resync
+          changed_when: true
+
+        - name: Conferir fonte e desvio
+          ansible.windows.win_shell: w32tm /query /status | Select-String "Source|Fonte|Last Successful|Última"
+          register: relogio_status
+          changed_when: false
+
+        - name: Resultado
+          ansible.builtin.debug:
+            msg: "{{ relogio_status.stdout_lines | map('trim') | list }}"
+
+- name: Relógio — macOS
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  ignore_unreachable: true
+  tasks:
+    - name: macOS — hora de rede ligada e relógio acertado
+      when: inventory_hostname in groups['macos']
+      become: true
+      block:
+        - name: Ligar a hora pela rede
+          ansible.builtin.command: systemsetup -setusingnetworktime on
+          changed_when: true
+
+        - name: Acertar agora contra time.apple.com
+          ansible.builtin.command: sntp -sS time.apple.com
+          changed_when: true
+
+- name: Relógio — mm2 (somente conferência)
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  ignore_unreachable: true
+  tasks:
+    - name: mm2 — conferir sincronização
+      when: inventory_hostname in groups['observabilidade']
+      block:
+        - name: NTP ativo e sincronizado?
+          ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+          register: relogio_mm2
+          changed_when: false
+
+        - name: Forçar NTP se não estiver sincronizado
+          ansible.builtin.command: timedatectl set-ntp true
+          become: true
+          when: relogio_mm2.stdout | trim != 'yes'
+          changed_when: true
