@@ -1,0 +1,19 @@
+---
+# Playbook para configurar o mm2 como controlador Ansible.
+# Este playbook aplica o role controlador ao host mm2.
+# Pode ser executado explicitamente ou via ansible-playbook -i inventory.ini setup_controller.yml
+#
+# Fluxo normal:
+#   ansible-playbook -i inventory.ini setup_controller.yml
+#   # ou com alvo específico:
+#   ansible-playbook -i inventory.ini setup_controller.yml -e alvo=mm2
+
+- name: Configurar mm2 como novo controlador Ansible
+  hosts: "{{ alvo | default('controller') }}"
+  gather_facts: true
+  serial: "{{ estado_serial | default('25%') }}"
+  max_fail_percentage: 10
+  ignore_unreachable: true
+
+  roles:
+    - controlador

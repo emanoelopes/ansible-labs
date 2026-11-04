@@ -1,0 +1,8 @@
+---
+# Variáveis default para o role controlador.
+#
+# O caminho dos roles vai para o repo (/home/emanoel/ansible-labs/roles),
+# que é montado como volume no container Docker. Quando rodamos fora do
+# container, ANSIBLE_ROLES_PATH é a alternativa viável (consultar WARP.md).
+
+controller_roles_path: /home/emanoel/ansible-labs/roles

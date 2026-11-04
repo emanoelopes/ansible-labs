@@ -61,3 +61,6 @@ estado_homebrew_cask_latest:
 # só a ação muda.
 estado_desligar_acao: suspender
 estado_wol: true
+
+# Acorda sozinho às 7:55 para estar pronto às 8h (pmset wakeorpoweron).
+estado_ligar_hora: '07:55'

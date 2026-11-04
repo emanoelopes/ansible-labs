@@ -1,0 +1,95 @@
+---
+# Bootstrap do mm2 como controlador Ansible.
+#
+# Executa NO mm2 (hosts: controller). Verifica que o ambiente está completo:
+# ansible instalado no venv, collections presentes, vault acessível, e
+# conectividade confirmada com Windows e macOS.
+#
+# Pré-condição: ssh, git, python3-venv já instalados (feito via apt em
+# 26/10/2026). Ansible está em ~/ansible-venv/bin/ansible.
+
+- name: Verificar ansible no venv
+  ansible.builtin.command: ~/ansible-venv/bin/ansible --version
+  register: ansible_version
+  changed_when: false
+  failed_when: false
+
+- name: Instalar ansible no venv (se ausente)
+  ansible.builtin.pip:
+    name:
+      - ansible
+      - pywinrm[credssp]
+    virtualenv: ~/ansible-venv
+    state: present
+  when: ansible_version.rc != 0
+
+- name: Verificar collections necessárias
+  ansible.builtin.command: ~/ansible-venv/bin/ansible-galaxy collection list
+  register: collections_list
+  changed_when: false
+  failed_when: false
+
+- name: Instalar collections ausentes
+  ansible.builtin.command: >
+    ~/ansible-venv/bin/ansible-galaxy collection install
+    community.general ansible.windows community.crypto geerlingguy.mac
+    --collections-path ~/ansible-labs/collections
+  when: >
+    'community.general' not in collections_list.stdout or
+    'ansible.windows' not in collections_list.stdout
+
+- name: Verificar vault_password_file
+  ansible.builtin.stat:
+    path: ~/.ansible_vault_pass
+  register: vault_pass_stat
+
+- name: Falhar se vault_pass ausente
+  ansible.builtin.fail:
+    msg: >-
+      ~/.ansible_vault_pass não existe no mm2. Copie com:
+        scp ~/.ansible_vault_pass emanoel@10.102.227.250:~/.ansible_vault_pass
+  when: not vault_pass_stat.stat.exists
+
+- name: Confirmar variáveis de ambiente no .bashrc
+  ansible.builtin.lineinfile:
+    path: ~/.bashrc
+    line: "{{ item }}"
+    regexp: "{{ item.split('=')[0] }}"
+  loop:
+    - "export PATH=$HOME/ansible-venv/bin:$PATH"
+    - "export ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass"
+    - "export ANSIBLE_COLLECTIONS_PATHS=~/ansible-labs/collections"
+
+- name: Testar ping Windows (lab1, host 111)
+  ansible.builtin.command: >
+    ~/ansible-venv/bin/ansible lab1 -m win_ping --limit 111
+    -e ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass
+  environment:
+    ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_pass
+    ANSIBLE_COLLECTIONS_PATHS: ~/ansible-labs/collections
+    PATH: "{{ ansible_env.HOME }}/ansible-venv/bin:{{ ansible_env.PATH }}"
+  register: ping_windows
+  changed_when: false
+  failed_when: false
+
+- name: Testar ping macOS (lab3, host 311)
+  ansible.builtin.command: >
+    ~/ansible-venv/bin/ansible lab3 -m ping --limit 311
+  environment:
+    ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_pass
+    ANSIBLE_COLLECTIONS_PATHS: ~/ansible-labs/collections
+    PATH: "{{ ansible_env.HOME }}/ansible-venv/bin:{{ ansible_env.PATH }}"
+  register: ping_macos
+  changed_when: false
+  failed_when: false
+
+- name: Relatório de conectividade
+  ansible.builtin.debug:
+    msg: |
+      Controlador mm2 (10.102.227.250) — estado em {{ ansible_date_time.date }}
+
+      ansible:     {{ ansible_version.stdout_lines[0] | default('venv ausente') }}
+      vault_pass:  {{ 'ok' if vault_pass_stat.stat.exists else 'AUSENTE' }}
+
+      Windows lab1/111: {{ 'ok' if 'pong' in (ping_windows.stdout | default('')) else 'FALHOU — ' + (ping_windows.stderr | default('') | truncate(80)) }}
+      macOS   lab3/311: {{ 'ok' if 'pong' in (ping_macos.stdout  | default('')) else 'FALHOU — ' + (ping_macos.stderr  | default('') | truncate(80)) }}

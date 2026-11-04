@@ -99,21 +99,21 @@
   vars:
     # Host de onde o pacote mágico é efetivamente enviado.
     #
-    # PADRÃO É O mm2 (10.102.227.250) DESDE 22/09/2026, e não o controlador.
+    # mm2 (10.102.227.250) é o PADRÃO desde 22/09/2026, e agora também é o
+    # controlador Ansible (26/10/2026). Estando dentro de 10.102.227.0/24,
+    # o broadcast 255.255.255.255 alcança todos os labs sem roteador.
     #
-    # Por que não o controlador: ele está em 10.102.226.x, fora da sub-rede
-    # das estações. Dali o pacote precisa de broadcast dirigido para
-    # 10.102.227.255, que a maioria dos roteadores descarta — e foi o que
-    # aconteceu na primeira tentativa no lab4, em 08/09/2026: nenhuma máquina
-    # acordou. O delegado precisa estar DENTRO de 10.102.227.0/24, onde o
-    # broadcast local basta.
+    # Quando o wol_delegate é localhost (o próprio controlador, mm2), o
+    # broadcast dirigido 10.102.227.255 é usado — já que localhost E mm2
+    # são a mesma máquina agora, ambas as formas funcionam.
     #
-    # Por que o mm2 e não outro host do segmento: ele é a base de
-    # observabilidade e precisa ficar ligado o tempo todo para o Prometheus
-    # coletar. Quando cai, alguém repara em minutos, porque o painel esvazia.
-    # Um host qualquer fora do ar passaria despercebido até a próxima
-    # tentativa de acordar um laboratório — justamente a hora em que não se
-    # quer descobrir isso.
+    # ── HISTÓRICO ──────────────────────────────────────────────────────────
+    # - 08/09/2026: controlador em 10.102.226.x — broadcast descartado.
+    # - 09/09–22/09: ppgte-server como delegado — funcionou mas foi abandonado
+    #   (serviço instável fora do horário). Ver comentários abaixo.
+    # - 22/09/2026: mm2 assumiu como wol_delegate padrão.
+    # - 26/10/2026: mm2 assumiu também como controlador Ansible.
+    #   wol_delegate=localhost agora equivale a wol_delegate=mm2.
     #
     # ── O ppgte-server FOI ABANDONADO EM 20/10/2026 ───────────────────────
     #
@@ -134,9 +134,9 @@
     # Isso é deliberado — o mm2 é infraestrutura, e tratá-lo como tal é
     # melhor que ter um segundo caminho que ninguém testa.
     #
-    # Quando o mm01 assumir como controlador Ansible, estando ele próprio em
-    # 10.102.227.0/24, o wol_delegate perde a razão de existir: o broadcast
-    # local do controlador já alcança as estações.
+    # mm2 assumiu como controlador Ansible em 26/10/2026, estando ele próprio
+    # em 10.102.227.0/24. wol_delegate=mm2 e wol_delegate=localhost são agora
+    # equivalentes. O parâmetro ainda existe para sobrescrever se necessário.
     wol_delegate: mm2
 
     # Endereço de broadcast da sub-rede das estações. Direcionado
@@ -223,7 +223,7 @@
       loop_control:
         label: "{{ item }}"
       register: antes
-      failed_when: false
+      ignore_errors: true
       changed_when: false
 
     - name: Separar ligadas de desligadas
@@ -281,7 +281,7 @@
       until: espera.finished
       retries: "{{ (wol_espera | int / 5) | round(0, 'ceil') | int }}"
       delay: 5
-      failed_when: false
+      ignore_errors: true
 
     # A conferência é o que distingue 'enviei o pacote' de 'a máquina ligou'.
     # Sem ela, uma configuração de rede que descarta o broadcast passaria por

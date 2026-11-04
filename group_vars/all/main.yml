@@ -58,16 +58,17 @@ repo_dir_publicado: "{{ repo_mount_dir }}/{{ repo_subpasta }}"
 # install_file_veyon, config_json_file, public_key_veyon_file e
 # google_file_name_install.
 #
-# PREENCHER: IP do controlador NA REDE DOS LABORATÓRIOS (10.102.227.0/24).
+# IP do controlador NA REDE DOS LABORATÓRIOS (10.102.227.0/24).
 #
-# Descubra com:   ip -4 addr | grep 10.102.227
+# mm2 (10.102.227.250) assumiu como controlador Ansible em 26/10/2026.
+# Antes era 10.102.226.208 (máquina de Emanoel, fora da sub-rede dos labs).
 #
 # Não é detectado automaticamente de propósito. A detecção por
 # ansible_default_ipv4 devolveria a interface da rota padrão — em geral a que
 # sai para a internet, não a que fala com os labs — e um valor errado aqui faz
 # as 164 estações baixarem do endereço errado, falhando todas com a mesma
 # mensagem obscura. Melhor não rodar do que rodar apontando para o lugar errado.
-repo_bind_ip: '10.102.226.208'
+repo_bind_ip: '10.102.227.250'
 repo_porta: 8081
 repo_interno_url: "http://{{ repo_bind_ip }}:{{ repo_porta }}"
 

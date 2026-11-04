@@ -318,10 +318,10 @@
 - name: Agendar a ação diária (desligar ou suspender)  # noqa: risky-shell-pipe
   ansible.builtin.shell: |
     set -e
-    python3 - "$PMSET_DIAS" "$HORA_DESEJADA" "$ACAO" <<'PY'
+    python3 - "$PMSET_DIAS" "$HORA_DESEJADA" "$ACAO" "$HORA_LIGAR" <<'PY'
     import re, subprocess, sys, os
 
-    dias, hora_desejada, acao = sys.argv[1], sys.argv[2], sys.argv[3]
+    dias, hora_desejada, acao, hora_ligar = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
     h, m = (int(x) for x in hora_desejada.split(':'))
     alvo_min = h * 60 + m
 
@@ -339,19 +339,37 @@
     acao_min = minutos(acao)
     outra_min = minutos(outra_acao)
 
-    if acao_min == alvo_min and outra_min is None:
+    if hora_ligar:
+        lh, lm = (int(x) for x in hora_ligar.split(':'))
+        ligar_alvo = lh * 60 + lm
+        # o pmset imprime o evento como 'wakepoweron' (ou wake/poweron)
+        ligar_min = None
+        for nome in ('wakepoweron', 'wakeorpoweron', 'poweron', 'wake'):
+            ligar_min = minutos(nome)
+            if ligar_min is not None:
+                break
+    else:
+        ligar_alvo = None
+
+    if acao_min == alvo_min and outra_min is None and (ligar_alvo is None or ligar_min == ligar_alvo):
         print('ja conforme')
     else:
         # Substitui os dois agendamentos repetitivos (não há como cancelar só
         # um tipo pela CLI) e recria só o desejado.
         subprocess.run(['pmset', 'repeat', 'cancel'], check=True)
-        subprocess.run(['pmset', 'repeat', acao, dias, f'{hora_desejada}:00'], check=True)
+        # 'pmset repeat' guarda um evento de ligar e um de desligar/suspender;
+        # os dois vão no mesmo comando, senão o segundo apaga o primeiro.
+        cmd = ['pmset', 'repeat', acao, dias, f'{hora_desejada}:00']
+        if hora_ligar:
+            cmd += ['wakeorpoweron', dias, f'{hora_ligar}:00']
+        subprocess.run(cmd, check=True)
         print('ALTERADO')
     PY
   environment:
     PMSET_SCHED_ATUAL: "{{ estado_pmset_sched.stdout | default('') }}"
     HORA_DESEJADA: "{{ estado_desligar_hora }}"
     PMSET_DIAS: "{{ estado_desligar_dias }}"
+    HORA_LIGAR: "{{ estado_ligar_hora | default('', true) }}"
     ACAO: "{{ 'sleep' if estado_desligar_acao == 'suspender' else 'shutdown' }}"
   become: true
   when: estado_desligar_hora is not none

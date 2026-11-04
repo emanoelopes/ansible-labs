@@ -1,0 +1,252 @@
+---
+# Confere, e corrige, a senha do superusuário 'postgres' nas estações.
+#
+#   só conferir:   ansible-playbook postgres_senha.yml -e alvo=lab4 -t verificar
+#   conferir+corrigir: ansible-playbook postgres_senha.yml -e alvo=lab4
+#   piloto:        ansible-playbook postgres_senha.yml -e alvo=lab4 --limit 411
+#
+# Origem: relato de professora em 27/10/2026 — em algumas máquinas a senha do
+# 'postgres' não é a combinada, e os alunos não conseguem entrar.
+#
+# ── POR QUE ESTE PLAYBOOK EXISTE, SE JÁ HÁ DOIS QUE INSTALAM POSTGRES ─────
+#
+# Porque nenhum dos dois TROCA senha. O postgres.yml passa --superpassword e o
+# postgresql_pgadmin.yml passa /Password: — ambos só valem no momento da
+# instalação. Em máquina onde o PostgreSQL já está instalado:
+#
+#   - o Chocolatey com state: latest vê o pacote presente e não reexecuta o
+#     instalador, então o /Password: nunca é aplicado;
+#   - o instalador .exe em modo unattended sobre uma instalação existente
+#     também não redefine a senha do superusuário.
+#
+# Resultado: rodar qualquer dos dois reportaria 'ok' em todas as estações com
+# a senha errada intacta. Convergência relatada sem convergência — o mesmo
+# padrão que o config.yaml do windows_exporter produziu em 21/09/2026.
+#
+# ── A SENHA NÃO ESTÁ AQUI ─────────────────────────────────────────────────
+#
+# Vem de vault_senha_postgres. Este repositório é PÚBLICO
+# (github.com/emanoelopes/ansible-labs): o literal iria para o GitHub em
+# texto claro. Para conferir ou ajustar o valor:
+#
+#   ansible-vault edit group_vars/all/vault.yml
+#
+# Ser senha didática, sem exposição fora da rede do laboratório, justifica
+# ela ser simples — não justifica publicá-la.
+#
+# ── COMO A CORREÇÃO FUNCIONA, E O QUE ELA ABRE POR ALGUNS SEGUNDOS ───────
+#
+# Para rodar ALTER USER é preciso autenticar, e a senha atual é desconhecida —
+# é justamente o problema. A saída é o procedimento padrão de recuperação:
+# liberar momentaneamente a autenticação local no pg_hba.conf (método 'trust'
+# para 127.0.0.1 apenas), reiniciar o serviço, trocar a senha, restaurar o
+# arquivo e reiniciar de novo.
+#
+# Durante essa janela — segundos — qualquer processo NA PRÓPRIA MÁQUINA pode
+# conectar como 'postgres' sem senha. Não é exposto à rede: a regra inserida
+# vale só para 127.0.0.1, e o pg_hba original é restaurado mesmo quando o
+# ALTER falha (bloco always). Em estação de laboratório didático o risco é
+# aceitável; não use este playbook em servidor de produção.
+
+- name: Senha do PostgreSQL
+  hosts: "{{ alvo | default('nao_definido') }}"
+  gather_facts: false
+  serial: '25%'
+  max_fail_percentage: 20
+
+  # Estação apagada é ausência, não erro. Sem isto, uma leva inteiramente
+  # desligada encerra a play e as levas seguintes nem são tentadas.
+  ignore_unreachable: true
+
+  vars:
+    pg_senha: "{{ vault_senha_postgres }}"
+
+  pre_tasks:
+    - name: Confirmar que o alvo foi informado
+      ansible.builtin.fail:
+        msg: >-
+          Informe o laboratório:
+          ansible-playbook postgres_senha.yml -e alvo=lab4
+      when: alvo is not defined
+      run_once: true
+      delegate_to: localhost
+
+    - name: Confirmar que a senha está no vault
+      ansible.builtin.fail:
+        msg: >-
+          vault_senha_postgres não está definida, ou ainda está com o valor
+          de exemplo. Rode: ansible-vault edit group_vars/all/vault.yml
+      when: >-
+        vault_senha_postgres is not defined
+        or vault_senha_postgres | length == 0
+        or vault_senha_postgres == 'TROCAR'
+      run_once: true
+      delegate_to: localhost
+
+  tasks:
+    # ── MEDIR ─────────────────────────────────────────────────────────────
+    #
+    # "Algumas máquinas" é relato; este bloco transforma em lista. Localiza a
+    # instalação, descobre a versão e TESTA a senha esperada — em vez de
+    # presumir que está errada em todas e trocar onde já estava certa.
+    - name: Localizar a instalação e testar a senha atual
+      ansible.windows.win_shell: |
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        # Pode haver mais de uma versão instalada; usa a mais recente.
+        $raiz = Get-ChildItem 'C:\Program Files\PostgreSQL' -Directory |
+                Sort-Object { [version]($_.Name -replace '[^\d\.]','0') } |
+                Select-Object -Last 1
+        if (-not $raiz) { 'SEM_POSTGRES'; exit 0 }
+
+        $psql = Join-Path $raiz.FullName 'bin\psql.exe'
+        $data = Join-Path $raiz.FullName 'data'
+        if (-not (Test-Path $psql)) { 'SEM_PSQL|' + $raiz.FullName; exit 0 }
+
+        $svc = (Get-Service | Where-Object Name -like 'postgresql*' |
+                Select-Object -First 1).Name
+
+        $env:PGPASSWORD = '{{ pg_senha }}'
+        & $psql -U postgres -h 127.0.0.1 -p 5432 -tAc 'select 1' | Out-Null
+        $ok = ($LASTEXITCODE -eq 0)
+        Remove-Item Env:\PGPASSWORD
+
+        # versao|raiz|data|servico|SENHA_OK ou SENHA_DIFERENTE
+        $raiz.Name + '|' + $raiz.FullName + '|' + $data + '|' + $svc + '|' +
+          $(if ($ok) { 'SENHA_OK' } else { 'SENHA_DIFERENTE' })
+      register: pg_estado
+      changed_when: false
+      no_log: true
+      ignore_errors: true
+      tags: [verificar]
+
+    - name: Interpretar o que foi encontrado
+      ansible.builtin.set_fact:
+        pg_campos: "{{ (pg_estado.stdout | default('') | trim).split('|') }}"
+      tags: [verificar]
+
+    - name: Resumir por máquina
+      ansible.builtin.set_fact:
+        pg_tem: "{{ pg_campos | length >= 5 }}"
+        pg_versao: "{{ pg_campos[0] | default('?') }}"
+        pg_raiz: "{{ pg_campos[1] | default('') }}"
+        pg_data: "{{ pg_campos[2] | default('') }}"
+        pg_servico: "{{ pg_campos[3] | default('') }}"
+        pg_ok: "{{ (pg_campos | length >= 5) and (pg_campos[4] == 'SENHA_OK') }}"
+      tags: [verificar]
+
+    - name: Situação
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if not pg_tem %}
+          sem PostgreSQL ({{ pg_estado.stdout | default('') | trim }})
+          {% elif pg_ok %}
+          OK — senha já é a do vault (PostgreSQL {{ pg_versao }})
+          {% else %}
+          SENHA DIFERENTE — PostgreSQL {{ pg_versao }}, será corrigida
+          {% endif %}
+      tags: [verificar]
+
+    - name: Parar aqui quando for só verificação
+      ansible.builtin.meta: end_host
+      tags: [never, verificar]
+
+    # ── CORRIGIR, SÓ ONDE PRECISA ─────────────────────────────────────────
+    #
+    # O bloco inteiro é pulado nas máquinas sem PostgreSQL e nas que já estão
+    # com a senha certa. Trocar senha que já está correta é mudança inútil
+    # que aparece como 'changed' e polui a auditoria.
+    - name: Redefinir a senha do superusuário
+      when:
+        - pg_tem
+        - not pg_ok
+      block:
+        - name: Guardar o pg_hba.conf original
+          ansible.windows.win_copy:
+            src: '{{ pg_data }}\pg_hba.conf'
+            dest: '{{ pg_data }}\pg_hba.conf.ansible-bak'
+            remote_src: true
+            force: true
+
+        # A linha entra no TOPO porque o PostgreSQL usa a primeira regra que
+        # casa — posta no fim, uma regra 'md5' anterior venceria e o trust
+        # não valeria de nada.
+        - name: Liberar a autenticação local momentaneamente
+          ansible.windows.win_shell: |
+            $f = '{{ pg_data }}\pg_hba.conf'
+            $linha = 'host all postgres 127.0.0.1/32 trust'
+            $atual = Get-Content $f -Raw
+            Set-Content $f -Value ($linha + "`r`n" + $atual) -Encoding ASCII
+          changed_when: true
+
+        - name: Reiniciar o PostgreSQL para ler o pg_hba novo
+          ansible.windows.win_service:
+            name: '{{ pg_servico }}'
+            state: restarted
+
+        - name: Trocar a senha
+          ansible.windows.win_shell: >-
+            & '{{ pg_raiz }}\bin\psql.exe' -U postgres -h 127.0.0.1 -p 5432
+            -c "ALTER USER postgres WITH PASSWORD '{{ pg_senha }}'"
+          register: pg_alter
+          changed_when: pg_alter.rc == 0
+          no_log: true
+
+      always:
+        # always: o pg_hba volta ao lugar mesmo se o ALTER falhar. Sem isto,
+        # uma falha no meio deixaria a estação com autenticação local aberta
+        # por tempo indeterminado — e ninguém notaria, porque nada para de
+        # funcionar.
+        - name: Restaurar o pg_hba.conf
+          ansible.windows.win_copy:
+            src: '{{ pg_data }}\pg_hba.conf.ansible-bak'
+            dest: '{{ pg_data }}\pg_hba.conf'
+            remote_src: true
+            force: true
+
+        - name: Reiniciar o PostgreSQL com a autenticação restaurada
+          ansible.windows.win_service:
+            name: '{{ pg_servico }}'
+            state: restarted
+
+        - name: Remover a cópia de segurança
+          ansible.windows.win_file:
+            path: '{{ pg_data }}\pg_hba.conf.ansible-bak'
+            state: absent
+
+    # ── CONFERIR O RESULTADO ──────────────────────────────────────────────
+    #
+    # Confere a senha de novo, autenticando de verdade. 'ALTER USER' com
+    # código de saída zero não prova que a senha funciona com o pg_hba
+    # restaurado — e é isso que o aluno vai usar.
+    - name: Conferir que a senha agora funciona
+      ansible.windows.win_shell: |
+        $env:PGPASSWORD = '{{ pg_senha }}'
+        & '{{ pg_raiz }}\bin\psql.exe' -U postgres -h 127.0.0.1 -p 5432 -tAc 'select 1' | Out-Null
+        $rc = $LASTEXITCODE
+        Remove-Item Env:\PGPASSWORD
+        if ($rc -eq 0) { 'CONFIRMADO' } else { 'AINDA_FALHA' }
+      register: pg_final
+      changed_when: false
+      no_log: true
+      ignore_errors: true
+      when:
+        - pg_tem
+        - not pg_ok
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if not pg_tem %}
+          sem PostgreSQL — nada a fazer
+          {% elif pg_ok %}
+          já estava correta
+          {% elif 'CONFIRMADO' in (pg_final.stdout | default('')) %}
+          CORRIGIDA e confirmada (PostgreSQL {{ pg_versao }})
+          {% else %}
+          FALHOU — a senha ainda não funciona. Confira o serviço
+          {{ pg_servico }} e se o pg_hba.conf foi restaurado:
+          {{ pg_data }}\pg_hba.conf
+          {% endif %}

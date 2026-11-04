@@ -1,0 +1,18 @@
+---
+# Metadata do role controlador.
+#
+# Útil para ansible-galaxy role show e para auditoria de desvio.
+# Este role não tem dependências externas (collections vêm via pip,
+# não via role deps) — a meta/main.yml serve só de documentação.
+
+galaxy_info:
+  role_name: controlador
+  description: Bootstrap do mm2 como controlador Ansible.
+  author: Emanoel Lopes
+  license: MIT
+  version: "0.1.0"
+  repository: https://github.com/emanoelopes/ansible-labs
+  homepage: https://github.com/emanoelopes/ansible-labs
+  issues_url: https://github.com/emanoelopes/ansible-labs/issues
+
+dependencies: []

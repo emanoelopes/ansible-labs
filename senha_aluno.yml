@@ -9,6 +9,21 @@
 # novo não faz nada (idempotente). Conta bloqueada é desbloqueada; conta
 # desativada é reativada. Se a conta não existir, falha o host (não cria).
 #
+# Windows: também garante o logon automático no 'aluno' (AutoAdminLogon=1, usuário
+# e domínio=nome da máquina, sem AutoLogonCount — um contador desativa o
+# autologon sozinho quando chega a zero). A senha do autologon fica num
+# segredo LSA que não dá para ler de volta, então o win_auto_logon é aplicado
+# sempre (idempotente na prática) e só conta como "alterado" quando o registro
+# divergia ou a senha da conta acabou de ser trocada. Levantamento de
+# 26/10/2026: 121 de 122 máquinas ligadas já estavam certas; a 534 não tinha
+# autologon nenhum. O macOS não recebe autologon: só a senha.
+#
+# macOS (lab3): 'dscl . -authonly' valida a senha sem alterar nada e
+# 'sysadminctl -resetPasswordFor' a redefine ('dscl . -passwd' trava nos iMacs). FileVault está
+# desligado nos iMacs (conferido em 14/10/2026), então redefinir não desalinha
+# chave de disco. O Keychain de login do aluno não é atualizado — irrelevante
+# aqui, o perfil é descartável. Conta inexistente falha o host.
+#
 # A senha vem de estado_senha_aluno_esperada (padrão 'aluno', o mesmo da role
 # estado_lab que a auditoria usa). Não carregue os defaults da role por
 # vars_files: eles anulariam o estado_autologon_usuario do group_vars.
@@ -21,6 +36,7 @@
 
   tasks:
     - name: Corrigir a senha se estiver diferente
+      when: "'macos' not in group_names"
       ansible.windows.win_shell: |
         $ErrorActionPreference = 'Stop'
         Add-Type -AssemblyName System.DirectoryServices.AccountManagement
@@ -41,4 +57,61 @@
         SENHA_ESPERADA: "{{ estado_senha_aluno_esperada | default('aluno') }}"
       register: senha
       changed_when: "'ALTERADO' in senha.stdout"
+      no_log: "{{ senha_no_log | default(true) }}"
+
+    - name: Ler o logon automático atual
+      when: "'macos' not in group_names"
+      ansible.windows.win_shell: |
+        $w = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+        $ok = ($w.AutoAdminLogon -eq '1') -and
+              ($w.DefaultUserName -eq $env:SENHA_USUARIO) -and
+              ($w.DefaultDomainName -eq $env:COMPUTERNAME) -and
+              ($null -eq $w.AutoLogonCount)
+        if ($ok) { 'ja conforme' } else { 'DIVERGE' }
+      environment:
+        SENHA_USUARIO: "{{ estado_autologon_usuario | default('aluno') }}"
+      register: autologon_antes
+      changed_when: false
+
+    - name: Garantir o logon automático do aluno
+      when: "'macos' not in group_names"
+      ansible.windows.win_auto_logon:
+        username: "{{ estado_autologon_usuario | default('aluno') }}"
+        password: "{{ estado_senha_aluno_esperada | default('aluno') }}"
+        state: present
+      register: autologon
+      changed_when: "'DIVERGE' in autologon_antes.stdout or (senha.changed | default(false))"
+      no_log: "{{ senha_no_log | default(true) }}"
+
+    - name: Corrigir a senha se estiver diferente (macOS)
+      when: "'macos' in group_names"
+      ansible.builtin.shell: |
+        set -u
+        # O macOS não tem 'timeout'; perl+alarm faz o mesmo. Sem limite, uma
+        # única estação travada prende o playbook inteiro (26/10/2026: 40 min).
+        limite() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+        dscl . -read "/Users/$SENHA_USUARIO" UniqueID >/dev/null 2>&1 \
+          || { echo "Conta $SENHA_USUARIO nao existe"; exit 1; }
+        if limite 15 dscl . -authonly "$SENHA_USUARIO" "$SENHA_ESPERADA" >/dev/null 2>&1; then
+          echo 'ja conforme'
+        else
+          # 'dscl . -passwd' TRAVA nestes iMacs mesmo como root (testado na
+          # 321, macOS 12.7.6, com o aluno logado no console). O sysadminctl
+          # é o caminho suportado e exige um administrador: o 'suporte'. A
+          # senha dele vai por stdin ('-adminPassword -'), e não em argumento,
+          # para não aparecer na lista de processos.
+          printf '%s\n' "$ADMIN_SENHA" \
+            | limite 40 sysadminctl -resetPasswordFor "$SENHA_USUARIO" \
+                -newPassword "$SENHA_ESPERADA" -adminUser "$ADMIN_USUARIO" -adminPassword - >/dev/null 2>&1
+          limite 15 dscl . -authonly "$SENHA_USUARIO" "$SENHA_ESPERADA" >/dev/null 2>&1 \
+            && echo ALTERADO || { echo 'FALHOU: senha continua diferente'; exit 1; }
+        fi
+      become: true
+      environment:
+        SENHA_USUARIO: "{{ estado_autologon_usuario | default('aluno') }}"
+        SENHA_ESPERADA: "{{ estado_senha_aluno_esperada | default('aluno') }}"
+        ADMIN_USUARIO: "{{ ansible_user }}"
+        ADMIN_SENHA: "{{ ansible_become_password }}"
+      register: senha_mac
+      changed_when: "'ALTERADO' in senha_mac.stdout"
       no_log: "{{ senha_no_log | default(true) }}"
