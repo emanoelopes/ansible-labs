@@ -73,3 +73,5 @@
   ansible.builtin.script: Definir-PapelDeParede.ps1
   register: papel_de_parede
   changed_when: "'ok' in papel_de_parede.stdout"
+  # O script pode terminar com rc=0 mesmo com erro num perfil: erro = falha.
+  failed_when: papel_de_parede.rc != 0 or papel_de_parede.stderr | length > 0

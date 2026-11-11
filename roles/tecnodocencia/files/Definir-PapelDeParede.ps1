@@ -38,7 +38,7 @@ Get-ChildItem 'C:\Users' -Directory -Force |
     Where-Object { $_.Name -notin 'Default', 'Public', 'All Users', 'Default User' } |
     ForEach-Object {
         $hive = Join-Path $_.FullName 'NTUSER.DAT'
-        if (-not (Test-Path -LiteralPath $hive -Force)) { return }
+        if (-not (Test-Path -LiteralPath $hive)) { return }
         try {
             $sid = (New-Object System.Security.Principal.NTAccount($_.Name)).Translate(
                 [System.Security.Principal.SecurityIdentifier]).Value
