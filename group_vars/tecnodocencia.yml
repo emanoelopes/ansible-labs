@@ -1,0 +1,8 @@
+---
+# Credencial de conexão da rede tecnodocência. Sobrepõe a de
+# group_vars/windows.yml (tecnodocencia é filho de [windows:children]):
+# nesta rede a conta 'suporte' usa a senha própria da role tecnodocencia,
+# que é de outro contexto e não a compartilhada dos labs.
+#
+# Valor real em group_vars/all/vault.yml (vault_senha_suporte_tecnodocencia).
+ansible_password: "{{ vault_senha_suporte_tecnodocencia }}"
