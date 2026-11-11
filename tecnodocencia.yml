@@ -1,0 +1,16 @@
+---
+# Preparação das máquinas da rede tecnodocência (grupo [tecnodocencia]):
+# Chrome, contas locais Suporte/Bolsista/Aluno e suas imagens de perfil.
+# Tudo está na role roles/tecnodocencia.
+#
+#   ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible_vault_pass \
+#     ansible-playbook tecnodocencia.yml [--limit p0351661] [--check]
+#
+# As senhas vêm do vault (group_vars/all/vault.yml): vault_senha_bolsista e
+# vault_senha_suporte_tecnodocencia (esta só vale se a conta Suporte ainda
+# não existir; em máquina provisionada a senha não é alterada).
+
+- name: Preparar máquinas da tecnodocência
+  hosts: tecnodocencia
+  roles:
+    - tecnodocencia

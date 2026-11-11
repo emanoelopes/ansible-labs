@@ -48,26 +48,40 @@
     path: C:\Tecnodocencia\Imagens
     state: directory
 
-- name: Copiar papel de parede e imagens de perfil para as máquinas
+- name: Copiar as imagens de perfil para as máquinas
   ansible.windows.win_copy:
     src: "{{ item }}"
-    dest: C:\Tecnodocencia\Imagens
+    dest: C:\Tecnodocencia\Imagens\
   loop:
-    - wallpaper.jpg
     - perfil_suporte.png
     - perfil_bolsista.png
     - perfil_aluno.png
 
-- name: Definir o Papel de Parede padrão para todos os usuários (via Registry)
-  ansible.windows.win_regedit:
-    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
-    name: Wallpaper
-    data: C:\Tecnodocencia\Imagens\wallpaper.jpg
-    type: string
+# Associa cada perfil_<conta>.png à conta local de mesmo nome (SID + registro).
+# O script sempre reaplica as imagens, então a tarefa aparece como 'changed'.
+- name: Definir as imagens de perfil das contas
+  ansible.builtin.script: Definir-ImagensPerfil.ps1
 
-- name: Definir o estilo do Papel de Parede como 'Preencher'
-  ansible.windows.win_regedit:
-    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
-    name: WallpaperStyle
-    data: "2"
-    type: string
+# O papel de parede é opcional: só é aplicado se files/wallpaper.jpg existir
+# na role (ainda não foi fornecido).
+- name: Papel de parede padrão
+  when: (lookup('ansible.builtin.fileglob', role_path ~ '/files/wallpaper.jpg') | length) > 0
+  block:
+    - name: Copiar o papel de parede para as máquinas
+      ansible.windows.win_copy:
+        src: wallpaper.jpg
+        dest: C:\Tecnodocencia\Imagens\
+
+    - name: Definir o Papel de Parede padrão para todos os usuários (via Registry)
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+        name: Wallpaper
+        data: C:\Tecnodocencia\Imagens\wallpaper.jpg
+        type: string
+
+    - name: Definir o estilo do Papel de Parede como 'Preencher'
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+        name: WallpaperStyle
+        data: "2"
+        type: string

@@ -1,6 +1,6 @@
 ---
-# ATENÇÃO: role marcada como obsoleta (nenhum playbook ou grupo do inventário
-# a referencia). Mantida apenas para consulta; decidir remoção depois.
+# Role de preparação das máquinas da rede tecnodocência (grupo [tecnodocencia]
+# do inventário), aplicada por tecnodocencia.yml.
 #
 # As senhas abaixo são PRÓPRIAS desta role e não têm relação com a credencial
 # de conexão da equipe (essa fica em group_vars/windows.yml). Não reaproveitar
