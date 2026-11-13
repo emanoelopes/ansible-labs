@@ -12,3 +12,87 @@ ansible_password: "{{ vault_senha_suporte }}"
 ansible_become: yes
 ansible_become_method: sudo
 ansible_become_password: "{{ vault_senha_suporte }}"
+
+# ── Estado desejado (software) ────────────────────────────────────────────
+#
+# Mapeado a partir do núcleo Windows (group_vars/windows.yml, 14 pacotes) e
+# dos extras do lab1 (group_vars/lab1.yml, 25 pacotes) em 13/11/2026, já que
+# a única máquina do grupo hoje está fisicamente no lab1. Critério:
+#   A) tem pacote apt direto                    -> entra como está
+#   B) só existe como Snap oficial               -> estado_snaps
+#   C) só existe como .deb/repo externo oficial   -> estado_vscode/
+#                                                     estado_github_desktop/
+#                                                     estado_rstudio/
+#                                                     estado_reaper_versao
+#   D) sem correspondente real no Linux           -> excluído, ou substituído
+#                                                     por equivalente nativo
+#      quando havia um (ver notas abaixo)
+#
+# Auditar antes de aplicar:
+#   ansible-playbook estado.yml -e alvo=avell --check --diff
+#   ansible-playbook estado.yml -e alvo=avell
+
+estado_pacotes_apt_base:
+  - audacity
+  - gimp
+  - git
+  - inkscape
+  - krita
+  - libreoffice          # equivalente ao 'libreoffice-fresh' do Chocolatey
+  - nodejs
+  - default-jdk          # equivalente ao 'openjdk' do Chocolatey
+  - python3              # equivalente ao 'python' do Chocolatey
+  - python3-pip
+  # Substitui 'tightvnc': não há porte Linux do TightVNC; tigervnc é o
+  # servidor VNC padrão das distros Debian/Ubuntu.
+  - tigervnc-standalone-server
+  # Substituem 'winrar': não há WinRAR para Linux. unrar extrai .rar (o
+  # formato que o WinRAR cobria aqui) e file-roller é a interface gráfica
+  # de arquivos padrão do GNOME/Ubuntu.
+  - unrar
+  - file-roller
+
+# 'foxitreader' foi excluído (grupo D, sem substituição): o Ubuntu já traz
+# visualizador de PDF nativo (Document Viewer/Evince) por padrão — não há
+# necessidade equivalente a cobrir, diferente do WinRAR/TightVNC.
+
+estado_pacotes_apt_extra:
+  - blender
+  - godot3               # equivalente ao 'godot' do Chocolatey
+  - ruby-full             # equivalente ao 'ruby' do Chocolatey
+  - lua5.4                # equivalente ao 'lua' do Chocolatey
+  - firefox
+  - r-base                # equivalente ao 'r.project' do Chocolatey
+  - fontforge
+  - wireshark
+  - xserver-xorg-input-wacom   # equivalente aos 'wacom-drivers' do Chocolatey
+  - arduino
+
+# Excluídos do lab1 (grupo D, sem correspondente real no Linux):
+#   unity-hub            -> Unity não tem suporte oficial a Linux.
+#   epicgameslauncher    -> Epic Games Launcher não roda oficialmente em
+#                           Linux (só via forks não-oficiais, ex. Heroic).
+#   processing           -> sem pacote apt nem build Linux oficial atual.
+#   notepadplusplus      -> específico do Windows; VS Code/gedit já cobrem.
+#   bitvise-ssh-client   -> cliente SSH para Windows; o Linux já tem OpenSSH
+#                           nativo, não precisa de substituto.
+#   autohotkey.portable  -> automação específica do Windows; sem
+#                           equivalente direto que valha declarar aqui.
+#   asio4all             -> driver Windows de áudio de baixa latência; o
+#                           Linux já resolve isso nativamente via ALSA/JACK.
+
+estado_snaps:
+  - { name: pycharm-community, classic: true }
+  - { name: netbeans, classic: false }
+  - { name: android-studio, classic: true }
+  - { name: postman, classic: false }
+
+estado_vscode: true
+estado_github_desktop: true
+estado_rstudio: true
+# Versão do REAPER a instalar — ver o comentário em
+# roles/estado_lab_linux/defaults/main.yml sobre por que é declarada à mão.
+# Atualizada em 13/11/2026 a partir de https://www.reaper.fm/download.php.
+estado_reaper_versao: '785'
+
+estado_pacotes_versao: present

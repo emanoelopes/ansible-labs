@@ -1,0 +1,60 @@
+---
+# Estado desejado de uma estação Linux de laboratório (grupo [avell] —
+# notebooks Avell com Ubuntu). Equivalente ao roles/estado_lab (Windows/
+# Chocolatey) e ao roles/estado_lab_macos (Homebrew), mas com apt/snap/
+# repositórios externos no lugar deles.
+#
+# Escopo desta primeira versão: SÓ SOFTWARE. Energia, sessão (autologon) e
+# aparência ficaram de fora de propósito — o grupo [avell] hoje tem uma
+# única máquina de uso administrativo (usuário 'suporte'), não uma turma de
+# alunos; esses mecanismos fazem sentido quando houver o padrão aluno/sessão
+# compartilhada que as outras duas roles resolvem.
+#
+# A lista efetiva de pacotes apt é a soma de duas, no mesmo desenho do
+# Windows (estado_pacotes_base + estado_pacotes_extra):
+#   estado_pacotes_apt_base   -> group_vars/avell.yml, núcleo do grupo
+#   estado_pacotes_apt_extra  -> idem; hoje não há separação por "lab" porque
+#                                  só existe uma posição (118, lab1); se o
+#                                  grupo crescer para mais labs, separar como
+#                                  o Windows fez entre windows.yml e lab1.yml.
+estado_pacotes_apt_base: []
+estado_pacotes_apt_extra: []
+
+# state: latest atualiza a cada execução; present só garante presença — mesmo
+# raciocínio das outras duas roles: uma turma/ambiente não deve ver versão
+# diferente da última vez só porque o Ansible rodou entre as duas.
+estado_pacotes_versao: present
+
+# --- Snap -----------------------------------------------------------------
+# Pacotes que não têm pacote .deb oficial nos repositórios Ubuntu (ou cujo
+# pacote oficial é só via Snap Store). Cada item: {name, classic}.
+# classic:true é exigido pelos apps que pedem confinamento clássico
+# (acesso amplo ao sistema) — sem isso a instalação falha pedindo
+# "--classic" explicitamente.
+estado_snaps: []
+
+# --- Repositórios/pacotes externos (fora do apt padrão do Ubuntu) ---------
+# Cada chave abaixo liga/desliga a instalação do software correspondente,
+# por repositório oficial do fornecedor (vscode, github-desktop) ou download
+# direto de um .deb/tarball versionado (rstudio, reaper). Deliberadamente
+# variáveis separadas, e não uma lista genérica: cada um tem um mecanismo de
+# instalação diferente, então o 'when' de cada bloco de tasks é só ligar/
+# desligar aquele bloco específico — não há parametrização razoável que
+# uniformize os quatro.
+estado_vscode: false
+estado_github_desktop: false
+estado_rstudio: false
+
+# REAPER não tem link "latest" estável: o nome do arquivo embute a versão
+# (ex. reaper785_linux_x86_64.tar.xz para a 7.85). Em vez de tentar descobrir
+# a versão atual a cada execução (frágil, e quebraria o --check por depender
+# de scraping da página de download), a versão é declarada aqui à mão —
+# mesmo princípio do estado_pacotes_versao: 'present', convergência para o
+# que foi decidido, não para "o que houver hoje". Ao atualizar o laboratório,
+# troque este número (ver https://www.reaper.fm/download.php) e rode o
+# estado.yml de novo.
+estado_reaper_versao: null
+
+# --- Controle de execução ---------------------------------------------------
+# Quando true, a role só relata divergências sem corrigir.
+estado_somente_auditar: false

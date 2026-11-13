@@ -1,0 +1,293 @@
+---
+# Converge a estação Linux (grupo [avell]) para o estado declarado em
+# group_vars/avell.yml. Ver o cabeçalho de defaults/main.yml para o que está
+# e o que não está no escopo desta primeira versão (só software).
+#
+# Mesma tag 'pacotes' das outras duas roles de estado, para que
+# 'estado.yml -t pacotes' funcione igual nos três sistemas operacionais.
+
+- name: Compor a lista efetiva de pacotes apt
+  ansible.builtin.set_fact:
+    estado_pacotes_apt: >-
+      {{ (estado_pacotes_apt_base + estado_pacotes_apt_extra) | unique | sort }}
+  tags: always
+
+- name: Validar que o estado foi declarado para este host
+  ansible.builtin.assert:
+    that:
+      - (estado_pacotes_apt | length) + (estado_snaps | length) > 0
+    fail_msg: >-
+      Nenhum pacote declarado para {{ inventory_hostname }} (grupo(s):
+      {{ group_names | join(', ') }}). Defina estado_pacotes_apt_base e/ou
+      estado_pacotes_apt_extra em group_vars/avell.yml.
+    success_msg: >-
+      {{ estado_pacotes_apt | length }} pacote(s) apt e
+      {{ estado_snaps | length }} snap(s).
+    quiet: true
+  tags: always
+
+# --- Software: apt ---------------------------------------------------------
+
+- name: Atualizar o cache do apt
+  ansible.builtin.apt:
+    update_cache: true
+    # Não reconsultar a cada execução se já foi feito há pouco — mesmo
+    # raciocínio do 'force: false' do papel de parede no estado_lab: só
+    # pagar o custo quando precisa.
+    cache_valid_time: 3600
+  become: true
+  tags: pacotes
+
+# Um pacote por iteração, e não uma lista única no 'name' — mesmo motivo do
+# win_chocolatey no estado_lab: a falha de um não deve derrubar os demais, e
+# precisamos saber QUAL falhou.
+- name: Garantir que os pacotes apt declarados estão instalados
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: "{{ estado_pacotes_versao }}"
+  become: true
+  loop: "{{ estado_pacotes_apt }}"
+  register: estado_apt
+  failed_when: false
+  check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
+  tags: pacotes
+
+# O módulo apt não expõe 'rc' como o win_chocolatey — expõe 'failed' por
+# item mesmo com failed_when:false na task (o parâmetro só evita que a task
+# INTEIRA pare; o resultado de cada iteração ainda carrega seu próprio
+# 'failed'). Por isso o filtro aqui é por essa chave, e não por 'rc' como no
+# estado_lab Windows.
+- name: Relatar pacotes apt que não puderam ser instalados
+  ansible.builtin.debug:
+    msg: |
+      Falharam em {{ inventory_hostname }}:
+      {% for r in estado_apt_falhas %}
+        {{ r.item }}: {{ (r.msg | default(r.stderr | default('sem mensagem'))) | truncate(200) }}
+      {% endfor %}
+  vars:
+    estado_apt_falhas: "{{ estado_apt.results | default([]) | selectattr('failed', 'equalto', true) | list }}"
+  when: estado_apt_falhas | length > 0
+  tags: pacotes
+
+- name: Falhar o host quando algum pacote apt não instalou
+  ansible.builtin.fail:
+    msg: >-
+      {{ estado_apt_falhas | length }} pacote(s) apt não instalaram em
+      {{ inventory_hostname }}: {{ estado_apt_falhas | map(attribute='item') | join(', ') }}
+  vars:
+    estado_apt_falhas: "{{ estado_apt.results | default([]) | selectattr('failed', 'equalto', true) | list }}"
+  when:
+    - estado_apt_falhas | length > 0
+    - not ansible_check_mode
+  tags: pacotes
+
+# --- Software: Snap ---------------------------------------------------------
+#
+# Para o que não tem pacote .deb oficial no apt (ex.: pycharm-community,
+# android-studio) — ver o comentário em defaults/main.yml sobre por que são
+# variáveis separadas do apt, e não uma lista só.
+- name: Garantir os snaps declarados
+  community.general.snap:
+    name: "{{ item.name }}"
+    classic: "{{ item.classic | default(false) }}"
+    state: present
+  become: true
+  loop: "{{ estado_snaps }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: estado_snap
+  ignore_errors: true
+  check_mode: "{{ estado_somente_auditar or ansible_check_mode }}"
+  tags: pacotes
+
+- name: Relatar snaps que não puderam ser instalados
+  ansible.builtin.debug:
+    msg: |
+      Falharam em {{ inventory_hostname }}:
+      {% for r in estado_snap_falhas %}
+        {{ r.item.name }}: {{ (r.msg | default('sem mensagem')) | truncate(200) }}
+      {% endfor %}
+  vars:
+    estado_snap_falhas: "{{ estado_snap.results | default([]) | selectattr('failed', 'equalto', true) | list }}"
+  when: estado_snap_falhas | length > 0
+  tags: pacotes
+
+# --- VS Code: repositório oficial da Microsoft ------------------------------
+#
+# Não está nos repositórios do Ubuntu. O repositório oficial exige uma
+# chave GPG própria (não dá para usar ansible.builtin.apt_repository puro,
+# que não tem como declarar 'signed-by') — por isso a chave vai para
+# /etc/apt/keyrings e o arquivo .list é escrito à mão, apontando para ela.
+# Mesmo mecanismo recomendado pela própria Microsoft.
+- name: "VS Code: trazer a chave GPG da Microsoft"
+  ansible.builtin.get_url:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    dest: /tmp/microsoft.asc
+    mode: '0644'
+  when: estado_vscode
+  tags: pacotes
+
+- name: "VS Code: converter e instalar a chave em /etc/apt/keyrings"
+  ansible.builtin.shell: |
+    set -e
+    install -d -m 0755 /etc/apt/keyrings
+    gpg --dearmor < /tmp/microsoft.asc > /etc/apt/keyrings/packages.microsoft.gpg
+  args:
+    creates: /etc/apt/keyrings/packages.microsoft.gpg
+  become: true
+  when: estado_vscode
+  tags: pacotes
+
+- name: "VS Code: declarar o repositório"
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/vscode.list
+    content: "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main\n"
+    mode: '0644'
+  become: true
+  register: estado_vscode_repo
+  when: estado_vscode
+  tags: pacotes
+
+- name: "VS Code: atualizar o cache quando o repositório for novo"
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when:
+    - estado_vscode
+    - estado_vscode_repo.changed
+  tags: pacotes
+
+- name: "VS Code: garantir o pacote 'code'"
+  ansible.builtin.apt:
+    name: code
+    state: "{{ estado_pacotes_versao }}"
+  become: true
+  when: estado_vscode
+  tags: pacotes
+
+# --- GitHub Desktop: repositório da comunidade (shiftkey/desktop) ----------
+#
+# O GitHub não publica build oficial para Linux. shiftkey/desktop é o fork
+# mantido pela comunidade que o próprio GitHub referencia como alternativa —
+# não é software "pirata" nem não-oficial no sentido de origem desconhecida,
+# mas também não é mantido pela empresa GitHub. Documentar isso aqui porque
+# não é óbvio por que um 'estado declarado' de infra usa um repo de terceiro.
+#
+# USAR O MIRROR mwt, NÃO O FEED apt.packages.shiftkey.dev: testado em
+# 13/11/2026, o feed principal tem certificado TLS inválido para o próprio
+# domínio (Subject Alternative Name não bate — bug conhecido, ver
+# github.com/shiftkey/desktop/issues/1062), e o get_url falha com
+# CERTIFICATE_VERIFY_FAILED. O mirror mantido por @mwt é a alternativa
+# oficialmente documentada pelo próprio projeto para esse caso.
+- name: "GitHub Desktop: trazer a chave GPG do repositório (mirror mwt)"
+  ansible.builtin.get_url:
+    url: https://mirror.mwt.me/shiftkey-desktop/gpgkey
+    dest: /tmp/shiftkey.key
+    mode: '0644'
+  when: estado_github_desktop
+  tags: pacotes
+
+- name: "GitHub Desktop: converter e instalar a chave"
+  ansible.builtin.shell: |
+    set -e
+    install -d -m 0755 /usr/share/keyrings
+    gpg --dearmor < /tmp/shiftkey.key > /usr/share/keyrings/mwt-desktop.gpg
+  args:
+    creates: /usr/share/keyrings/mwt-desktop.gpg
+  become: true
+  when: estado_github_desktop
+  tags: pacotes
+
+- name: "GitHub Desktop: declarar o repositório"
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/mwt-desktop.list
+    content: "deb [arch=amd64 signed-by=/usr/share/keyrings/mwt-desktop.gpg] https://mirror.mwt.me/shiftkey-desktop/deb/ any main\n"
+    mode: '0644'
+  become: true
+  register: estado_ghd_repo
+  when: estado_github_desktop
+  tags: pacotes
+
+- name: "GitHub Desktop: atualizar o cache quando o repositório for novo"
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when:
+    - estado_github_desktop
+    - estado_ghd_repo.changed
+  tags: pacotes
+
+- name: "GitHub Desktop: garantir o pacote"
+  ansible.builtin.apt:
+    name: github-desktop
+    state: "{{ estado_pacotes_versao }}"
+  become: true
+  when: estado_github_desktop
+  tags: pacotes
+
+# --- RStudio Desktop: .deb oficial da Posit, fora do apt --------------------
+#
+# A Posit não mantém repositório apt — só .deb para download direto. O link
+# "latest/stable" abaixo é um redirecionamento mantido pela própria Posit
+# para a versão estável atual (ver dailies.rstudio.com/links/); ele muda de
+# alvo quando sai versão nova, o que é exatamente o que se quer aqui (ao
+# contrário do REAPER, não há nome de versão embutido no link).
+- name: "RStudio: baixar o .deb estável atual"
+  ansible.builtin.get_url:
+    url: https://rstudio.org/download/latest/stable/desktop/jammy/rstudio-latest-amd64.deb
+    dest: /tmp/rstudio-latest-amd64.deb
+    mode: '0644'
+    # force:false evitaria reaproveitar um .deb de versão antiga já baixado
+    # da vez anterior; sem o link ter nome de versão não dá para comparar
+    # timestamp/checksum de forma barata, então aqui sempre se baixa de
+    # novo — o módulo apt abaixo é que decide se há algo a instalar.
+    force: true
+  when: estado_rstudio
+  tags: pacotes
+
+- name: "RStudio: garantir o pacote a partir do .deb baixado"
+  ansible.builtin.apt:
+    deb: /tmp/rstudio-latest-amd64.deb
+  become: true
+  when: estado_rstudio
+  tags: pacotes
+
+# --- REAPER: tarball oficial, versão declarada ------------------------------
+#
+# Sem pacote apt nem repositório. O link embute a versão
+# (reaper<N>_linux_x86_64.tar.xz, ex. reaper785 para 7.85) — ver o comentário
+# de estado_reaper_versao em defaults/main.yml sobre por que ela é declarada
+# à mão, e não descoberta.
+- name: "REAPER: baixar o tarball da versão declarada"
+  ansible.builtin.get_url:
+    url: "https://www.reaper.fm/files/{{ estado_reaper_versao[:1] }}.x/reaper{{ estado_reaper_versao }}_linux_x86_64.tar.xz"
+    dest: "/tmp/reaper{{ estado_reaper_versao }}_linux_x86_64.tar.xz"
+    mode: '0644'
+  when: estado_reaper_versao is not none
+  tags: pacotes
+
+- name: "REAPER: extrair o tarball"
+  ansible.builtin.unarchive:
+    src: "/tmp/reaper{{ estado_reaper_versao }}_linux_x86_64.tar.xz"
+    dest: /tmp
+    remote_src: true
+    creates: /tmp/reaper_linux_x86_64/install-reaper.sh
+  when: estado_reaper_versao is not none
+  tags: pacotes
+
+# --install /opt: instala para todos os usuários, em vez do HOME de quem
+# conecta (que seria o 'suporte', não quem for usar o programa — mesmo
+# problema do Arduino no estado_lab Windows, resolvido aqui do mesmo jeito,
+# instalando num lugar comum em vez do perfil de quem executa o Ansible).
+#
+# 'creates' na própria task de extração não cobre a instalação em si — o
+# tarball pode já ter sido baixado e extraído sem o instalador ter rodado.
+# Por isso o 'creates' aqui é no alvo real da instalação.
+- name: "REAPER: instalar para todos os usuários"
+  ansible.builtin.command:
+    cmd: ./install-reaper.sh --install /opt --integrate-desktop --usr-local-bin-symlink --quiet
+    chdir: /tmp/reaper_linux_x86_64
+    creates: /usr/local/bin/reaper
+  become: true
+  when: estado_reaper_versao is not none
+  tags: pacotes
