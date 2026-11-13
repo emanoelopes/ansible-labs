@@ -61,6 +61,8 @@
       when: ansible_facts['os_family'] | default('') == 'Windows'
     - role: estado_lab_macos
       when: ansible_facts['os_family'] | default('') == 'Darwin'
+    - role: estado_lab_linux
+      when: ansible_facts['os_family'] | default('') == 'Debian'
 
   pre_tasks:
     - name: Avisar quando nenhum alvo foi informado
