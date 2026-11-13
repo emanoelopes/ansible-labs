@@ -1,0 +1,14 @@
+---
+# Credencial de conexão dos notebooks Avell com Linux Ubuntu (grupo [avell]
+# no inventory.ini). Diferente do [windows] (WinRM), aqui a conexão é SSH
+# (ver [avell:vars]: ansible_connection=ssh, ansible_port=22) e privilégio
+# elevado é via sudo (become), não ansible_password direto de admin.
+#
+# A conta 'suporte' é administrativa e compartilhada entre a equipe (mesma
+# senha dos demais PCs dos laboratórios). A senha real fica cifrada em
+# group_vars/all/vault.yml.
+ansible_user: suporte
+ansible_password: "{{ vault_senha_suporte }}"
+ansible_become: yes
+ansible_become_method: sudo
+ansible_become_password: "{{ vault_senha_suporte }}"
